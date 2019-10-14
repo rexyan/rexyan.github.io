@@ -1,0 +1,982 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head><meta name="generator" content="Hexo 3.9.0">
+    <meta charset="utf-8">
+    <meta name="keywords" content="数据库迁移主键重复问题, 星尘">
+    <meta name="description" content="场景项目迁移，将数据库从腾讯云迁移到阿里云，阿里云上的数据库已经有了数据，现在要做的就是将腾讯云上的旧数据迁移到阿里云上。遇到的问题是主键重复的问题，因为新数据库上已经有了数据，而老数据库上导出的数据也含有主键的信息。
+导出数据mysqld">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>数据库迁移主键重复问题 | 星尘</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+
+    <link rel="stylesheet" type="text/css" href="/libs/awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+    <link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+    <link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+    <link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+    <link rel="stylesheet" type="text/css" href="/css/matery.css">
+    <link rel="stylesheet" type="text/css" href="/css/my.css">
+    <style type="text/css">
+        
+        code[class*="language-"], pre[class*="language-"] {
+            white-space: pre !important;
+        }
+        
+    </style>
+
+    <script src="/libs/jquery/jquery-2.2.0.min.js"></script>
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+
+<body>
+
+<header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    <span class="logo-span">星尘</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fa fa-navicon"></i></a>
+<ul class="right">
+    
+    <li class="hide-on-med-and-down">
+        <a href="/" class="waves-effect waves-light">
+            
+            <i class="fa fa-home"></i>
+            
+            <span>首页</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/categories" class="waves-effect waves-light">
+            
+            <i class="fa fa-bookmark"></i>
+            
+            <span>分类</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/books/" class="waves-effect waves-light">
+            
+            <i class="fa fa-book"></i>
+            
+            <span>书单</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/crap" class="waves-effect waves-light">
+            
+            <i class="fa fa-crosshairs"></i>
+            
+            <span>瞎扯</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/tags" class="waves-effect waves-light">
+            
+            <i class="fa fa-tags"></i>
+            
+            <span>标签</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/archives" class="waves-effect waves-light">
+            
+            <i class="fa fa-archive"></i>
+            
+            <span>归档</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/friends" class="waves-effect waves-light">
+            
+            <i class="fa fa-address-book"></i>
+            
+            <span>友情链接</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/about" class="waves-effect waves-light">
+            
+            <i class="fa fa-user-circle-o"></i>
+            
+            <span>关于</span>
+        </a>
+    </li>
+    
+    <li>
+        <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+            <i id="searchIcon" class="fa fa-search" title="搜索"></i>
+        </a>
+    </li>
+</ul>
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="/medias/logo.png" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">星尘</div>
+        <div class="logo-desc">
+            
+            任汝千圣现,我有天真佛
+            
+        </div>
+    </div>
+
+    
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li>
+            <a href="/" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-home"></i>
+                
+                首页
+            </a>
+        </li>
+        
+        <li>
+            <a href="/categories" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-bookmark"></i>
+                
+                分类
+            </a>
+        </li>
+        
+        <li>
+            <a href="/books/" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-book"></i>
+                
+                书单
+            </a>
+        </li>
+        
+        <li>
+            <a href="/crap" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-crosshairs"></i>
+                
+                瞎扯
+            </a>
+        </li>
+        
+        <li>
+            <a href="/tags" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-tags"></i>
+                
+                标签
+            </a>
+        </li>
+        
+        <li>
+            <a href="/archives" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-archive"></i>
+                
+                归档
+            </a>
+        </li>
+        
+        <li>
+            <a href="/friends" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-address-book"></i>
+                
+                友情链接
+            </a>
+        </li>
+        
+        <li>
+            <a href="/about" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-user-circle-o"></i>
+                
+                关于
+            </a>
+        </li>
+        
+        
+    </ul>
+</div>
+
+        </div>
+
+        
+    </nav>
+
+</header>
+
+
+<script src="/libs/cryptojs/crypto-js.min.js"></script>
+<script>
+    (function() {
+        let pwd = '';
+        if (pwd && pwd.length > 0) {
+            if (pwd !== CryptoJS.SHA256(prompt('请输入访问本文章的密码')).toString(CryptoJS.enc.Hex)) {
+                alert('密码错误，将返回主页！');
+                location.href = '/';
+            }
+        }
+    })();
+</script>
+
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('/medias/featureimages/20.jpg')">
+    <div class="container">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <div class="description center-align post-title">
+                        数据库迁移主键重复问题
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<main class="post-container content">
+
+    
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+<style>
+    #articleContent h1::before,
+    #articleContent h2::before,
+    #articleContent h3::before,
+    #articleContent h4::before,
+    #articleContent h5::before,
+    #articleContent h6::before {
+        display: block;
+        content: " ";
+        height: 100px;
+        margin-top: -100px;
+        visibility: hidden;
+    }
+
+    #articleContent :focus {
+        outline: none;
+    }
+
+    .toc-fixed {
+        position: fixed;
+        top: 64px;
+    }
+
+    .toc-widget {
+        padding-left: 20px;
+    }
+
+    .toc-widget .toc-title {
+        margin: 35px 0 15px 0;
+        padding-left: 17px;
+        font-size: 1.5rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    .toc-widget ol {
+        padding: 0;
+        list-style: none;
+    }
+
+    #toc-content ol {
+        padding-left: 10px;
+    }
+
+    #toc-content ol li {
+        padding-left: 10px;
+    }
+
+    #toc-content .toc-link:hover {
+        color: #42b983;
+        font-weight: 700;
+        text-decoration: underline;
+    }
+
+    #toc-content .toc-link::before {
+        background-color: transparent;
+        max-height: 25px;
+    }
+
+    #toc-content .is-active-link {
+        color: #42b983;
+    }
+
+    #toc-content .is-active-link::before {
+        background-color: #42b983;
+    }
+
+    #floating-toc-btn {
+        position: fixed;
+        right: 20px;
+        bottom: 76px;
+        padding-top: 15px;
+        margin-bottom: 0;
+        z-index: 998;
+    }
+
+    #floating-toc-btn .btn-floating {
+        width: 48px;
+        height: 48px;
+    }
+
+    #floating-toc-btn .btn-floating i {
+        line-height: 48px;
+        font-size: 1.4rem;
+    }
+</style>
+<div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/数据库/" target="_blank">
+                                <span class="chip bg-color">数据库</span>
+                            </a>
+                        
+                            <a href="/tags/mysqldump/" target="_blank">
+                                <span class="chip bg-color">mysqldump</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fa fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/奇淫技巧/" class="post-category" target="_blank">
+                                奇淫技巧
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                <div class="post-date info-break-policy">
+                    <i class="fa fa-calendar-minus-o fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2018-07-11
+                </div>
+
+                
+                    
+                    <div class="info-break-policy">
+                        <i class="fa fa-file-word-o fa-fw"></i>文章字数:&nbsp;&nbsp;
+                        3.8k
+                    </div>
+                    
+
+                    
+                    <div class="info-break-policy">
+                        <i class="fa fa-clock-o fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                        16 分
+                    </div>
+                    
+                
+				
+				
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="fa fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+        </div>
+        <hr class="clearfix">
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <h3 id="场景"><a href="#场景" class="headerlink" title="场景"></a>场景</h3><p>项目迁移，将数据库从腾讯云迁移到阿里云，阿里云上的数据库已经有了数据，现在要做的就是将腾讯云上的旧数据迁移到阿里云上。遇到的问题是主键重复的问题，因为新数据库上已经有了数据，而老数据库上导出的数据也含有主键的信息。</p>
+<h3 id="导出数据"><a href="#导出数据" class="headerlink" title="导出数据"></a>导出数据</h3><pre><code>mysqldump -u&quot;用户名&quot; -p&quot;密码&quot; -h&quot;服务器地址&quot; --databases 数据库名称 --set-gtid-purged=off --tables 表名 --no-create-info --log-error=/tmp/sql/mysqldump_error_log.err  | sed -e &quot;s/([0-9]*,/(NULL,/gi&quot; &gt; /tmp/sql/face_feature_1_n.sql
+</code></pre><p>上述命令的意思是将导出指定数据库下的某张表的信息，并且将主键（第一列）设置为NULL。保存为 face_feature_1_n.sql 文件</p>
+<h3 id="参数解释"><a href="#参数解释" class="headerlink" title="参数解释"></a>参数解释</h3><ol>
+<li>–set-gtid-purged=off 是因为在导入的时候遇到错误，ERROR 1840 (HY000) at line 24: GTID_PURGED can only be set when GTID_EXECUTED is empty.所以在导出的时候设置set-gtid-purged=off</li>
+<li>sed 意为流编辑器（Stream Editor），在Shell脚本和Makefile中作为过滤器使用非常普遍，更多sed命令，参考 <a href="https://www.cnblogs.com/linux-wangkun/p/5745584.html" target="_blank" rel="noopener">https://www.cnblogs.com/linux-wangkun/p/5745584.html</a></li>
+</ol>
+<h3 id="导入数据"><a href="#导入数据" class="headerlink" title="导入数据"></a>导入数据</h3><pre><code>mysql -h&quot;服务器地址&quot; -u&quot;用户名&quot; -p&quot;密码&quot; --default-character-set=utf8 数据库 &lt; face_feature_1_n.sql
+</code></pre><p>将face_feature_1_n.sql中的数据，导入到指定的数据库（因为face_feature_1_n.sql中的主键是为NULL，所有在插入的时候，会赋予新的值，从而达到主键不重复的问题）</p>
+<h3 id="带来的影响"><a href="#带来的影响" class="headerlink" title="带来的影响"></a>带来的影响</h3><p>其实这种方法也是投机取巧。恰好主键是表的第一列，但这样也可以满足我们的大部分需求了</p>
+<h3 id="其他方法"><a href="#其他方法" class="headerlink" title="其他方法"></a>其他方法</h3><p>因为我们这里的业务是将数据从腾讯迁移到阿里，涉及到数据库的连通性等等问题。之前也考虑过直接写一个python脚本，将原来的数据存储为dataframe，然后再导入新数据库，但是因为公司DBA那边不行，所以只能老老实实的写mysql的东西。为了解决我们以上的场景方案，不考虑跨服务器的话，我们还可以使用以下方法</p>
+<pre><code>INSERT newly_created_table_name (all, columns, except, the, auto_increment, column)
+       SELECT all, columns, except, the, auto_increment, column
+         FROM renamed_table_name
+</code></pre><p>那就是在查询的时候，直接不查询id那一列，并直接将查询的结果插入到新的数据表中，显然这明显不符合我们的场景，所以就放弃了。</p>
+<h3 id="mysqldump其他参数"><a href="#mysqldump其他参数" class="headerlink" title="mysqldump其他参数"></a>mysqldump其他参数</h3><pre><code>--all-databases  , -A
+导出全部数据库。
+mysqldump  -uroot -p --all-databases
+--all-tablespaces  , -Y
+导出全部表空间。
+mysqldump  -uroot -p --all-databases --all-tablespaces
+--no-tablespaces  , -y
+不导出任何表空间信息。
+mysqldump  -uroot -p --all-databases --no-tablespaces
+--add-drop-database
+每个数据库创建之前添加drop数据库语句。
+mysqldump  -uroot -p --all-databases --add-drop-database
+--add-drop-table
+每个数据表创建之前添加drop数据表语句。(默认为打开状态，使用--skip-add-drop-table取消选项)
+mysqldump  -uroot -p --all-databases  (默认添加drop语句)
+mysqldump  -uroot -p --all-databases –skip-add-drop-table  (取消drop语句)
+--add-locks
+在每个表导出之前增加LOCK TABLES并且之后UNLOCK  TABLE。(默认为打开状态，使用--skip-add-locks取消选项)
+mysqldump  -uroot -p --all-databases  (默认添加LOCK语句)
+mysqldump  -uroot -p --all-databases –skip-add-locks   (取消LOCK语句)
+--allow-keywords
+允许创建是关键词的列名字。这由表名前缀于每个列名做到。
+mysqldump  -uroot -p --all-databases --allow-keywords
+--apply-slave-statements
+在&#39;CHANGE MASTER&#39;前添加&#39;STOP SLAVE&#39;，并且在导出的最后添加&#39;START SLAVE&#39;。
+mysqldump  -uroot -p --all-databases --apply-slave-statements
+--character-sets-dir
+字符集文件的目录
+mysqldump  -uroot -p --all-databases  --character-sets-dir=/usr/local/mysql/share/mysql/charsets
+--comments
+附加注释信息。默认为打开，可以用--skip-comments取消
+mysqldump  -uroot -p --all-databases  (默认记录注释)
+mysqldump  -uroot -p --all-databases --skip-comments   (取消注释)
+--compatible
+导出的数据将和其它数据库或旧版本的MySQL 相兼容。值可以为ansi、mysql323、mysql40、postgresql、oracle、mssql、db2、maxdb、no_key_options、no_tables_options、no_field_options等，
+要使用几个值，用逗号将它们隔开。它并不保证能完全兼容，而是尽量兼容。
+mysqldump  -uroot -p --all-databases --compatible=ansi
+--compact
+导出更少的输出信息(用于调试)。去掉注释和头尾等结构。可以使用选项：--skip-add-drop-table  --skip-add-locks --skip-comments --skip-disable-keys
+mysqldump  -uroot -p --all-databases --compact
+--complete-insert,  -c
+使用完整的insert语句(包含列名称)。这么做能提高插入效率，但是可能会受到max_allowed_packet参数的影响而导致插入失败。
+mysqldump  -uroot -p --all-databases --complete-insert
+--compress, -C
+在客户端和服务器之间启用压缩传递所有信息
+mysqldump  -uroot -p --all-databases --compress
+--create-options,  -a
+在CREATE TABLE语句中包括所有MySQL特性选项。(默认为打开状态)
+mysqldump  -uroot -p --all-databases
+--databases,  -B
+导出几个数据库。参数后面所有名字参量都被看作数据库名。
+mysqldump  -uroot -p --databases test mysql
+--debug
+输出debug信息，用于调试。默认值为：d:t,/tmp/mysqldump.trace
+mysqldump  -uroot -p --all-databases --debug
+mysqldump  -uroot -p --all-databases --debug=” d:t,/tmp/debug.trace”
+--debug-check
+检查内存和打开文件使用说明并退出。
+mysqldump  -uroot -p --all-databases --debug-check
+--debug-info
+输出调试信息并退出
+mysqldump  -uroot -p --all-databases --debug-info
+--default-character-set
+设置默认字符集，默认值为utf8
+mysqldump  -uroot -p --all-databases --default-character-set=utf8
+--delayed-insert
+采用延时插入方式（INSERT DELAYED）导出数据
+mysqldump  -uroot -p --all-databases --delayed-insert
+--delete-master-logs
+master备份后删除日志. 这个参数将自动激活--master-data。
+mysqldump  -uroot -p --all-databases --delete-master-logs
+--disable-keys
+对于每个表，用/*!40000 ALTER TABLE tbl_name DISABLE KEYS */;和/*!40000 ALTER TABLE tbl_name ENABLE KEYS */;语句引用INSERT语句。这样可以更快地导入dump出来的文件，因为它是在插入所有行后创建索引的。该选项只适合MyISAM表，默认为打开状态。
+mysqldump  -uroot -p --all-databases 
+--dump-slave
+该选项将主的binlog位置和文件名追加到导出数据的文件中(show slave status)。设置为1时，将会以CHANGE MASTER命令输出到数据文件；设置为2时，会在change前加上注释。该选项将会打开--lock-all-tables，除非--single-transaction被指定。该选项会自动关闭--lock-tables选项。默认值为0。
+mysqldump  -uroot -p --all-databases --dump-slave=1
+mysqldump  -uroot -p --all-databases --dump-slave=2
+
+--master-data
+该选项将当前服务器的binlog的位置和文件名追加到输出文件中(show master status)。如果为1，将会输出CHANGE MASTER 命令；如果为2，输出的CHANGE  MASTER命令前添加注释信息。该选项将打开--lock-all-tables 选项，除非--single-transaction也被指定（在这种情况下，全局读锁在开始导出时获得很短的时间；其他内容参考下面的--single-transaction选项）。该选项自动关闭--lock-tables选项。
+mysqldump  -uroot -p --host=localhost --all-databases --master-data=1;
+mysqldump  -uroot -p --host=localhost --all-databases --master-data=2;
+--events, -E
+导出事件。
+mysqldump  -uroot -p --all-databases --events
+--extended-insert,  -e
+使用具有多个VALUES列的INSERT语法。这样使导出文件更小，并加速导入时的速度。默认为打开状态，使用--skip-extended-insert取消选项。
+mysqldump  -uroot -p --all-databases
+mysqldump  -uroot -p --all-databases--skip-extended-insert   (取消选项)
+--fields-terminated-by
+导出文件中忽略给定字段。与--tab选项一起使用，不能用于--databases和--all-databases选项
+mysqldump  -uroot -p test test --tab=”/home/mysql” --fields-terminated-by=”#”
+--fields-enclosed-by
+输出文件中的各个字段用给定字符包裹。与--tab选项一起使用，不能用于--databases和--all-databases选项
+mysqldump  -uroot -p test test --tab=”/home/mysql” --fields-enclosed-by=”#”
+--fields-optionally-enclosed-by
+输出文件中的各个字段用给定字符选择性包裹。与--tab选项一起使用，不能用于--databases和--all-databases选项
+mysqldump  -uroot -p test test --tab=”/home/mysql”  --fields-enclosed-by=”#” --fields-optionally-enclosed-by  =”#”
+--fields-escaped-by
+输出文件中的各个字段忽略给定字符。与--tab选项一起使用，不能用于--databases和--all-databases选项
+mysqldump  -uroot -p mysql user --tab=”/home/mysql” --fields-escaped-by=”#”
+--flush-logs
+开始导出之前刷新日志。
+请注意：假如一次导出多个数据库(使用选项--databases或者--all-databases)，将会逐个数据库刷新日志。除使用--lock-all-tables或者--master-data外。在这种情况下，日志将会被刷新一次，相应的所以表同时被锁定。因此，如果打算同时导出和刷新日志应该使用--lock-all-tables 或者--master-data 和--flush-logs。
+mysqldump  -uroot -p --all-databases --flush-logs
+--flush-privileges
+在导出mysql数据库之后，发出一条FLUSH  PRIVILEGES 语句。为了正确恢复，该选项应该用于导出mysql数据库和依赖mysql数据库数据的任何时候。
+mysqldump  -uroot -p --all-databases --flush-privileges
+--force
+在导出过程中忽略出现的SQL错误。
+mysqldump  -uroot -p --all-databases --force
+--help
+显示帮助信息并退出。
+mysqldump  --help
+--hex-blob
+使用十六进制格式导出二进制字符串字段。如果有二进制数据就必须使用该选项。影响到的字段类型有BINARY、VARBINARY、BLOB。
+mysqldump  -uroot -p --all-databases --hex-blob
+--host, -h
+需要导出的主机信息
+mysqldump  -uroot -p --host=localhost --all-databases
+--ignore-table
+不导出指定表。指定忽略多个表时，需要重复多次，每次一个表。每个表必须同时指定数据库和表名。例如：--ignore-table=database.table1 --ignore-table=database.table2 ……
+mysqldump  -uroot -p --host=localhost --all-databases --ignore-table=mysql.user
+--include-master-host-port
+在--dump-slave产生的&#39;CHANGE  MASTER TO..&#39;语句中增加&#39;MASTER_HOST=&lt;host&gt;，MASTER_PORT=&lt;port&gt;&#39;  
+mysqldump  -uroot -p --host=localhost --all-databases --include-master-host-port
+--insert-ignore
+在插入行时使用INSERT IGNORE语句.
+mysqldump  -uroot -p --host=localhost --all-databases --insert-ignore
+--lines-terminated-by
+输出文件的每行用给定字符串划分。与--tab选项一起使用，不能用于--databases和--all-databases选项。
+mysqldump  -uroot -p --host=localhost test test --tab=”/tmp/mysql”  --lines-terminated-by=”##”
+--lock-all-tables,  -x
+提交请求锁定所有数据库中的所有表，以保证数据的一致性。这是一个全局读锁，并且自动关闭--single-transaction 和--lock-tables 选项。
+mysqldump  -uroot -p --host=localhost --all-databases --lock-all-tables
+--lock-tables,  -l
+开始导出前，锁定所有表。用READ  LOCAL锁定表以允许MyISAM表并行插入。对于支持事务的表例如InnoDB和BDB，--single-transaction是一个更好的选择，因为它根本不需要锁定表。
+请注意当导出多个数据库时，--lock-tables分别为每个数据库锁定表。因此，该选项不能保证导出文件中的表在数据库之间的逻辑一致性。不同数据库表的导出状态可以完全不同。
+mysqldump  -uroot -p --host=localhost --all-databases --lock-tables
+--log-error
+附加警告和错误信息到给定文件
+mysqldump  -uroot -p --host=localhost --all-databases  --log-error=/tmp/mysqldump_error_log.err
+--max_allowed_packet
+服务器发送和接受的最大包长度。
+mysqldump  -uroot -p --host=localhost --all-databases --max_allowed_packet=10240
+--net_buffer_length
+TCP/IP和socket连接的缓存大小。
+mysqldump  -uroot -p --host=localhost --all-databases --net_buffer_length=1024
+--no-autocommit
+使用autocommit/commit 语句包裹表。
+mysqldump  -uroot -p --host=localhost --all-databases --no-autocommit
+--no-create-db,  -n
+只导出数据，而不添加CREATE DATABASE 语句。
+mysqldump  -uroot -p --host=localhost --all-databases --no-create-db
+--no-create-info,  -t
+只导出数据，而不添加CREATE TABLE 语句。
+mysqldump  -uroot -p --host=localhost --all-databases --no-create-info
+--no-data, -d
+不导出任何数据，只导出数据库表结构。
+mysqldump  -uroot -p --host=localhost --all-databases --no-data
+--no-set-names,  -N
+等同于--skip-set-charset
+mysqldump  -uroot -p --host=localhost --all-databases --no-set-names
+--opt
+等同于--add-drop-table,  --add-locks, --create-options, --quick, --extended-insert, --lock-tables,  --set-charset, --disable-keys 该选项默认开启,  可以用--skip-opt禁用.
+mysqldump  -uroot -p --host=localhost --all-databases --opt
+--order-by-primary
+如果存在主键，或者第一个唯一键，对每个表的记录进行排序。在导出MyISAM表到InnoDB表时有效，但会使得导出工作花费很长时间。 
+mysqldump  -uroot -p --host=localhost --all-databases --order-by-primary
+--password, -p
+连接数据库密码
+--pipe(windows系统可用)
+使用命名管道连接mysql
+mysqldump  -uroot -p --host=localhost --all-databases --pipe
+--port, -P
+连接数据库端口号
+--protocol
+使用的连接协议，包括：tcp, socket, pipe, memory.
+mysqldump  -uroot -p --host=localhost --all-databases --protocol=tcp
+--quick, -q
+不缓冲查询，直接导出到标准输出。默认为打开状态，使用--skip-quick取消该选项。
+mysqldump  -uroot -p --host=localhost --all-databases 
+mysqldump  -uroot -p --host=localhost --all-databases --skip-quick
+--quote-names,-Q
+使用（`）引起表和列名。默认为打开状态，使用--skip-quote-names取消该选项。
+mysqldump  -uroot -p --host=localhost --all-databases
+mysqldump  -uroot -p --host=localhost --all-databases --skip-quote-names
+--replace
+使用REPLACE INTO 取代INSERT INTO.
+mysqldump  -uroot -p --host=localhost --all-databases --replace
+--result-file,  -r
+直接输出到指定文件中。该选项应该用在使用回车换行对（\\r\\n）换行的系统上（例如：DOS，Windows）。该选项确保只有一行被使用。
+mysqldump  -uroot -p --host=localhost --all-databases --result-file=/tmp/mysqldump_result_file.txt
+--routines, -R
+导出存储过程以及自定义函数。
+mysqldump  -uroot -p --host=localhost --all-databases --routines
+--set-charset
+添加&#39;SET NAMES  default_character_set&#39;到输出文件。默认为打开状态，使用--skip-set-charset关闭选项。
+mysqldump  -uroot -p --host=localhost --all-databases 
+mysqldump  -uroot -p --host=localhost --all-databases --skip-set-charset
+--single-transaction
+该选项在导出数据之前提交一个BEGIN SQL语句，BEGIN 不会阻塞任何应用程序且能保证导出时数据库的一致性状态。它只适用于多版本存储引擎，仅InnoDB。本选项和--lock-tables 选项是互斥的，因为LOCK  TABLES 会使任何挂起的事务隐含提交。要想导出大表的话，应结合使用--quick 选项。
+mysqldump  -uroot -p --host=localhost --all-databases --single-transaction
+--dump-date
+将导出时间添加到输出文件中。默认为打开状态，使用--skip-dump-date关闭选项。
+mysqldump  -uroot -p --host=localhost --all-databases
+mysqldump  -uroot -p --host=localhost --all-databases --skip-dump-date
+--skip-opt
+禁用–opt选项.
+mysqldump  -uroot -p --host=localhost --all-databases --skip-opt
+--socket,-S
+指定连接mysql的socket文件位置，默认路径/tmp/mysql.sock
+mysqldump  -uroot -p --host=localhost --all-databases --socket=/tmp/mysqld.sock
+--tab,-T
+为每个表在给定路径创建tab分割的文本文件。注意：仅仅用于mysqldump和mysqld服务器运行在相同机器上。注意使用--tab不能指定--databases参数
+mysqldump  -uroot -p --host=localhost test test --tab=&quot;/home/mysql&quot;
+--tables
+覆盖--databases (-B)参数，指定需要导出的表名，在后面的版本会使用table取代tables。
+mysqldump  -uroot -p --host=localhost --databases test --tables test
+--triggers
+导出触发器。该选项默认启用，用--skip-triggers禁用它。
+mysqldump  -uroot -p --host=localhost --all-databases --triggers
+--tz-utc
+在导出顶部设置时区TIME_ZONE=&#39;+00:00&#39; ，以保证在不同时区导出的TIMESTAMP 数据或者数据被移动其他时区时的正确性。
+mysqldump  -uroot -p --host=localhost --all-databases --tz-utc
+--user, -u
+指定连接的用户名。
+--verbose, --v
+输出多种平台信息。
+--version, -V
+输出mysqldump版本信息并退出
+--where, -w
+只转储给定的WHERE条件选择的记录。请注意如果条件包含命令解释符专用空格或字符，一定要将条件引用起来。
+mysqldump  -uroot -p --host=localhost --all-databases --where=” user=’root’”
+--xml, -X
+导出XML格式.
+mysqldump  -uroot -p --host=localhost --all-databases --xml
+--plugin_dir
+客户端插件的目录，用于兼容不同的插件版本。
+mysqldump  -uroot -p --host=localhost --all-databases --plugin_dir=”/usr/local/lib/plugin”
+--default_auth
+客户端插件默认使用权限。
+mysqldump  -uroot -p --host=localhost --all-databases --default-auth=”/usr/local/lib/plugin/&lt;PLUGIN&gt;”
+</code></pre>
+            </div>
+            <hr/>
+
+            
+
+            <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+
+<div id="article-share">
+    
+    <div class="social-share" data-disabled="qzone" data-wechat-qrcode-helper="<p>微信里点“发现”->“扫一扫”二维码便可查看分享。</p>"></div>
+    
+</div>
+
+<script src="/libs/share/js/social-share.min.js"></script>
+
+            
+
+
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6 overflow-policy" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fa fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/2018/07/13/Ubuntu子系统Docker无法启动/">
+                    <div class="card-image">
+                        
+                        
+                        <img src="/medias/featureimages/13.jpg" class="responsive-img" alt="Ubuntu子系统Docker无法启动">
+                        
+                        <span class="card-title">Ubuntu子系统Docker无法启动</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            问题最近在win10 上安装了Ubuntu子系统，但是在启动docker的时候，还是无法正常的启动，报错误
+Cannot connect to the Docker daemon at unix:///var/run/docker.sock
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="fa fa-clock-o fa-fw icon-date"></i>2018-07-13
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fa fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/博客/" class="post-category" target="_blank">
+                                    博客
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/Ubuntu子系统/" target="_blank">
+                        <span class="chip bg-color">Ubuntu子系统</span>
+                    </a>
+                    
+                    <a href="/tags/Docker无法启动/" target="_blank">
+                        <span class="chip bg-color">Docker无法启动</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6 overflow-policy" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fa fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/2018/07/10/Conda 常用命令/">
+                    <div class="card-image">
+                        
+                        
+                        <img src="/medias/featureimages/0.jpg" class="responsive-img" alt="Conda 常用命令">
+                        
+                        <span class="card-title">Conda 常用命令</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            说明自己平时开发没有用conda，因为太沉重了，还是简单的virtualenv + ipython。虽说没用到，倒是有些命令总是忘记，所以在此记录，方便查阅！
+安装略
+包管理命令conda list              # 列出已经安
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="fa fa-clock-o fa-fw icon-date"></i>2018-07-10
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fa fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/Python/" class="post-category" target="_blank">
+                                    Python
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/Conda/" target="_blank">
+                        <span class="chip bg-color">Conda</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+</div>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget">
+            <div class="toc-title"><i class="fa fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            // headingsOffset: -205,
+            headingSelector: 'h2, h3, h4, h5, h6',
+            collapseDepth: 6,
+        });
+
+        // modify the toc link href to support Chinese.
+        let i = 0;
+        let tocHeading = 'toc-heading-';
+        $('#toc-content a').each(function () {
+            $(this).attr('href', '#' + tocHeading + (++i));
+        });
+
+        // modify the heading title id to support Chinese.
+        i = 0;
+        $('#articleContent').children('h2, h3, h4, h5, h6').each(function () {
+            $(this).attr('id', tocHeading + (++i));
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+    });
+</script>
+    
+
+</main>
+
+
+<footer class="page-footer bg-color">
+    <div class="container row center-align">
+        <div class="col s12 m8 l8 copy-right">
+            
+                &nbsp;<i class="fa fa-area-chart"></i>&nbsp;站点总字数:&nbsp;
+                <span class="white-color">209.7k</span>
+            
+
+            
+			
+                <br>
+                
+                <span id="busuanzi_container_site_pv">
+                    <i class="fa fa-heart-o"></i>
+                    本站总访问量 <span id="busuanzi_value_site_pv" class="white-color"></span>
+                </span>
+                
+                
+                <span id="busuanzi_container_site_uv">
+                    <i class="fa fa-users"></i>
+                    次,&nbsp;访客数 <span id="busuanzi_value_site_uv" class="white-color"></span> 人.
+                </span>
+                
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+
+
+    <a href="mailto:rex_yan@126.com" class="tooltipped" target="_blank" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fa fa-envelope-open"></i>
+    </a>
+
+
+
+    <a href="tencent://AddContact/?fromId=50&fromSubId=1&subcmd=all&uin=1572402228" class="tooltipped" data-tooltip="QQ联系我: 1572402228" data-position="top" data-delay="50">
+        <i class="fa fa-qq"></i>
+    </a>
+
+
+
+    <a href="/atom.xml" class="tooltipped" target="_blank" data-tooltip="RSS 订阅" data-position="top" data-delay="50">
+        <i class="fa fa-rss"></i>
+    </a>
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+<!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fa fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script src="/js/search.js"></script>
+<script type="text/javascript">
+$(function () {
+    searchFunc("/" + "search.xml", 'searchInput', 'searchResult');
+});
+</script>
+<!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fa fa-angle-up"></i>
+    </a>
+</div>
+
+
+<script src="/libs/materialize/materialize.min.js"></script>
+<script src="/libs/masonry/masonry.pkgd.min.js"></script>
+<script src="/libs/aos/aos.js"></script>
+<script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+<script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+<script src="/js/matery.js"></script>
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+
+
+
+
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+
+
+</body>
+</html>

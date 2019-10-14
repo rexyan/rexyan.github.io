@@ -1,0 +1,909 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head><meta name="generator" content="Hexo 3.9.0">
+    <meta charset="utf-8">
+    <meta name="keywords" content="Python加上Memcache缓存, 星尘">
+    <meta name="description" content="场景网站数据太多，速度太慢？某处逻辑反复的调用一个函数。这样的开销是没有必要的。如果我们能将函数的结果保存到内存中，或者某个能快速反应的DB中，那么我们网站的响应速度会得到大大的提高。适用情景：
+
+某函数参数常不变，但是里面有大量的逻辑需要">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Python加上Memcache缓存 | 星尘</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+
+    <link rel="stylesheet" type="text/css" href="/libs/awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+    <link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+    <link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+    <link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+    <link rel="stylesheet" type="text/css" href="/css/matery.css">
+    <link rel="stylesheet" type="text/css" href="/css/my.css">
+    <style type="text/css">
+        
+        code[class*="language-"], pre[class*="language-"] {
+            white-space: pre !important;
+        }
+        
+    </style>
+
+    <script src="/libs/jquery/jquery-2.2.0.min.js"></script>
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+
+<body>
+
+<header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    <span class="logo-span">星尘</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fa fa-navicon"></i></a>
+<ul class="right">
+    
+    <li class="hide-on-med-and-down">
+        <a href="/" class="waves-effect waves-light">
+            
+            <i class="fa fa-home"></i>
+            
+            <span>首页</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/categories" class="waves-effect waves-light">
+            
+            <i class="fa fa-bookmark"></i>
+            
+            <span>分类</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/books/" class="waves-effect waves-light">
+            
+            <i class="fa fa-book"></i>
+            
+            <span>书单</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/crap" class="waves-effect waves-light">
+            
+            <i class="fa fa-crosshairs"></i>
+            
+            <span>瞎扯</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/tags" class="waves-effect waves-light">
+            
+            <i class="fa fa-tags"></i>
+            
+            <span>标签</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/archives" class="waves-effect waves-light">
+            
+            <i class="fa fa-archive"></i>
+            
+            <span>归档</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/friends" class="waves-effect waves-light">
+            
+            <i class="fa fa-address-book"></i>
+            
+            <span>友情链接</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/about" class="waves-effect waves-light">
+            
+            <i class="fa fa-user-circle-o"></i>
+            
+            <span>关于</span>
+        </a>
+    </li>
+    
+    <li>
+        <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+            <i id="searchIcon" class="fa fa-search" title="搜索"></i>
+        </a>
+    </li>
+</ul>
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="/medias/logo.png" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">星尘</div>
+        <div class="logo-desc">
+            
+            任汝千圣现,我有天真佛
+            
+        </div>
+    </div>
+
+    
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li>
+            <a href="/" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-home"></i>
+                
+                首页
+            </a>
+        </li>
+        
+        <li>
+            <a href="/categories" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-bookmark"></i>
+                
+                分类
+            </a>
+        </li>
+        
+        <li>
+            <a href="/books/" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-book"></i>
+                
+                书单
+            </a>
+        </li>
+        
+        <li>
+            <a href="/crap" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-crosshairs"></i>
+                
+                瞎扯
+            </a>
+        </li>
+        
+        <li>
+            <a href="/tags" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-tags"></i>
+                
+                标签
+            </a>
+        </li>
+        
+        <li>
+            <a href="/archives" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-archive"></i>
+                
+                归档
+            </a>
+        </li>
+        
+        <li>
+            <a href="/friends" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-address-book"></i>
+                
+                友情链接
+            </a>
+        </li>
+        
+        <li>
+            <a href="/about" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-user-circle-o"></i>
+                
+                关于
+            </a>
+        </li>
+        
+        
+    </ul>
+</div>
+
+        </div>
+
+        
+    </nav>
+
+</header>
+
+
+<script src="/libs/cryptojs/crypto-js.min.js"></script>
+<script>
+    (function() {
+        let pwd = '';
+        if (pwd && pwd.length > 0) {
+            if (pwd !== CryptoJS.SHA256(prompt('请输入访问本文章的密码')).toString(CryptoJS.enc.Hex)) {
+                alert('密码错误，将返回主页！');
+                location.href = '/';
+            }
+        }
+    })();
+</script>
+
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('/medias/featureimages/16.jpg')">
+    <div class="container">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <div class="description center-align post-title">
+                        Python加上Memcache缓存
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<main class="post-container content">
+
+    
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+<style>
+    #articleContent h1::before,
+    #articleContent h2::before,
+    #articleContent h3::before,
+    #articleContent h4::before,
+    #articleContent h5::before,
+    #articleContent h6::before {
+        display: block;
+        content: " ";
+        height: 100px;
+        margin-top: -100px;
+        visibility: hidden;
+    }
+
+    #articleContent :focus {
+        outline: none;
+    }
+
+    .toc-fixed {
+        position: fixed;
+        top: 64px;
+    }
+
+    .toc-widget {
+        padding-left: 20px;
+    }
+
+    .toc-widget .toc-title {
+        margin: 35px 0 15px 0;
+        padding-left: 17px;
+        font-size: 1.5rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    .toc-widget ol {
+        padding: 0;
+        list-style: none;
+    }
+
+    #toc-content ol {
+        padding-left: 10px;
+    }
+
+    #toc-content ol li {
+        padding-left: 10px;
+    }
+
+    #toc-content .toc-link:hover {
+        color: #42b983;
+        font-weight: 700;
+        text-decoration: underline;
+    }
+
+    #toc-content .toc-link::before {
+        background-color: transparent;
+        max-height: 25px;
+    }
+
+    #toc-content .is-active-link {
+        color: #42b983;
+    }
+
+    #toc-content .is-active-link::before {
+        background-color: #42b983;
+    }
+
+    #floating-toc-btn {
+        position: fixed;
+        right: 20px;
+        bottom: 76px;
+        padding-top: 15px;
+        margin-bottom: 0;
+        z-index: 998;
+    }
+
+    #floating-toc-btn .btn-floating {
+        width: 48px;
+        height: 48px;
+    }
+
+    #floating-toc-btn .btn-floating i {
+        line-height: 48px;
+        font-size: 1.4rem;
+    }
+</style>
+<div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/优化/" target="_blank">
+                                <span class="chip bg-color">优化</span>
+                            </a>
+                        
+                            <a href="/tags/技术/" target="_blank">
+                                <span class="chip bg-color">技术</span>
+                            </a>
+                        
+                            <a href="/tags/Memcache/" target="_blank">
+                                <span class="chip bg-color">Memcache</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fa fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/Python/" class="post-category" target="_blank">
+                                Python
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                <div class="post-date info-break-policy">
+                    <i class="fa fa-calendar-minus-o fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2017-11-15
+                </div>
+
+                
+                    
+                    <div class="info-break-policy">
+                        <i class="fa fa-file-word-o fa-fw"></i>文章字数:&nbsp;&nbsp;
+                        844
+                    </div>
+                    
+
+                    
+                    <div class="info-break-policy">
+                        <i class="fa fa-clock-o fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                        4 分
+                    </div>
+                    
+                
+				
+				
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="fa fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+        </div>
+        <hr class="clearfix">
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <h3 id="场景"><a href="#场景" class="headerlink" title="场景"></a>场景</h3><p>网站数据太多，速度太慢？某处逻辑反复的调用一个函数。这样的开销是没有必要的。如果我们能将函数的结果保存到内存中，或者某个能快速反应的DB中，那么我们网站的响应速度会得到大大的提高。适用情景：</p>
+<ol>
+<li>某函数参数常不变，但是里面有大量的逻辑需要处理，如果每次运行都需要运行的话，那么将花费大量的时间，那么我们可以采取缓存的方式，将函数的返回值进行缓存，下来执行到此处的时候直接返回即可。</li>
+<li>函数的参数是变化的，但并不是每次都在变。这时我们也可以采取此方式进行优化。</li>
+</ol>
+<h3 id="代码"><a href="#代码" class="headerlink" title="代码"></a>代码</h3><p>缓存源码示例：</p>
+<pre><code># encoding=utf8
+import hashlib
+import os
+import time
+from common.log_utils import getLogger
+log = getLogger(&#39;mem_cache.py&#39;)
+
+__all__ = [&#39;get&#39;, &#39;set&#39;, &#39;memorize&#39;, &#39;memcache_client&#39;]
+
+import memcache
+import settings
+memcache_client = memcache.Client(
+    [&#39;%s:%s&#39; % (settings.MEMCACHE_SERVER, str(settings.MEMCACHE_PORT))])
+
+OBJ_DICT = {}
+OBJ_DICT2 = {}
+OBJ_EXPIRE_DICT = {}
+OBJ_EXPIRE_DICT2 = {}
+DEFAULT_EXPIRE_SECONDS = 300
+DEFAULT_VERSION_EXPIRE_SECONDS = 60 * 60 * 24
+MEMORY_CLEANER_PERIOD = 600
+OBJ_VERSION_DICT = {}
+
+def set(key, value, time=settings.MEMCACHE_EXPIRE_TIME):
+    &quot;&quot;&quot;time为过期时间，以秒为单位&quot;&quot;&quot;
+    return memcache_client.set(str(key), value, time)
+
+def get(key):
+    return memcache_client.get(str(key))
+
+def set_remote_obj_version(key, version):
+    return memcache_client.set(str(key), version, DEFAULT_VERSION_EXPIRE_SECONDS)
+
+def get_remote_obj_version(key):
+    return memcache_client.get(str(key)) or 0
+
+def set_local_obj_version(key, version):
+    OBJ_VERSION_DICT[key] = version
+
+def get_local_obj_version(key):
+    return OBJ_VERSION_DICT.get(key) or 0
+
+def version_expired(key):
+    local_version = get_local_obj_version(key)
+    remote_version = get_remote_obj_version(key)
+    return local_version != remote_version
+
+def delete_all():
+    delete_list = []
+    for key, value in OBJ_DICT.iteritems():
+        delete_list.append(key)
+    memcache_client.delete_multi(delete_list)
+
+def start_memory_cleaner(count_down=MEMORY_CLEANER_PERIOD):
+    while True:
+        time.sleep(count_down)
+        keys_to_remove = []
+        for key, value in OBJ_EXPIRE_DICT.iteritems():
+            if OBJ_EXPIRE_DICT[key] &lt; int(round(time.time())):
+                keys_to_remove.append(key)
+        for key in keys_to_remove:
+            try:
+                del OBJ_DICT[key]
+                del OBJ_EXPIRE_DICT[key]
+                del OBJ_VERSION_DICT[key]
+            except KeyError:
+                pass
+        for key, value in OBJ_EXPIRE_DICT2.iteritems():
+            if OBJ_EXPIRE_DICT2[key] &lt; int(round(time.time())):
+                keys_to_remove.append(key)
+        for key in keys_to_remove:
+            try:
+                del OBJ_DICT[key]
+                del OBJ_EXPIRE_DICT2[key]
+                del OBJ_VERSION_DICT[key]
+            except KeyError:
+                pass
+        log.debug(&#39;%s keys deleted, %s keys remain&#39; %
+                  (len(keys_to_remove), len(OBJ_DICT)),)
+
+memory_cleaner_thread_started = False
+
+def start_memory_cleaner_thread():
+    global memory_cleaner_thread_started
+    import threading
+    if not memory_cleaner_thread_started:
+        threading.Thread(target=start_memory_cleaner, args=(),
+                         name=&#39;memory_cleaner_thread&#39;).start()
+        memory_cleaner_thread_started = True
+
+def memorize(function):
+    &quot;&quot;&quot;内存缓存, 用于不定参数的函数
+    Usage:
+        def xxx(key1,key2,refresh=False)
+            return instance
+        def xxx(key1,key2,key2,x1=xx,x2=yyy)
+            return instance
+    &quot;&quot;&quot;
+    def helper(*args, **kwargs):
+        refresh = False
+        expire = None
+        if &#39;refresh&#39; in kwargs:
+            refresh = kwargs[&#39;refresh&#39;]
+        if &#39;expire&#39; in kwargs:
+            expire = kwargs[&#39;expire&#39;]
+
+        # make cache key
+        args_str = []
+        for arg in args:
+            if isinstance(arg, unicode):
+                args_str.append(arg.encode(&#39;utf-8&#39;))
+            else:
+                args_str.append(str(arg))
+        key = function.__name__ + hashlib.md5(&#39;#&#39;.join(args_str)).hexdigest()
+        # end make cache key
+
+        remote_version = get_remote_obj_version(key)
+        ret_obj = None
+        if refresh:
+            # 1.
+            remote_version += 1
+            set_remote_obj_version(key, remote_version)
+            # #当主动刷新时，直接调用；且主动更新本地缓存（可以不做，只是其他程序调用时进入#3段，重复调用一次再更新本地缓存）
+            # ret_obj = function(*args, **kwargs)
+            # OBJ_DICT[key] = ret_obj
+            # set_local_obj_version(key, remote_version)
+        else:
+            if remote_version == 0:
+                # 2
+                ret_obj = function(*args, **kwargs)
+                OBJ_DICT[key] = ret_obj
+                set_remote_obj_version(key, 1)
+                set_local_obj_version(key, 1)
+            else:
+                local_version = get_local_obj_version(key)
+                if local_version != remote_version:
+                    # 3
+                    ret_obj = function(*args, **kwargs)
+                    OBJ_DICT[key] = ret_obj
+                    set_local_obj_version(key, remote_version)
+                else:
+                    # 4
+                    if key in OBJ_DICT:
+                        # 5
+                        ret_obj = OBJ_DICT[key]
+                    else:
+                        ret_obj = function(*args, **kwargs)
+                        OBJ_DICT[key] = ret_obj
+        return ret_obj
+    return helper
+
+@memorize
+def test(x):
+    x = os.path.join(&quot;D:/dev/project/BI/saic/csvdata&quot;, x)
+    return file(x).read()
+
+@memorize
+def test2(x, ab, refresh=False):
+    x = os.path.join(&quot;D:/dev/project/BI/saic/csvdata&quot;, x)
+    return file(x).read()
+
+if __name__ == &#39;__main__&#39;:
+    x = &#39;utils.py&#39;
+    txt = test2(x, &#39;ss&#39;, refresh=True)
+    txt = test2(x, &#39;ss&#39;)
+
+</code></pre><h3 id="使用"><a href="#使用" class="headerlink" title="使用"></a>使用</h3><p>以Python装饰起为例，使用时直接在函数上加上装饰器即可使用。</p>
+<pre><code>@memorize
+def get_current_df(raw_data_excel, key):
+    current_df = pd.read_hdf(raw_data_excel, key=key)
+    return current_df
+</code></pre>
+            </div>
+            <hr/>
+
+            
+
+            <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+
+<div id="article-share">
+    
+    <div class="social-share" data-disabled="qzone" data-wechat-qrcode-helper="<p>微信里点“发现”->“扫一扫”二维码便可查看分享。</p>"></div>
+    
+</div>
+
+<script src="/libs/share/js/social-share.min.js"></script>
+
+            
+
+
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6 overflow-policy" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fa fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/2017/11/16/el/">
+                    <div class="card-image">
+                        
+                        
+                        <img src="/medias/featureimages/7.jpg" class="responsive-img" alt="EL">
+                        
+                        <span class="card-title">EL</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            概述EL（Express Lanuage）表达式可以嵌入在jsp页面内部，减少jsp脚本的编写，EL    出现的目的是要替代jsp页面中脚本的编写。
+取值EL最主要的作用是获得四大域中的数据，格式${EL表达式}EL获得pageConte
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="fa fa-clock-o fa-fw icon-date"></i>2017-11-16
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fa fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/Java/" class="post-category" target="_blank">
+                                    Java
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/技术/" target="_blank">
+                        <span class="chip bg-color">技术</span>
+                    </a>
+                    
+                    <a href="/tags/El/" target="_blank">
+                        <span class="chip bg-color">El</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6 overflow-policy" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fa fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/2017/11/15/jsp/">
+                    <div class="card-image">
+                        
+                        
+                        <img src="/medias/featureimages/15.jpg" class="responsive-img" alt="JSP">
+                        
+                        <span class="card-title">JSP</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            jsp脚本和注释jsp脚本：
+1. &lt;%java代码%&gt; ----- 内部的java代码翻译到service方法的内部
+2. &lt;%=java变量或表达式&gt; ----- 会被翻译成service方法内部out.prin
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="fa fa-clock-o fa-fw icon-date"></i>2017-11-15
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fa fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/Java/" class="post-category" target="_blank">
+                                    Java
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/技术/" target="_blank">
+                        <span class="chip bg-color">技术</span>
+                    </a>
+                    
+                    <a href="/tags/jsp/" target="_blank">
+                        <span class="chip bg-color">jsp</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+</div>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget">
+            <div class="toc-title"><i class="fa fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            // headingsOffset: -205,
+            headingSelector: 'h2, h3, h4, h5, h6',
+            collapseDepth: 6,
+        });
+
+        // modify the toc link href to support Chinese.
+        let i = 0;
+        let tocHeading = 'toc-heading-';
+        $('#toc-content a').each(function () {
+            $(this).attr('href', '#' + tocHeading + (++i));
+        });
+
+        // modify the heading title id to support Chinese.
+        i = 0;
+        $('#articleContent').children('h2, h3, h4, h5, h6').each(function () {
+            $(this).attr('id', tocHeading + (++i));
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+    });
+</script>
+    
+
+</main>
+
+
+<footer class="page-footer bg-color">
+    <div class="container row center-align">
+        <div class="col s12 m8 l8 copy-right">
+            
+                &nbsp;<i class="fa fa-area-chart"></i>&nbsp;站点总字数:&nbsp;
+                <span class="white-color">209.7k</span>
+            
+
+            
+			
+                <br>
+                
+                <span id="busuanzi_container_site_pv">
+                    <i class="fa fa-heart-o"></i>
+                    本站总访问量 <span id="busuanzi_value_site_pv" class="white-color"></span>
+                </span>
+                
+                
+                <span id="busuanzi_container_site_uv">
+                    <i class="fa fa-users"></i>
+                    次,&nbsp;访客数 <span id="busuanzi_value_site_uv" class="white-color"></span> 人.
+                </span>
+                
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+
+
+    <a href="mailto:rex_yan@126.com" class="tooltipped" target="_blank" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fa fa-envelope-open"></i>
+    </a>
+
+
+
+    <a href="tencent://AddContact/?fromId=50&fromSubId=1&subcmd=all&uin=1572402228" class="tooltipped" data-tooltip="QQ联系我: 1572402228" data-position="top" data-delay="50">
+        <i class="fa fa-qq"></i>
+    </a>
+
+
+
+    <a href="/atom.xml" class="tooltipped" target="_blank" data-tooltip="RSS 订阅" data-position="top" data-delay="50">
+        <i class="fa fa-rss"></i>
+    </a>
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+<!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fa fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script src="/js/search.js"></script>
+<script type="text/javascript">
+$(function () {
+    searchFunc("/" + "search.xml", 'searchInput', 'searchResult');
+});
+</script>
+<!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fa fa-angle-up"></i>
+    </a>
+</div>
+
+
+<script src="/libs/materialize/materialize.min.js"></script>
+<script src="/libs/masonry/masonry.pkgd.min.js"></script>
+<script src="/libs/aos/aos.js"></script>
+<script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+<script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+<script src="/js/matery.js"></script>
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+
+
+
+
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+
+
+</body>
+</html>

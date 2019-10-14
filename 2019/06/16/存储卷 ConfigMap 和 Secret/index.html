@@ -1,0 +1,1135 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head><meta name="generator" content="Hexo 3.9.0">
+    <meta charset="utf-8">
+    <meta name="keywords" content="K8s 存储卷、ConfigMap 和 Secret, 星尘">
+    <meta name="description" content="在 k8s 中目前个人认为最难的部分就是网络和存储了，网络是难搞懂的，就如之前的 ingress 一样，到目前都没有弄清楚，现在这里的存储也是只了解了一些简单的，如果想要真正的搞懂那需要不断的学习一些专业的存储知识。在 k8s 中还有 co">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>K8s 存储卷、ConfigMap 和 Secret | 星尘</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+
+    <link rel="stylesheet" type="text/css" href="/libs/awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+    <link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+    <link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+    <link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+    <link rel="stylesheet" type="text/css" href="/css/matery.css">
+    <link rel="stylesheet" type="text/css" href="/css/my.css">
+    <style type="text/css">
+        
+        code[class*="language-"], pre[class*="language-"] {
+            white-space: pre !important;
+        }
+        
+    </style>
+
+    <script src="/libs/jquery/jquery-2.2.0.min.js"></script>
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+
+<body>
+
+<header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    <span class="logo-span">星尘</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fa fa-navicon"></i></a>
+<ul class="right">
+    
+    <li class="hide-on-med-and-down">
+        <a href="/" class="waves-effect waves-light">
+            
+            <i class="fa fa-home"></i>
+            
+            <span>首页</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/categories" class="waves-effect waves-light">
+            
+            <i class="fa fa-bookmark"></i>
+            
+            <span>分类</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/books/" class="waves-effect waves-light">
+            
+            <i class="fa fa-book"></i>
+            
+            <span>书单</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/crap" class="waves-effect waves-light">
+            
+            <i class="fa fa-crosshairs"></i>
+            
+            <span>瞎扯</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/tags" class="waves-effect waves-light">
+            
+            <i class="fa fa-tags"></i>
+            
+            <span>标签</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/archives" class="waves-effect waves-light">
+            
+            <i class="fa fa-archive"></i>
+            
+            <span>归档</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/friends" class="waves-effect waves-light">
+            
+            <i class="fa fa-address-book"></i>
+            
+            <span>友情链接</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/about" class="waves-effect waves-light">
+            
+            <i class="fa fa-user-circle-o"></i>
+            
+            <span>关于</span>
+        </a>
+    </li>
+    
+    <li>
+        <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+            <i id="searchIcon" class="fa fa-search" title="搜索"></i>
+        </a>
+    </li>
+</ul>
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="/medias/logo.png" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">星尘</div>
+        <div class="logo-desc">
+            
+            任汝千圣现,我有天真佛
+            
+        </div>
+    </div>
+
+    
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li>
+            <a href="/" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-home"></i>
+                
+                首页
+            </a>
+        </li>
+        
+        <li>
+            <a href="/categories" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-bookmark"></i>
+                
+                分类
+            </a>
+        </li>
+        
+        <li>
+            <a href="/books/" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-book"></i>
+                
+                书单
+            </a>
+        </li>
+        
+        <li>
+            <a href="/crap" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-crosshairs"></i>
+                
+                瞎扯
+            </a>
+        </li>
+        
+        <li>
+            <a href="/tags" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-tags"></i>
+                
+                标签
+            </a>
+        </li>
+        
+        <li>
+            <a href="/archives" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-archive"></i>
+                
+                归档
+            </a>
+        </li>
+        
+        <li>
+            <a href="/friends" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-address-book"></i>
+                
+                友情链接
+            </a>
+        </li>
+        
+        <li>
+            <a href="/about" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-user-circle-o"></i>
+                
+                关于
+            </a>
+        </li>
+        
+        
+    </ul>
+</div>
+
+        </div>
+
+        
+    </nav>
+
+</header>
+
+
+<script src="/libs/cryptojs/crypto-js.min.js"></script>
+<script>
+    (function() {
+        let pwd = '';
+        if (pwd && pwd.length > 0) {
+            if (pwd !== CryptoJS.SHA256(prompt('请输入访问本文章的密码')).toString(CryptoJS.enc.Hex)) {
+                alert('密码错误，将返回主页！');
+                location.href = '/';
+            }
+        }
+    })();
+</script>
+
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://raw.githubusercontent.com/rexyan/warehouse/master/kube-configmap-secret-deployment.png')">
+    <div class="container">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <div class="description center-align post-title">
+                        K8s 存储卷、ConfigMap 和 Secret
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<main class="post-container content">
+
+    
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+<style>
+    #articleContent h1::before,
+    #articleContent h2::before,
+    #articleContent h3::before,
+    #articleContent h4::before,
+    #articleContent h5::before,
+    #articleContent h6::before {
+        display: block;
+        content: " ";
+        height: 100px;
+        margin-top: -100px;
+        visibility: hidden;
+    }
+
+    #articleContent :focus {
+        outline: none;
+    }
+
+    .toc-fixed {
+        position: fixed;
+        top: 64px;
+    }
+
+    .toc-widget {
+        padding-left: 20px;
+    }
+
+    .toc-widget .toc-title {
+        margin: 35px 0 15px 0;
+        padding-left: 17px;
+        font-size: 1.5rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    .toc-widget ol {
+        padding: 0;
+        list-style: none;
+    }
+
+    #toc-content ol {
+        padding-left: 10px;
+    }
+
+    #toc-content ol li {
+        padding-left: 10px;
+    }
+
+    #toc-content .toc-link:hover {
+        color: #42b983;
+        font-weight: 700;
+        text-decoration: underline;
+    }
+
+    #toc-content .toc-link::before {
+        background-color: transparent;
+        max-height: 25px;
+    }
+
+    #toc-content .is-active-link {
+        color: #42b983;
+    }
+
+    #toc-content .is-active-link::before {
+        background-color: #42b983;
+    }
+
+    #floating-toc-btn {
+        position: fixed;
+        right: 20px;
+        bottom: 76px;
+        padding-top: 15px;
+        margin-bottom: 0;
+        z-index: 998;
+    }
+
+    #floating-toc-btn .btn-floating {
+        width: 48px;
+        height: 48px;
+    }
+
+    #floating-toc-btn .btn-floating i {
+        line-height: 48px;
+        font-size: 1.4rem;
+    }
+</style>
+<div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/Kubernetes/" target="_blank">
+                                <span class="chip bg-color">Kubernetes</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fa fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/Kubernetes/" class="post-category" target="_blank">
+                                Kubernetes
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                <div class="post-date info-break-policy">
+                    <i class="fa fa-calendar-minus-o fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2019-06-16
+                </div>
+
+                
+                    
+                    <div class="info-break-policy">
+                        <i class="fa fa-file-word-o fa-fw"></i>文章字数:&nbsp;&nbsp;
+                        2.7k
+                    </div>
+                    
+
+                    
+                    <div class="info-break-policy">
+                        <i class="fa fa-clock-o fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                        13 分
+                    </div>
+                    
+                
+				
+				
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="fa fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+        </div>
+        <hr class="clearfix">
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <p>在 k8s 中目前个人认为最难的部分就是网络和存储了，网络是难搞懂的，就如之前的 ingress 一样，到目前都没有弄清楚，现在这里的存储也是只了解了一些简单的，如果想要真正的搞懂那需要不断的学习一些专业的存储知识。在 k8s 中还有 configmap 和 secret，用于我们修改应用程序的配置文件，这两者都是常用到的。</p>
+<h3 id="pv-pvc"><a href="#pv-pvc" class="headerlink" title="pv, pvc"></a>pv, pvc</h3><p>一般情况下由专门的存储工程师创建出存储空间，交给 K8s 管理员创建出 Pv，K8s 使用者创建 Pvc，应用 Pv。Pvc 和 Pv 是一一对应关系，但是一个 Pvc 可以支持被多个 Pod 所使用。Pvc 如果成功绑定 Pv，那么状态就是 Bound，否则处于 Peding 状态。</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/pv%20%2B%20pvc.png" alt></p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/pv%2Bpvc2.png" alt></p>
+<p>创建 pv 示例：<a href="https://www.cnblogs.com/along21/p/10342788.html" target="_blank" rel="noopener">https://www.cnblogs.com/along21/p/10342788.html</a></p>
+<h3 id="emptyDir"><a href="#emptyDir" class="headerlink" title="emptyDir"></a>emptyDir</h3><p>无持久性，随着 Pod 的删除也会被删除。</p>
+<h4 id="创建-emptyDir"><a href="#创建-emptyDir" class="headerlink" title="创建 emptyDir"></a>创建 emptyDir</h4><p>定义自助式 Pod 来测试 emptyDir。volumes.emptyDir.medium 可以指定存储的介质。sizeLimit 可以指定存储总量</p>
+<pre class="line-numbers language-shell"><code class="language-shell">kubectl explain pods.spec.volumes.emptyDir
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<pre><code>KIND:     Pod
+VERSION:  v1
+
+RESOURCE: emptyDir &lt;Object&gt;
+
+DESCRIPTION:
+     EmptyDir represents a temporary directory that shares a pod&#39;s lifetime.
+     More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir
+
+     Represents an empty directory for a pod. Empty directory volumes support
+     ownership management and SELinux relabeling.
+
+FIELDS:
+   medium    &lt;string&gt;
+     What type of storage medium should back this directory. The default is &quot;&quot;
+     which means to use the node&#39;s default medium. Must be an empty string
+     (default) or Memory. More info:
+     https://kubernetes.io/docs/concepts/storage/volumes#emptydir
+
+   sizeLimit    &lt;string&gt;
+     Total amount of local storage required for this EmptyDir volume. The size
+     limit is also applicable for memory medium. The maximum usage on memory
+     medium EmptyDir would be the minimum value between the SizeLimit specified
+     here and the sum of memory limits of all containers in a pod. The default
+     is nil which means that the limit is undefined. More info:
+     http://kubernetes.io/docs/user-guide/volumes#emptydir
+</code></pre><p>emptyDir.yaml 内容如下：volumes 中的内容会创建一个 emptyDir，可以限制 emptyDir 使用的大小，{} 代表不限制</p>
+<pre class="line-numbers language-yaml"><code class="language-yaml"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> v1
+<span class="token key atrule">kind</span><span class="token punctuation">:</span> Pod
+<span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+  <span class="token key atrule">name</span><span class="token punctuation">:</span> runsha.yan.test.pod
+  <span class="token key atrule">namespace</span><span class="token punctuation">:</span> default
+  <span class="token key atrule">labels</span><span class="token punctuation">:</span>
+    <span class="token key atrule">app</span><span class="token punctuation">:</span> myapp
+  <span class="token key atrule">annotations</span><span class="token punctuation">:</span>
+    <span class="token key atrule">create-by</span><span class="token punctuation">:</span> runsha.yan
+<span class="token key atrule">spec</span><span class="token punctuation">:</span>
+  <span class="token key atrule">containers</span><span class="token punctuation">:</span>
+  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> myapp
+    <span class="token key atrule">image</span><span class="token punctuation">:</span> ikubernetes/myapp<span class="token punctuation">:</span>v1
+    <span class="token key atrule">imagePullPolicy</span><span class="token punctuation">:</span> IfNotPresent
+    <span class="token key atrule">ports</span><span class="token punctuation">:</span>
+    <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> http
+      <span class="token key atrule">containerPort</span><span class="token punctuation">:</span> <span class="token number">80</span>
+    <span class="token key atrule">volumeMounts</span><span class="token punctuation">:</span>
+    <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> html
+      <span class="token key atrule">mountPath</span><span class="token punctuation">:</span> /usr/share/nginx/html/
+  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> busybox
+    <span class="token key atrule">image</span><span class="token punctuation">:</span> busybox<span class="token punctuation">:</span>latest
+    <span class="token key atrule">imagePullPolicy</span><span class="token punctuation">:</span> IfNotPresent
+    <span class="token key atrule">volumeMounts</span><span class="token punctuation">:</span>
+    <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> html
+      <span class="token key atrule">mountPath</span><span class="token punctuation">:</span> /data/
+    <span class="token key atrule">command</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"bin/sh"</span><span class="token punctuation">]</span>
+    <span class="token key atrule">args</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"-c"</span><span class="token punctuation">,</span> <span class="token string">"while true; do echo $(date) >> /data/index.html; sleep 2; done"</span><span class="token punctuation">]</span>
+  <span class="token key atrule">volumes</span><span class="token punctuation">:</span>
+  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> html
+    <span class="token key atrule">emptyDir</span><span class="token punctuation">:</span> <span class="token punctuation">{</span><span class="token punctuation">}</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>创建 Pod</p>
+<pre class="line-numbers language-shell"><code class="language-shell">kubectl apply -f emptyDir.yaml
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>查看内容</p>
+<pre class="line-numbers language-shell"><code class="language-shell">kubectl get pods
+NAME                                      READY   STATUS    RESTARTS   AGE
+runsha.yan.test.pod                       2/2     Running   0          7m
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+<h4 id="创建-NodePort-Service-进行访问测试"><a href="#创建-NodePort-Service-进行访问测试" class="headerlink" title="创建 NodePort Service 进行访问测试"></a>创建 NodePort Service 进行访问测试</h4><p>nodePort.yaml </p>
+<pre class="line-numbers language-yaml"><code class="language-yaml"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> v1
+<span class="token key atrule">kind</span><span class="token punctuation">:</span> Service
+<span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+  <span class="token key atrule">name</span><span class="token punctuation">:</span> runsha<span class="token punctuation">-</span>yan<span class="token punctuation">-</span>test<span class="token punctuation">-</span>service
+  <span class="token key atrule">namespace</span><span class="token punctuation">:</span> default
+<span class="token key atrule">spec</span><span class="token punctuation">:</span>
+  <span class="token key atrule">selector</span><span class="token punctuation">:</span>
+    <span class="token key atrule">app</span><span class="token punctuation">:</span> myapp
+  <span class="token key atrule">type</span><span class="token punctuation">:</span> NodePort
+  <span class="token key atrule">ports</span><span class="token punctuation">:</span>
+  <span class="token punctuation">-</span> <span class="token key atrule">port</span><span class="token punctuation">:</span> <span class="token number">80</span>
+    <span class="token key atrule">targetPort</span><span class="token punctuation">:</span> <span class="token number">80</span>
+    <span class="token key atrule">nodePort</span><span class="token punctuation">:</span> <span class="token number">30080</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>创建 Service</p>
+<pre><code>kubectl apply -f nodePort.yaml
+</code></pre><p>查看状态</p>
+<pre><code> rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl get svc
+NAME                      TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)                          AGE
+runsha-yan-test-service   NodePort    172.16.3.101    &lt;none&gt;        80:30080/TCP                     7m
+</code></pre><h4 id="浏览器访问测试"><a href="#浏览器访问测试" class="headerlink" title="浏览器访问测试"></a>浏览器访问测试</h4><p>可以看到每隔两秒内容进行增加。</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190615174805.png" alt></p>
+<h4 id="进入容器查询内容"><a href="#进入容器查询内容" class="headerlink" title="进入容器查询内容"></a>进入容器查询内容</h4><pre class="line-numbers language-shell"><code class="language-shell">kubectl exec -it runsha.yan.test.pod -c  myapp -- /bin/sh
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<pre class="line-numbers language-shell"><code class="language-shell">/ # cd /usr/share/nginx/html/
+/usr/share/nginx/html # ls -la
+total 20
+drwxrwxrwx    2 root     root          4096 Jun 15 09:42 .
+drwxr-xr-x    1 root     root          4096 Feb 25  2018 ..
+-rw-r--r--    1 root     root         10121 Jun 15 09:54 index.html
+/usr/share/nginx/html # echo "test" >>  test.html
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>浏览器访问 test 页面同样也可以看到内容</p>
+<p>进入另一个容器</p>
+<pre class="line-numbers language-shell"><code class="language-shell">kubectl exec -it runsha.yan.test.pod -c busybox  -- /bin/sh
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>因为 busybox 容器和 myapp 共同挂载的一个 emptyDir，所以也可以看到之前在 myapp 容器内创建的 test.html 文件</p>
+<pre class="line-numbers language-shell"><code class="language-shell">/ # cd /data/
+/data # ls -la
+total 24
+drwxrwxrwx    2 root     root          4096 Jun 15 09:55 .
+drwxr-xr-x    1 root     root          4096 Jun 15 09:42 ..
+-rw-r--r--    1 root     root         12064 Jun 15 09:56 index.html
+-rw-r--r--    1 root     root             5 Jun 15 09:55 test.html
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h3 id="hostPath"><a href="#hostPath" class="headerlink" title="hostPath"></a>hostPath</h3><h4 id="创建-hostPath"><a href="#创建-hostPath" class="headerlink" title="创建 hostPath"></a>创建 hostPath</h4><p>与docker 中的映射一致，挂载一个宿主机的目录或文件或者其他格式。具有一定的持久性，但是如果节点出现问题，那么持久性将受到影响。hostPath type类型支持好几种方式，例如：DirectoryOrCreate（目录，没有则创建），Directory（目录），FileOrCreate（文件，没有则创建），File（文件），Socket，CharDevice，BlockDevice。</p>
+<pre class="line-numbers language-yaml"><code class="language-yaml"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> v1
+<span class="token key atrule">kind</span><span class="token punctuation">:</span> Pod
+<span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+  <span class="token key atrule">name</span><span class="token punctuation">:</span> runsha<span class="token punctuation">-</span>yan<span class="token punctuation">-</span>test<span class="token punctuation">-</span>pod<span class="token punctuation">-</span>hostpath
+  <span class="token key atrule">namespace</span><span class="token punctuation">:</span> default
+<span class="token key atrule">spec</span><span class="token punctuation">:</span>
+  <span class="token key atrule">containers</span><span class="token punctuation">:</span>
+  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> myapp
+    <span class="token key atrule">image</span><span class="token punctuation">:</span> ikubernetes/myapp<span class="token punctuation">:</span>v1
+    <span class="token key atrule">volumeMounts</span><span class="token punctuation">:</span>
+    <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> html
+      <span class="token key atrule">mountPath</span><span class="token punctuation">:</span> /usr/share/nginx/html/
+  <span class="token key atrule">volumes</span><span class="token punctuation">:</span>
+  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> html
+    <span class="token key atrule">hostPath</span><span class="token punctuation">:</span>
+      <span class="token key atrule">path</span><span class="token punctuation">:</span> /tmp/
+      <span class="token key atrule">type</span><span class="token punctuation">:</span> DirectoryOrCreate
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>这是因为没有宿主机 ssh 的权限，所以就不验证效果了。</p>
+<h3 id="ConfigMap"><a href="#ConfigMap" class="headerlink" title="ConfigMap"></a>ConfigMap</h3><p>ConfigMap 存储信息为明文, 定义一个配置文件</p>
+<pre class="line-numbers language-config"><code class="language-config">server {
+      server_name test.runsha.yan.com;
+      listen 80;
+      root /data/web/html;
+}
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h4 id="创建-configmap"><a href="#创建-configmap" class="headerlink" title="创建 configmap"></a>创建 configmap</h4><pre class="line-numbers language-shell"><code class="language-shell">ubectl create configmap runsha-yan-test-configmap --from-file=./www.config
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>查看 configmap</p>
+<ol>
+<li>查看列表</li>
+</ol>
+<pre class="line-numbers language-shell"><code class="language-shell"> ✘ rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl get cm
+NAME                        DATA   AGE
+runsha-yan-test-configmap   1      1m
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+<ol start="2">
+<li>查看 yaml 格式<pre class="line-numbers language-shell"><code class="language-shell">✘ rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl get cm runsha-yan-test-configmap -o yaml
+apiVersion: v1
+data:
+www.config: |
+ server {
+       server_name test.runsha.yan.com;
+       listen 80;
+       root /data/web/html;
+ }
+kind: ConfigMap
+metadata:
+creationTimestamp: "2019-06-16T03:29:07Z"
+name: runsha-yan-test-configmap
+namespace: default
+resourceVersion: "52482318"
+selfLink: /api/v1/namespaces/default/configmaps/runsha-yan-test-configmap
+uid: e5f0531e-8fe6-11e9-bbd9-00163e0aa20d
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+</li>
+<li>查看详细信息<pre><code>kubectl describe cm runsha-yan-test-configmap
+</code></pre></li>
+</ol>
+<h4 id="注入到容器"><a href="#注入到容器" class="headerlink" title="注入到容器"></a>注入到容器</h4><h4 id="1）环境变量"><a href="#1）环境变量" class="headerlink" title="1）环境变量"></a>1）环境变量</h4><p>使用环境变量的方式注入，前提是应用程序能解析并应用环境变量（如果程序不支持读取环境变量的配置，那么即使注入也没用）。使用命令行创建一个 名称为 nginx-config 的 configmap</p>
+<pre class="line-numbers language-shell"><code class="language-shell">kubectl create configmap nginx-config --from-literal=nginx_port=80 --from-literal=server_name=runsha.yan.test.configmap
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<pre><code> ✘ rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl  get cm
+NAME                        DATA   AGE
+nginx-config                2      14s
+runsha-yan-test-configmap   1      35m
+</code></pre><p>查看详情</p>
+<pre class="line-numbers language-shell"><code class="language-shell"> rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl describe cm nginx-config configMapEnv.yaml
+Name:         nginx-config
+Namespace:    default
+Labels:       <none>
+Annotations:  <none>
+
+Data
+====
+nginx_port:
+----
+80
+server_name:
+----
+runsha.yan.test.configmap
+Events:  <none>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>创建 Pod 使用 env 方式注入, configMapKeyRef 中，name 为 configmap 的名称，key 为配置的名称。这样就会在容器中存在 NGINX_SERVER_PORT 和 NGINX_SERVER_NAME 两个环境变量，并且值为我们刚刚在 configmap 中创建的。</p>
+<pre class="line-numbers language-yaml"><code class="language-yaml"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> v1
+<span class="token key atrule">kind</span><span class="token punctuation">:</span> Pod
+<span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+  <span class="token key atrule">name</span><span class="token punctuation">:</span> runsha.yan.test.configmap.pod
+  <span class="token key atrule">namespace</span><span class="token punctuation">:</span> default
+  <span class="token key atrule">labels</span><span class="token punctuation">:</span>
+    <span class="token key atrule">app</span><span class="token punctuation">:</span> myapp
+  <span class="token key atrule">annotations</span><span class="token punctuation">:</span>
+    <span class="token key atrule">create-by</span><span class="token punctuation">:</span> runsha.yan
+<span class="token key atrule">spec</span><span class="token punctuation">:</span>
+  <span class="token key atrule">containers</span><span class="token punctuation">:</span>
+  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> myapp
+    <span class="token key atrule">image</span><span class="token punctuation">:</span> ikubernetes/myapp<span class="token punctuation">:</span>v1
+    <span class="token key atrule">imagePullPolicy</span><span class="token punctuation">:</span> IfNotPresent
+    <span class="token key atrule">ports</span><span class="token punctuation">:</span>
+    <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> http
+      <span class="token key atrule">containerPort</span><span class="token punctuation">:</span> <span class="token number">80</span>
+    <span class="token key atrule">env</span><span class="token punctuation">:</span>
+    <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> NGINX_SERVER_PORT
+      <span class="token key atrule">valueFrom</span><span class="token punctuation">:</span>
+        <span class="token key atrule">configMapKeyRef</span><span class="token punctuation">:</span>
+          <span class="token key atrule">name</span><span class="token punctuation">:</span> nginx<span class="token punctuation">-</span>config
+          <span class="token key atrule">key</span><span class="token punctuation">:</span> nginx_port
+    <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> NGINX_SERVER_NAME
+      <span class="token key atrule">valueFrom</span><span class="token punctuation">:</span>
+        <span class="token key atrule">configMapKeyRef</span><span class="token punctuation">:</span>
+          <span class="token key atrule">name</span><span class="token punctuation">:</span> nginx<span class="token punctuation">-</span>config
+          <span class="token key atrule">key</span><span class="token punctuation">:</span> server_name
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<pre class="line-numbers language-shell"><code class="language-shell"> rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl apply -f configMapEnv.yaml
+pod/runsha.yan.test.configmap.pod created
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+<pre class="line-numbers language-shell"><code class="language-shell"> ✘ rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl get pods
+NAME                                      READY   STATUS    RESTARTS   AGE
+runsha.yan.test.configmap.pod             1/1     Running   0          13s
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+<p>进入容器查看环境变量是否是我们刚才设置的</p>
+<pre class="line-numbers language-shell"><code class="language-shell"> ✘ rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl exec -it runsha.yan.test.configmap.pod -- /bin/sh
+/ # echo $NGINX_SERVER_PORT
+80
+/ # echo $NGINX_SERVER_NAME
+runsha.yan.test.configmap
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>查看我们的环境变量，的确已经看到了期待的结果。接下来使用 edit 来编辑 configmap，然后再来观察现象。</p>
+<pre class="line-numbers language-shell"><code class="language-shell"> rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl edit cm nginx-config
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>将 server_name 的值修改为 server_name: runsha.yan.test.configmap.update, 重新进入容器查看环境变量信息。会发现结果没有发生改变。</p>
+<pre class="line-numbers language-shell"><code class="language-shell"> rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl exec -it runsha.yan.test.configmap.pod -- /bin/sh
+/ # echo $NGINX_SERVER_NAME
+runsha.yan.test.configmap
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+<p>使用 edit 修改 configmap，再次进入 Pod 发现环境变量的值没有发生变化，原因是使用环境变量的方式注入，只会在容器启动的时候才会注入生效，之后修改 configmap 是没有效果的。  </p>
+<h4 id="2）使用存储卷"><a href="#2）使用存储卷" class="headerlink" title="2）使用存储卷"></a>2）使用存储卷</h4><p>需要创建一个存储卷，类型为 configmap，再将创建的 configmap 关联至容器中。进入 Pod 会看见文件名字为键名，键值为文件内容的文件已经被注入到指定挂载的目录了。configmap 就使用上面创建的 nginx-config</p>
+<pre class="line-numbers language-yaml"><code class="language-yaml"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> v1
+<span class="token key atrule">kind</span><span class="token punctuation">:</span> Pod
+<span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+  <span class="token key atrule">name</span><span class="token punctuation">:</span> runsha.yan.test.configmap.mount.pod
+  <span class="token key atrule">namespace</span><span class="token punctuation">:</span> default
+  <span class="token key atrule">labels</span><span class="token punctuation">:</span>
+    <span class="token key atrule">app</span><span class="token punctuation">:</span> myapp
+  <span class="token key atrule">annotations</span><span class="token punctuation">:</span>
+    <span class="token key atrule">create-by</span><span class="token punctuation">:</span> runsha.yan
+<span class="token key atrule">spec</span><span class="token punctuation">:</span>
+  <span class="token key atrule">containers</span><span class="token punctuation">:</span>
+  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> myapp
+    <span class="token key atrule">image</span><span class="token punctuation">:</span> ikubernetes/myapp<span class="token punctuation">:</span>v1
+    <span class="token key atrule">imagePullPolicy</span><span class="token punctuation">:</span> IfNotPresent
+    <span class="token key atrule">ports</span><span class="token punctuation">:</span>
+    <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> http
+      <span class="token key atrule">containerPort</span><span class="token punctuation">:</span> <span class="token number">80</span>
+    <span class="token key atrule">volumeMounts</span><span class="token punctuation">:</span>
+    <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> nginxconfig
+      <span class="token key atrule">mountPath</span><span class="token punctuation">:</span> /etc/nginx/config.d/
+      <span class="token key atrule">readOnly</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+  <span class="token key atrule">volumes</span><span class="token punctuation">:</span>
+  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> nginxconfig
+    <span class="token key atrule">configMap</span><span class="token punctuation">:</span>
+      <span class="token key atrule">name</span><span class="token punctuation">:</span> nginx<span class="token punctuation">-</span>config
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<pre class="line-numbers language-shell"><code class="language-shell"> rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl apply -f configMapMount.yaml
+pod/runsha.yan.test.configmap.mount.pod created
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+<p>进入容器进行验证</p>
+<pre class="line-numbers language-shell"><code class="language-shell"> rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl exec -it runsha.yan.test.configmap.mount.pod -- /bin/sh
+/ # cd /etc/nginx/config.d/
+/etc/nginx/config.d # ls -la
+total 12
+drwxrwxrwx    3 root     root          4096 Jun 16 08:05 .
+drwxr-xr-x    1 root     root          4096 Jun 16 08:05 ..
+drwxr-xr-x    2 root     root          4096 Jun 16 08:05 ..2019_06_16_08_05_23.315302408
+lrwxrwxrwx    1 root     root            31 Jun 16 08:05 ..data -> ..2019_06_16_08_05_23.315302408
+lrwxrwxrwx    1 root     root            17 Jun 16 08:05 nginx_port -> ..data/nginx_port
+lrwxrwxrwx    1 root     root            18 Jun 16 08:05 server_name -> ..data/server_name
+/etc/nginx/config.d # cat server_name
+runsha.yan.test.configmap.update/etc/nginx/config.d #
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>cat server_name 就会看到内容为 runsha.yan.test.configmap.update。文件的名字是 configmap 的键名，nginx_port 和server_name。文件的内容分别是 configmap 中对应键名的值。</p>
+<p>使用 edit 修改 configmap，将erver_name 的内容改为 runsha.yan.test.configmap.mount ,再次进入Pod 发现对应修改的 key 的文件的内容已经发生了变化。</p>
+<h3 id="Secret"><a href="#Secret" class="headerlink" title="Secret"></a>Secret</h3><h4 id="创建-Secret"><a href="#创建-Secret" class="headerlink" title="创建 Secret"></a>创建 Secret</h4><p>secret 和 configmap 相比，secret 不是以明文方式保存信息的，而是以 base64 的方式。secret 共有三种类型，一种是 docker-register，用于 kubelet 在私有仓库拉取镜像时使用。一种为 tls，用于保存证书信息。其余的都可以保存为 generic。</p>
+<p>创建 generic 类型的 secret</p>
+<pre class="line-numbers language-shell"><code class="language-shell"> rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl create secret generic runsha.yan.test.mysql.pass --from-literal=password=123456
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>上述命令中我们创建了一个名字叫做 runsha.yan.test.mysql.pass  generic 类型的 secret，键名 为 password 值为 123456。查看详细信息：</p>
+<pre><code>rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl get secrets
+NAME                                    TYPE                                  DATA   AGE
+runsha.yan.test.mysql.pass              Opaque                                1      2m
+</code></pre><p>查看 yaml 格式的内容，发现看见的密码是 base64 转码之后的。</p>
+<pre class="line-numbers language-shell"><code class="language-shell"> rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl get secrets runsha.yan.test.mysql.pass -o yaml
+apiVersion: v1
+data:
+  password: MTIzNDU2
+kind: Secret
+metadata:
+  creationTimestamp: "2019-06-16T08:16:29Z"
+  name: runsha.yan.test.mysql.pass
+  namespace: default
+  resourceVersion: "52525316"
+  selfLink: /api/v1/namespaces/default/secrets/runsha.yan.test.mysql.pass
+  uid: 0b45f531-900f-11e9-a6ce-00163e00c9c1
+type: Opaque
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h4 id="注入容器"><a href="#注入容器" class="headerlink" title="注入容器"></a>注入容器</h4><h4 id="1）环境变量-1"><a href="#1）环境变量-1" class="headerlink" title="1）环境变量"></a>1）环境变量</h4><p>使用我们刚刚创建的 runsha.yan.test.mysql.pass 的 secret</p>
+<pre class="line-numbers language-shell"><code class="language-shell"> rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl describe secrets runsha.yan.test.mysql.pass
+Name:         runsha.yan.test.mysql.pass
+Namespace:    default
+Labels:       <none>
+Annotations:  <none>
+
+Type:  Opaque
+
+Data
+====
+password:  6 bytes
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>创建 Pod </p>
+<pre class="line-numbers language-yaml"><code class="language-yaml"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> v1
+<span class="token key atrule">kind</span><span class="token punctuation">:</span> Pod
+<span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+  <span class="token key atrule">name</span><span class="token punctuation">:</span> runsha.yan.test.secret.env.pod
+  <span class="token key atrule">namespace</span><span class="token punctuation">:</span> default
+  <span class="token key atrule">labels</span><span class="token punctuation">:</span>
+    <span class="token key atrule">app</span><span class="token punctuation">:</span> myapp
+  <span class="token key atrule">annotations</span><span class="token punctuation">:</span>
+    <span class="token key atrule">create-by</span><span class="token punctuation">:</span> runsha.yan
+<span class="token key atrule">spec</span><span class="token punctuation">:</span>
+  <span class="token key atrule">containers</span><span class="token punctuation">:</span>
+  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> myapp
+    <span class="token key atrule">image</span><span class="token punctuation">:</span> ikubernetes/myapp<span class="token punctuation">:</span>v1
+    <span class="token key atrule">imagePullPolicy</span><span class="token punctuation">:</span> IfNotPresent
+    <span class="token key atrule">ports</span><span class="token punctuation">:</span>
+    <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> http
+      <span class="token key atrule">containerPort</span><span class="token punctuation">:</span> <span class="token number">80</span>
+    <span class="token key atrule">env</span><span class="token punctuation">:</span>
+    <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> MYSQL_PASSWORD
+      <span class="token key atrule">valueFrom</span><span class="token punctuation">:</span>
+        <span class="token key atrule">secretKeyRef</span><span class="token punctuation">:</span>
+          <span class="token key atrule">name</span><span class="token punctuation">:</span> runsha.yan.test.mysql.pass
+          <span class="token key atrule">key</span><span class="token punctuation">:</span> password
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<pre class="line-numbers language-shell"><code class="language-shell">rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl apply -f secretEnv.yaml
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>进入容器后查看注入的信息是明文的</p>
+<pre class="line-numbers language-shell"><code class="language-shell"> ✘ rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl exec -it runsha.yan.test.secret.env.pod -- /bin/sh
+/ # echo $MYSQL_PASSWORD
+123456
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+<h4 id="2）使用存储卷-1"><a href="#2）使用存储卷-1" class="headerlink" title="2）使用存储卷"></a>2）使用存储卷</h4><p>和 configmap 一样，也是将存储卷转换为文件的方式注入</p>
+<pre class="line-numbers language-yaml"><code class="language-yaml"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> v1
+<span class="token key atrule">kind</span><span class="token punctuation">:</span> Pod
+<span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+  <span class="token key atrule">name</span><span class="token punctuation">:</span> runsha.yan.test.secret.mount.pod
+  <span class="token key atrule">namespace</span><span class="token punctuation">:</span> default
+  <span class="token key atrule">labels</span><span class="token punctuation">:</span>
+    <span class="token key atrule">app</span><span class="token punctuation">:</span> myapp
+  <span class="token key atrule">annotations</span><span class="token punctuation">:</span>
+    <span class="token key atrule">create-by</span><span class="token punctuation">:</span> runsha.yan
+<span class="token key atrule">spec</span><span class="token punctuation">:</span>
+  <span class="token key atrule">containers</span><span class="token punctuation">:</span>
+  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> myapp
+    <span class="token key atrule">image</span><span class="token punctuation">:</span> ikubernetes/myapp<span class="token punctuation">:</span>v1
+    <span class="token key atrule">imagePullPolicy</span><span class="token punctuation">:</span> IfNotPresent
+    <span class="token key atrule">ports</span><span class="token punctuation">:</span>
+    <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> http
+      <span class="token key atrule">containerPort</span><span class="token punctuation">:</span> <span class="token number">80</span>
+    <span class="token key atrule">volumeMounts</span><span class="token punctuation">:</span>
+    <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> mysql<span class="token punctuation">-</span>pass
+      <span class="token key atrule">mountPath</span><span class="token punctuation">:</span> /etc/mysql/
+      <span class="token key atrule">readOnly</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+  <span class="token key atrule">volumes</span><span class="token punctuation">:</span>
+  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> mysql<span class="token punctuation">-</span>pass
+    <span class="token key atrule">secret</span><span class="token punctuation">:</span>
+      <span class="token key atrule">secretName</span><span class="token punctuation">:</span> runsha.yan.test.mysql.pass
+      <span class="token key atrule">items</span><span class="token punctuation">:</span>
+      <span class="token punctuation">-</span> <span class="token key atrule">key</span><span class="token punctuation">:</span> password
+        <span class="token key atrule">path</span><span class="token punctuation">:</span> config/mymysql
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>items 中的 key 是需要映射的 configmap 中的键名，path 是键值的位置。进入容器进行查看，进入到 /etc/mysql/config/ 目录下，就可以看到 一个名字为 mymysql 的文件，内容是键值 123456。</p>
+<pre class="line-numbers language-shell"><code class="language-shell"> rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl exec -it runsha.yan.test.secret.mount.pod -- /bin/sh 
+/ # cd /etc/mysql/config/
+/etc/mysql/..2019_06_16_08_56_59.776690184/config # ls -la
+total 4
+drwxr-xr-x    2 root     root            60 Jun 16 08:56 .
+drwxr-xr-x    3 root     root            60 Jun 16 08:56 ..
+-rw-r--r--    1 root     root             6 Jun 16 08:56 mymysql
+/etc/mysql/..2019_06_16_08_56_59.776690184/config # cat mymysql
+123456/etc/mysql/..2019_06_16_08_56_59.776690184/config #
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+            </div>
+            <hr/>
+
+            
+
+            <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+
+<div id="article-share">
+    
+    <div class="social-share" data-disabled="qzone" data-wechat-qrcode-helper="<p>微信里点“发现”->“扫一扫”二维码便可查看分享。</p>"></div>
+    
+</div>
+
+<script src="/libs/share/js/social-share.min.js"></script>
+
+            
+
+
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6 overflow-policy" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fa fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/2019/06/22/Python 描述器/">
+                    <div class="card-image">
+                        
+                        
+                        <img src="/medias/featureimages/5.jpg" class="responsive-img" alt="Python 描述器">
+                        
+                        <span class="card-title">Python 描述器</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            本文转载自 此处
+我们可以用@property装饰器将方法包装成属性，这样的属性，相比于其他属性有一个优点就是可以在对属性赋值时，进行变量检查，举例代码如下
+class A:
+    def __init__(self, name, sco
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="fa fa-clock-o fa-fw icon-date"></i>2019-06-22
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fa fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/Python-进阶/" class="post-category" target="_blank">
+                                    Python 进阶
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/Python/" target="_blank">
+                        <span class="chip bg-color">Python</span>
+                    </a>
+                    
+                    <a href="/tags/描述器/" target="_blank">
+                        <span class="chip bg-color">描述器</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6 overflow-policy" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fa fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/2019/06/08/远山淡影/">
+                    <div class="card-image">
+                        
+                        <img src="https://raw.githubusercontent.com/rexyan/warehouse/master/%E5%85%83%E7%A5%9E%E6%B7%A1%E5%BD%B1.png" class="responsive-img" alt="《远山淡影》">
+                        
+                        <span class="card-title">《远山淡影》</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            第一次接触石黑一雄的作品，不愧是得过诺贝尔文学奖的作家，《远山淡影》是一本读后让自己于自己内心深刻交谈的作品，道德不同于文学作品，更不同于人的内心。不知你是否还记得你小时候的事情，你从什么时候对自己小时候的事情感到模糊。自己是否做过自己不敢
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="fa fa-clock-o fa-fw icon-date"></i>2019-06-08
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fa fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/阅读/" class="post-category" target="_blank">
+                                    阅读
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/阅读/" target="_blank">
+                        <span class="chip bg-color">阅读</span>
+                    </a>
+                    
+                    <a href="/tags/远山淡影/" target="_blank">
+                        <span class="chip bg-color">远山淡影</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+</div>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget">
+            <div class="toc-title"><i class="fa fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            // headingsOffset: -205,
+            headingSelector: 'h2, h3, h4, h5, h6',
+            collapseDepth: 6,
+        });
+
+        // modify the toc link href to support Chinese.
+        let i = 0;
+        let tocHeading = 'toc-heading-';
+        $('#toc-content a').each(function () {
+            $(this).attr('href', '#' + tocHeading + (++i));
+        });
+
+        // modify the heading title id to support Chinese.
+        i = 0;
+        $('#articleContent').children('h2, h3, h4, h5, h6').each(function () {
+            $(this).attr('id', tocHeading + (++i));
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+    });
+</script>
+    
+
+</main>
+
+
+<footer class="page-footer bg-color">
+    <div class="container row center-align">
+        <div class="col s12 m8 l8 copy-right">
+            
+                &nbsp;<i class="fa fa-area-chart"></i>&nbsp;站点总字数:&nbsp;
+                <span class="white-color">209.7k</span>
+            
+
+            
+			
+                <br>
+                
+                <span id="busuanzi_container_site_pv">
+                    <i class="fa fa-heart-o"></i>
+                    本站总访问量 <span id="busuanzi_value_site_pv" class="white-color"></span>
+                </span>
+                
+                
+                <span id="busuanzi_container_site_uv">
+                    <i class="fa fa-users"></i>
+                    次,&nbsp;访客数 <span id="busuanzi_value_site_uv" class="white-color"></span> 人.
+                </span>
+                
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+
+
+    <a href="mailto:rex_yan@126.com" class="tooltipped" target="_blank" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fa fa-envelope-open"></i>
+    </a>
+
+
+
+    <a href="tencent://AddContact/?fromId=50&fromSubId=1&subcmd=all&uin=1572402228" class="tooltipped" data-tooltip="QQ联系我: 1572402228" data-position="top" data-delay="50">
+        <i class="fa fa-qq"></i>
+    </a>
+
+
+
+    <a href="/atom.xml" class="tooltipped" target="_blank" data-tooltip="RSS 订阅" data-position="top" data-delay="50">
+        <i class="fa fa-rss"></i>
+    </a>
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+<!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fa fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script src="/js/search.js"></script>
+<script type="text/javascript">
+$(function () {
+    searchFunc("/" + "search.xml", 'searchInput', 'searchResult');
+});
+</script>
+<!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fa fa-angle-up"></i>
+    </a>
+</div>
+
+
+<script src="/libs/materialize/materialize.min.js"></script>
+<script src="/libs/masonry/masonry.pkgd.min.js"></script>
+<script src="/libs/aos/aos.js"></script>
+<script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+<script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+<script src="/js/matery.js"></script>
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+
+
+
+
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+
+
+</body>
+</html>

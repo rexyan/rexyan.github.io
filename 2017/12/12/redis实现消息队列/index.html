@@ -1,0 +1,792 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head><meta name="generator" content="Hexo 3.9.0">
+    <meta charset="utf-8">
+    <meta name="keywords" content="Redis实现消息队列, 星尘">
+    <meta name="description" content="为什么需要消息队列
+系统中引入消息队列机制是对系统一个非常大的改善。例如一个web系统中，用户做了某项操作后需要发送邮件通知到用户邮箱中。你可以使用同步方式让用户等待邮件发送完成后反馈给用户，但是这样可能会因为网络的不确定性造成用户长时间的">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Redis实现消息队列 | 星尘</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+
+    <link rel="stylesheet" type="text/css" href="/libs/awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+    <link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+    <link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+    <link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+    <link rel="stylesheet" type="text/css" href="/css/matery.css">
+    <link rel="stylesheet" type="text/css" href="/css/my.css">
+    <style type="text/css">
+        
+        code[class*="language-"], pre[class*="language-"] {
+            white-space: pre !important;
+        }
+        
+    </style>
+
+    <script src="/libs/jquery/jquery-2.2.0.min.js"></script>
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+
+<body>
+
+<header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    <span class="logo-span">星尘</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fa fa-navicon"></i></a>
+<ul class="right">
+    
+    <li class="hide-on-med-and-down">
+        <a href="/" class="waves-effect waves-light">
+            
+            <i class="fa fa-home"></i>
+            
+            <span>首页</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/categories" class="waves-effect waves-light">
+            
+            <i class="fa fa-bookmark"></i>
+            
+            <span>分类</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/books/" class="waves-effect waves-light">
+            
+            <i class="fa fa-book"></i>
+            
+            <span>书单</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/crap" class="waves-effect waves-light">
+            
+            <i class="fa fa-crosshairs"></i>
+            
+            <span>瞎扯</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/tags" class="waves-effect waves-light">
+            
+            <i class="fa fa-tags"></i>
+            
+            <span>标签</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/archives" class="waves-effect waves-light">
+            
+            <i class="fa fa-archive"></i>
+            
+            <span>归档</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/friends" class="waves-effect waves-light">
+            
+            <i class="fa fa-address-book"></i>
+            
+            <span>友情链接</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/about" class="waves-effect waves-light">
+            
+            <i class="fa fa-user-circle-o"></i>
+            
+            <span>关于</span>
+        </a>
+    </li>
+    
+    <li>
+        <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+            <i id="searchIcon" class="fa fa-search" title="搜索"></i>
+        </a>
+    </li>
+</ul>
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="/medias/logo.png" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">星尘</div>
+        <div class="logo-desc">
+            
+            任汝千圣现,我有天真佛
+            
+        </div>
+    </div>
+
+    
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li>
+            <a href="/" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-home"></i>
+                
+                首页
+            </a>
+        </li>
+        
+        <li>
+            <a href="/categories" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-bookmark"></i>
+                
+                分类
+            </a>
+        </li>
+        
+        <li>
+            <a href="/books/" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-book"></i>
+                
+                书单
+            </a>
+        </li>
+        
+        <li>
+            <a href="/crap" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-crosshairs"></i>
+                
+                瞎扯
+            </a>
+        </li>
+        
+        <li>
+            <a href="/tags" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-tags"></i>
+                
+                标签
+            </a>
+        </li>
+        
+        <li>
+            <a href="/archives" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-archive"></i>
+                
+                归档
+            </a>
+        </li>
+        
+        <li>
+            <a href="/friends" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-address-book"></i>
+                
+                友情链接
+            </a>
+        </li>
+        
+        <li>
+            <a href="/about" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-user-circle-o"></i>
+                
+                关于
+            </a>
+        </li>
+        
+        
+    </ul>
+</div>
+
+        </div>
+
+        
+    </nav>
+
+</header>
+
+
+<script src="/libs/cryptojs/crypto-js.min.js"></script>
+<script>
+    (function() {
+        let pwd = '';
+        if (pwd && pwd.length > 0) {
+            if (pwd !== CryptoJS.SHA256(prompt('请输入访问本文章的密码')).toString(CryptoJS.enc.Hex)) {
+                alert('密码错误，将返回主页！');
+                location.href = '/';
+            }
+        }
+    })();
+</script>
+
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('/medias/featureimages/4.jpg')">
+    <div class="container">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <div class="description center-align post-title">
+                        Redis实现消息队列
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<main class="post-container content">
+
+    
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+<style>
+    #articleContent h1::before,
+    #articleContent h2::before,
+    #articleContent h3::before,
+    #articleContent h4::before,
+    #articleContent h5::before,
+    #articleContent h6::before {
+        display: block;
+        content: " ";
+        height: 100px;
+        margin-top: -100px;
+        visibility: hidden;
+    }
+
+    #articleContent :focus {
+        outline: none;
+    }
+
+    .toc-fixed {
+        position: fixed;
+        top: 64px;
+    }
+
+    .toc-widget {
+        padding-left: 20px;
+    }
+
+    .toc-widget .toc-title {
+        margin: 35px 0 15px 0;
+        padding-left: 17px;
+        font-size: 1.5rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    .toc-widget ol {
+        padding: 0;
+        list-style: none;
+    }
+
+    #toc-content ol {
+        padding-left: 10px;
+    }
+
+    #toc-content ol li {
+        padding-left: 10px;
+    }
+
+    #toc-content .toc-link:hover {
+        color: #42b983;
+        font-weight: 700;
+        text-decoration: underline;
+    }
+
+    #toc-content .toc-link::before {
+        background-color: transparent;
+        max-height: 25px;
+    }
+
+    #toc-content .is-active-link {
+        color: #42b983;
+    }
+
+    #toc-content .is-active-link::before {
+        background-color: #42b983;
+    }
+
+    #floating-toc-btn {
+        position: fixed;
+        right: 20px;
+        bottom: 76px;
+        padding-top: 15px;
+        margin-bottom: 0;
+        z-index: 998;
+    }
+
+    #floating-toc-btn .btn-floating {
+        width: 48px;
+        height: 48px;
+    }
+
+    #floating-toc-btn .btn-floating i {
+        line-height: 48px;
+        font-size: 1.4rem;
+    }
+</style>
+<div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/优化/" target="_blank">
+                                <span class="chip bg-color">优化</span>
+                            </a>
+                        
+                            <a href="/tags/技术/" target="_blank">
+                                <span class="chip bg-color">技术</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fa fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/奇淫技巧/" class="post-category" target="_blank">
+                                奇淫技巧
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                <div class="post-date info-break-policy">
+                    <i class="fa fa-calendar-minus-o fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2017-12-12
+                </div>
+
+                
+                    
+                    <div class="info-break-policy">
+                        <i class="fa fa-file-word-o fa-fw"></i>文章字数:&nbsp;&nbsp;
+                        3k
+                    </div>
+                    
+
+                    
+                    <div class="info-break-policy">
+                        <i class="fa fa-clock-o fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                        11 分
+                    </div>
+                    
+                
+				
+				
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="fa fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+        </div>
+        <hr class="clearfix">
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <p>为什么需要消息队列</p>
+<p>系统中引入消息队列机制是对系统一个非常大的改善。例如一个web系统中，用户做了某项操作后需要发送邮件通知到用户邮箱中。你可以使用同步方式让用户等待邮件发送完成后反馈给用户，但是这样可能会因为网络的不确定性造成用户长时间的等待从而影响用户体验。</p>
+<p>有些场景下是不可能使用同步方式等待完成的，那些需要后台花费大量时间的操作。例如极端例子，一个在线编译系统任务，后台编译完成需要30分钟。这种场景的设计不可能同步等待后在回馈，必须是先反馈用户随后异步处理完成，再等待处理完成后根据情况再此反馈用户与否。</p>
+<p>另外适用消息队列的情况是那些系统处理能力有限的情况下，先使用队列机制把任务暂时存放起来，系统再一个个轮流处理掉排队的任务。这样在系统吞吐量不足的情况下也能稳定的处理掉高并发的任务。</p>
+<p>消息队列可以用来做排队机制，只要系统需要用到排队机制的地方就可以使用消息队列来作。</p>
+<p>rabbitmq的优先级做法<br>目前成熟的消息队列产品有很多，著名的例如rabbitmq。它使用起来相对还是比较简单的，功能也相对比较丰富，一般场合下是完全够用的。但是有个很烦人的就是它不支持优先级。<br>例如一个发邮件的任务，某些特权用户希望它的邮件能够更加及时的发送出去，至少比普通用户要优先对待。默认情况下rabbitmq是无法处理掉 的，扔给rabbitmq的任务都是FIFO先进先出。但是我们可以使用一些变通的技巧来支持这些优先级。创建多个队列，并为rabbitmq的消费者设 置相应的路由规则。</p>
+<p>例如默认情况下有这样一个队列，我们拿list来模拟 [task1, task2, task3]，消费者轮流按照FIFO的原则一个个拿出task来处理掉。如果有高优先级的任务进来，它也只能跟在最后被处理[task1, task2, task3, higitask1]. 但是如果使用两个队列，一个高优先级队列，一个普通优先级队列。 普通优先级[task1, task2, task3], 高优先级[hightask1 ] 然后我们设置消费者的路由让消费者随机从任意队列中取数据即可。</p>
+<p>并且我们可以定义一个专门处理高优先级队列的消费者，它空闲的时候也不处理低优先级队列的数据。这类似银行的VIP柜台，普通客户在银行取号排队，一个VIP来了他虽然没有从取号机里拿出一个排在普通会员前面的票，但是他还是可以更快地直接走VIP通道。</p>
+<p>使用rabbitmq来做支持优先级的消息队列的话，就像是上面所述同银行VIP会员一样，走不同的通道。但是这种方式只是相对的优先级，做不 到绝对的优先级控制，例如我希望某一个优先级高的任务在绝对意义上要比其他普通任务优先处理掉，这样上面的方案是行不通的。因为rabbitmq的消费者 只知道再自己空闲的情况下从自己关心的队列中“随机”取某一个队列里面的第一个数据来处理，它没法控制优先取找哪一个队列。或者更加细粒度的优先级控制。 或者你系统里面设置的优先级有10多种。这样使用rabbitmq也是很难实现的。</p>
+<p>但是如果使用redis来做队列的话上面的需求都可以实现。</p>
+<p>使用redis怎么做消息队列<br>首先redis它的设计是用来做缓存的，但是由于它自身的某种特性使得他可以用来做消息队列。它有几个阻塞式的API可以使用，正是这些阻塞式的API让他有做消息队列的能力。</p>
+<p>试想一下在”数据库解决所有问题“的思路下，不使用消息队列也是可以完成你的需求的。我们把任务全部存放在数据库然后通过不断的轮询方式来取任 务处理。这种做法虽然可以完成你的任务但是做法很粗劣。但是如果你的数据库接口提供一个阻塞的方法那么就可以避免轮询操作了，你的数据库也可以用来做消息 队列，只不过目前的数据库还没有这样的接口。<br>另外做消息队列的其他特性例如FIFO也很容易实现，只需要一个List对象从头取数据，从尾部塞数据即可实现。<br>redis能做消息队列得益于他list对象blpop brpop接口以及Pub/Sub(发布/订阅)的某些接口。他们都是阻塞版的，所以可以用来做消息队列。</p>
+<p>redis消息队列优先级的实现<br>一些基础redis基础知识的说明</p>
+<pre><code>redis&gt; blpop tasklist 0
+&quot;im task 01&quot;
+</code></pre><p>这个例子使用blpop命令会阻塞方式地从tasklist列表中取头一个数据，最后一个参数就是等待超时的时间。如果设置为0则表示无限等 待。另外redis存放的数据都只能是string类型，所以在任务传递的时候只能是传递字符串。我们只需要简单的将负责数据序列化成json格式的字符 串，然后消费者那边再转换一下即可。</p>
+<p>这里我们的示例语言使用python，链接redis的库使用redis-py. 如果你有些编程基础把它切换成自己喜欢的语言应该是没问题的。</p>
+<p>简单的FIFO队列</p>
+<pre><code>import redis, time
+def handle(task):
+    print task
+    time.sleep(4)
+
+def main():
+    pool = redis.ConnectionPool(host=&#39;localhost&#39;, port=6379, db=0)
+    r = redis.Redis(connection_pool=pool)
+    while 1:
+        result = r.brpop(&#39;tasklist&#39;, 0)
+        handle(result[1])
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</code></pre><p>上例子即使一个最简单的消费者，我们通过一个无限循环不断地从redis的队列中取数据。如果队列中没有数据则没有超时的阻塞在那里，有数据则取出往下执行。<br>一般情况取出来是个复杂的字符串，我们可能需要将其格式化后作为再传给处理函数,但是为了简单我们的例子就是一个普通字符串。另外例子中的处理函数不做任何处理，仅仅sleep 用来模拟耗时的操作。</p>
+<p>我们另开一个redis的客户端来模拟生产者，自带的客户端就可以。多往tasklist 队列里面塞上一些数据。随后在消费者端便会看到这些模拟出来的任务被挨个消费掉。</p>
+<pre><code>redis&gt; lpush tasklist &#39;im task 01&#39;
+redis&gt; lpush tasklist &#39;im task 02&#39;
+redis&gt; lpush tasklist &#39;im task 03&#39;
+redis&gt; lpush tasklist &#39;im task 04&#39;
+redis&gt; lpush tasklist &#39;im task 05&#39;
+</code></pre><p>简单优先级的队列,假设一种简单的需求，只需要高优先级的比低优先级的任务率先处理掉。其他任务之间的顺序一概不管，这种我们只需要在在遇到高优先级任务的时候将它塞到队列的前头，而不是push到最后面即可。因为我们的队列是使用的redis的 list,所以很容易实现。遇到高优先级的使用rpush 遇到低优先级的使用lpush,随后会看到，高优先级的总是比低优先级的率先执行。但是这个方案的缺点是高优先级的任务之间的执行顺序是先进后出的。</p>
+<pre><code>redis&gt; lpush tasklist &#39;im task 01&#39;
+redis&gt; lpush tasklist &#39;im task 02&#39;
+redis&gt; rpush tasklist &#39;im high task 01&#39;
+redis&gt; rpush tasklist &#39;im high task 01&#39;
+redis&gt; lpush tasklist &#39;im task 03&#39;
+redis&gt; rpush tasklist &#39;im high task 03&#39;
+</code></pre><p>较为完善的队列<br>例子2中只是简单的将高优先级的任务塞到队列最前面，低优先级的塞到最后面。这样保证不了高优先级任务之间的顺序。<br>假设当所有的任务都是高优先级的话，那么他们的执行顺序将是相反的。这样明显违背了队列的FIFO原则。<br>不过只要稍加改进就可以完善我们的队列。</p>
+<p>跟使用rabbitmq一样，我们设置两个队列，一个高优先级一个低优先级的队列。高优先级任务放到高队列中，低的放在低优先队列中。redis和rabbitmq不同的是它可以要求队列消费者从哪个队列里面先读。</p>
+<pre><code>def main():
+    pool = redis.ConnectionPool(host=&#39;localhost&#39;, port=6379, db=0)
+    r = redis.Redis(connection_pool=pool)
+    while 1:
+        result = r.brpop([&#39;high_task_queue&#39;, &#39;low_task_queue&#39;], 0)
+        handle(result[1])
+</code></pre><p>上面的代码，会阻塞地从’high_task_queue’, ‘low_task_queue’这两个队列里面取数据，如果第一个没有再从第二个里面取。<br>所以只需要将队列消费者做这样的改进便可以达到目的。</p>
+<pre><code>redis&gt; lpush low_task_queue low001
+redis&gt; lpush low_task_queue low002
+redis&gt; lpush low_task_queue low003
+redis&gt; lpush low_task_queue low004
+redis&gt; lpush high_task_queue low001
+redis&gt; lpush high_task_queue low002
+redis&gt; lpush high_task_queue low003
+redis&gt; lpush high_task_queue low004
+</code></pre><p>通过上面的测试看到，高优先级的会被率先执行，并且高优先级之间也是保证了FIFO的原则。<br>这种方案我们可以支持不同阶段的优先级队列，例如高中低三个级别或者更多的级别都可以。</p>
+<p>优先级级别很多的情况<br>假设有个这样的需求，优先级不是简单的高中低或者0-10这些固定的级别。而是类似0-99999这么多级别。那么我们第三种方案将不太合适了。<br>虽然redis有sorted set这样的可以排序的数据类型，看是很可惜它没有阻塞版的接口。于是我们还是只能使用list类型通过其他方式来完成目的。</p>
+<p>有个简单的做法我们可以只设置一个队列，并保证它是按照优先级排序号的。然后通过二分查找法查找一个任务合适的位置，并通过 lset 命令插入到相应的位置。<br>例如队列里面包含着写优先级的任务[1, 3, 6, 8, 9, 14]，当有个优先级为7的任务过来，我们通过自己的二分算法一个个从队列里面取数据出来反和目标数据比对，计算出相应的位置然后插入到指定地点即可。</p>
+<p>因为二分查找是比较快的，并且redis本身也都在内存中，理论上速度是可以保证的。但是如果说数据量确实很大的话我们也可以通过一些方式来调优。</p>
+<p>回想我们第三种方案，把第三种方案结合起来就会很大程度上减少开销。例如数据量十万的队列，它们的优先级也是随机0-十万的区间。我们可以设置 10个或者100个不同的队列，0-一万的优先级任务投放到1号队列，一万-二万的任务投放到2号队列。这样将一个队列按不同等级拆分后它单个队列的数据 就减少许多，这样二分查找匹配的效率也会高一点。但是数据所占的资源基本是不变的，十万数据该占多少内存还是多少。只是系统里面多了一些队列而已。</p>
+
+            </div>
+            <hr/>
+
+            
+
+            <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+
+<div id="article-share">
+    
+    <div class="social-share" data-disabled="qzone" data-wechat-qrcode-helper="<p>微信里点“发现”->“扫一扫”二维码便可查看分享。</p>"></div>
+    
+</div>
+
+<script src="/libs/share/js/social-share.min.js"></script>
+
+            
+
+
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6 overflow-policy" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fa fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/2017/12/18/@classmethod和staticmethod的区别/">
+                    <div class="card-image">
+                        
+                        
+                        <img src="/medias/featureimages/19.jpg" class="responsive-img" alt="classmethod和staticmethod的区别">
+                        
+                        <span class="card-title">classmethod和staticmethod的区别</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            一般来说，要使用某个类的方法，需要先实例化一个对象再调用方法。而使用@staticmethod或@classmethod，就可以不需要实例化，直接类名.方法名()来调用。这有利于组织代码，把某些应该属于某个类的函数给放到那个类里去，同时有利
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="fa fa-clock-o fa-fw icon-date"></i>2017-12-18
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fa fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/Python/" class="post-category" target="_blank">
+                                    Python
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/优化/" target="_blank">
+                        <span class="chip bg-color">优化</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6 overflow-policy" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fa fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/2017/12/04/MySQL事务/">
+                    <div class="card-image">
+                        
+                        
+                        <img src="/medias/featureimages/8.jpg" class="responsive-img" alt="MySQl事务">
+                        
+                        <span class="card-title">MySQl事务</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            介绍
+在 MySQL 中只有使用了 Innodb 数据库引擎的数据库或表才支持事务。
+事务处理可以用来维护数据库的完整性，保证成批的 SQL 语句要么全部执行，要么全部不执行
+事务用来管理 insert,update,delete 语句
+一
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="fa fa-clock-o fa-fw icon-date"></i>2017-12-04
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fa fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/技术/" class="post-category" target="_blank">
+                                    技术
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/MySQL/" target="_blank">
+                        <span class="chip bg-color">MySQL</span>
+                    </a>
+                    
+                    <a href="/tags/数据库事务/" target="_blank">
+                        <span class="chip bg-color">数据库事务</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+</div>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget">
+            <div class="toc-title"><i class="fa fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            // headingsOffset: -205,
+            headingSelector: 'h2, h3, h4, h5, h6',
+            collapseDepth: 6,
+        });
+
+        // modify the toc link href to support Chinese.
+        let i = 0;
+        let tocHeading = 'toc-heading-';
+        $('#toc-content a').each(function () {
+            $(this).attr('href', '#' + tocHeading + (++i));
+        });
+
+        // modify the heading title id to support Chinese.
+        i = 0;
+        $('#articleContent').children('h2, h3, h4, h5, h6').each(function () {
+            $(this).attr('id', tocHeading + (++i));
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+    });
+</script>
+    
+
+</main>
+
+
+<footer class="page-footer bg-color">
+    <div class="container row center-align">
+        <div class="col s12 m8 l8 copy-right">
+            
+                &nbsp;<i class="fa fa-area-chart"></i>&nbsp;站点总字数:&nbsp;
+                <span class="white-color">209.7k</span>
+            
+
+            
+			
+                <br>
+                
+                <span id="busuanzi_container_site_pv">
+                    <i class="fa fa-heart-o"></i>
+                    本站总访问量 <span id="busuanzi_value_site_pv" class="white-color"></span>
+                </span>
+                
+                
+                <span id="busuanzi_container_site_uv">
+                    <i class="fa fa-users"></i>
+                    次,&nbsp;访客数 <span id="busuanzi_value_site_uv" class="white-color"></span> 人.
+                </span>
+                
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+
+
+    <a href="mailto:rex_yan@126.com" class="tooltipped" target="_blank" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fa fa-envelope-open"></i>
+    </a>
+
+
+
+    <a href="tencent://AddContact/?fromId=50&fromSubId=1&subcmd=all&uin=1572402228" class="tooltipped" data-tooltip="QQ联系我: 1572402228" data-position="top" data-delay="50">
+        <i class="fa fa-qq"></i>
+    </a>
+
+
+
+    <a href="/atom.xml" class="tooltipped" target="_blank" data-tooltip="RSS 订阅" data-position="top" data-delay="50">
+        <i class="fa fa-rss"></i>
+    </a>
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+<!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fa fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script src="/js/search.js"></script>
+<script type="text/javascript">
+$(function () {
+    searchFunc("/" + "search.xml", 'searchInput', 'searchResult');
+});
+</script>
+<!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fa fa-angle-up"></i>
+    </a>
+</div>
+
+
+<script src="/libs/materialize/materialize.min.js"></script>
+<script src="/libs/masonry/masonry.pkgd.min.js"></script>
+<script src="/libs/aos/aos.js"></script>
+<script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+<script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+<script src="/js/matery.js"></script>
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+
+
+
+
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+
+
+</body>
+</html>

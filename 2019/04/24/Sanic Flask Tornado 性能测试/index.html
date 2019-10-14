@@ -1,0 +1,993 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head><meta name="generator" content="Hexo 3.9.0">
+    <meta charset="utf-8">
+    <meta name="keywords" content="Sanic Flask Tornado 性能测试, 星尘">
+    <meta name="description" content="这其实是公司安排的一个任务，对 Sanic 框架进行简单的研究，并对比一下目前的性能。例子中我们使用 wrk 进行简单的压力测试，对简单的 HTTP 请求进行分析。
+Sanic安装 Sanicpip install sanic
+编写简单的 ">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Sanic Flask Tornado 性能测试 | 星尘</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+
+    <link rel="stylesheet" type="text/css" href="/libs/awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+    <link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+    <link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+    <link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+    <link rel="stylesheet" type="text/css" href="/css/matery.css">
+    <link rel="stylesheet" type="text/css" href="/css/my.css">
+    <style type="text/css">
+        
+        code[class*="language-"], pre[class*="language-"] {
+            white-space: pre !important;
+        }
+        
+    </style>
+
+    <script src="/libs/jquery/jquery-2.2.0.min.js"></script>
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+
+<body>
+
+<header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    <span class="logo-span">星尘</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fa fa-navicon"></i></a>
+<ul class="right">
+    
+    <li class="hide-on-med-and-down">
+        <a href="/" class="waves-effect waves-light">
+            
+            <i class="fa fa-home"></i>
+            
+            <span>首页</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/categories" class="waves-effect waves-light">
+            
+            <i class="fa fa-bookmark"></i>
+            
+            <span>分类</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/books/" class="waves-effect waves-light">
+            
+            <i class="fa fa-book"></i>
+            
+            <span>书单</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/crap" class="waves-effect waves-light">
+            
+            <i class="fa fa-crosshairs"></i>
+            
+            <span>瞎扯</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/tags" class="waves-effect waves-light">
+            
+            <i class="fa fa-tags"></i>
+            
+            <span>标签</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/archives" class="waves-effect waves-light">
+            
+            <i class="fa fa-archive"></i>
+            
+            <span>归档</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/friends" class="waves-effect waves-light">
+            
+            <i class="fa fa-address-book"></i>
+            
+            <span>友情链接</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/about" class="waves-effect waves-light">
+            
+            <i class="fa fa-user-circle-o"></i>
+            
+            <span>关于</span>
+        </a>
+    </li>
+    
+    <li>
+        <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+            <i id="searchIcon" class="fa fa-search" title="搜索"></i>
+        </a>
+    </li>
+</ul>
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="/medias/logo.png" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">星尘</div>
+        <div class="logo-desc">
+            
+            任汝千圣现,我有天真佛
+            
+        </div>
+    </div>
+
+    
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li>
+            <a href="/" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-home"></i>
+                
+                首页
+            </a>
+        </li>
+        
+        <li>
+            <a href="/categories" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-bookmark"></i>
+                
+                分类
+            </a>
+        </li>
+        
+        <li>
+            <a href="/books/" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-book"></i>
+                
+                书单
+            </a>
+        </li>
+        
+        <li>
+            <a href="/crap" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-crosshairs"></i>
+                
+                瞎扯
+            </a>
+        </li>
+        
+        <li>
+            <a href="/tags" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-tags"></i>
+                
+                标签
+            </a>
+        </li>
+        
+        <li>
+            <a href="/archives" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-archive"></i>
+                
+                归档
+            </a>
+        </li>
+        
+        <li>
+            <a href="/friends" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-address-book"></i>
+                
+                友情链接
+            </a>
+        </li>
+        
+        <li>
+            <a href="/about" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-user-circle-o"></i>
+                
+                关于
+            </a>
+        </li>
+        
+        
+    </ul>
+</div>
+
+        </div>
+
+        
+    </nav>
+
+</header>
+
+
+<script src="/libs/cryptojs/crypto-js.min.js"></script>
+<script>
+    (function() {
+        let pwd = '';
+        if (pwd && pwd.length > 0) {
+            if (pwd !== CryptoJS.SHA256(prompt('请输入访问本文章的密码')).toString(CryptoJS.enc.Hex)) {
+                alert('密码错误，将返回主页！');
+                location.href = '/';
+            }
+        }
+    })();
+</script>
+
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('https://raw.githubusercontent.com/rexyan/warehouse/master/8-Python-Web-Frameworks-2018.jpg')">
+    <div class="container">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <div class="description center-align post-title">
+                        Sanic Flask Tornado 性能测试
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<main class="post-container content">
+
+    
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+<style>
+    #articleContent h1::before,
+    #articleContent h2::before,
+    #articleContent h3::before,
+    #articleContent h4::before,
+    #articleContent h5::before,
+    #articleContent h6::before {
+        display: block;
+        content: " ";
+        height: 100px;
+        margin-top: -100px;
+        visibility: hidden;
+    }
+
+    #articleContent :focus {
+        outline: none;
+    }
+
+    .toc-fixed {
+        position: fixed;
+        top: 64px;
+    }
+
+    .toc-widget {
+        padding-left: 20px;
+    }
+
+    .toc-widget .toc-title {
+        margin: 35px 0 15px 0;
+        padding-left: 17px;
+        font-size: 1.5rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    .toc-widget ol {
+        padding: 0;
+        list-style: none;
+    }
+
+    #toc-content ol {
+        padding-left: 10px;
+    }
+
+    #toc-content ol li {
+        padding-left: 10px;
+    }
+
+    #toc-content .toc-link:hover {
+        color: #42b983;
+        font-weight: 700;
+        text-decoration: underline;
+    }
+
+    #toc-content .toc-link::before {
+        background-color: transparent;
+        max-height: 25px;
+    }
+
+    #toc-content .is-active-link {
+        color: #42b983;
+    }
+
+    #toc-content .is-active-link::before {
+        background-color: #42b983;
+    }
+
+    #floating-toc-btn {
+        position: fixed;
+        right: 20px;
+        bottom: 76px;
+        padding-top: 15px;
+        margin-bottom: 0;
+        z-index: 998;
+    }
+
+    #floating-toc-btn .btn-floating {
+        width: 48px;
+        height: 48px;
+    }
+
+    #floating-toc-btn .btn-floating i {
+        line-height: 48px;
+        font-size: 1.4rem;
+    }
+</style>
+<div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/Python/" target="_blank">
+                                <span class="chip bg-color">Python</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fa fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/Python/" class="post-category" target="_blank">
+                                Python
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                <div class="post-date info-break-policy">
+                    <i class="fa fa-calendar-minus-o fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2019-04-24
+                </div>
+
+                
+                    
+                    <div class="info-break-policy">
+                        <i class="fa fa-file-word-o fa-fw"></i>文章字数:&nbsp;&nbsp;
+                        2k
+                    </div>
+                    
+
+                    
+                    <div class="info-break-policy">
+                        <i class="fa fa-clock-o fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                        9 分
+                    </div>
+                    
+                
+				
+				
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="fa fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+        </div>
+        <hr class="clearfix">
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <p>这其实是公司安排的一个任务，对 Sanic 框架进行简单的研究，并对比一下目前的性能。例子中我们使用 wrk 进行简单的压力测试，对简单的 HTTP 请求进行分析。<a id="more"></a></p>
+<h3 id="Sanic"><a href="#Sanic" class="headerlink" title="Sanic"></a>Sanic</h3><h4 id="安装-Sanic"><a href="#安装-Sanic" class="headerlink" title="安装 Sanic"></a>安装 Sanic</h4><pre><code>pip install sanic
+</code></pre><h4 id="编写简单的-Sanic-异步-view"><a href="#编写简单的-Sanic-异步-view" class="headerlink" title="编写简单的 Sanic 异步 view"></a>编写简单的 Sanic 异步 view</h4><pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">from</span> sanic <span class="token keyword">import</span> Sanic
+<span class="token keyword">from</span> sanic<span class="token punctuation">.</span>views <span class="token keyword">import</span> HTTPMethodView
+<span class="token keyword">from</span> sanic<span class="token punctuation">.</span>response <span class="token keyword">import</span> text
+
+app <span class="token operator">=</span> Sanic<span class="token punctuation">(</span><span class="token string">'sanic_demo'</span><span class="token punctuation">)</span>
+
+
+<span class="token keyword">class</span> <span class="token class-name">SimpleAsyncView</span><span class="token punctuation">(</span>HTTPMethodView<span class="token punctuation">)</span><span class="token punctuation">:</span>
+
+    <span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">get</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> request<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> text<span class="token punctuation">(</span><span class="token string">'I am async get method'</span><span class="token punctuation">)</span>
+
+    <span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">post</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> request<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> text<span class="token punctuation">(</span><span class="token string">'I am async post method'</span><span class="token punctuation">)</span>
+
+    <span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">put</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> request<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> text<span class="token punctuation">(</span><span class="token string">'I am async put method'</span><span class="token punctuation">)</span>
+
+
+app<span class="token punctuation">.</span>add_route<span class="token punctuation">(</span>SimpleAsyncView<span class="token punctuation">.</span>as_view<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token string">'/async'</span><span class="token punctuation">)</span>
+
+<span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">'__main__'</span><span class="token punctuation">:</span>
+    app<span class="token punctuation">.</span>run<span class="token punctuation">(</span>host<span class="token operator">=</span><span class="token string">"0.0.0.0"</span><span class="token punctuation">,</span> port<span class="token operator">=</span><span class="token number">8673</span><span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h4 id="测试"><a href="#测试" class="headerlink" title="测试"></a>测试</h4><h5 id="介绍"><a href="#介绍" class="headerlink" title="介绍"></a>介绍</h5><p>这里的 web 压力测试使用 wrk,  具体使用方法可参考 <a href="https://github.com/wg/wrk" target="_blank" rel="noopener">wrk</a> 。另外因为每个 web 框架都自带 Server（Sanci， Tornado 二者本身可以作为 Web Server，Flask 自带 WSGI 服务），为了保证每个 web 框架的统一性，这里都统一使用 Gunicorn 部署服务，并且 worker 数量统一为16。另外也保证环境的统一，我们使用同一个镜像来进行测试。</p>
+<p>gunicorn 配置大致如下：</p>
+<pre class="line-numbers language-config"><code class="language-config">bind = '0.0.0.0:8673'
+workers = 16
+backlog = 2048
+#worker_class = "gevent"
+debug = False
+proc_name = 'gunicorn.pid'
+pidfile = 'gunicorn.pid'
+logfile = 'debug.log'
+loglevel='debug'
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h5 id="镜像"><a href="#镜像" class="headerlink" title="镜像"></a>镜像</h5><pre class="line-numbers language-shell"><code class="language-shell">docker pull python-3.6
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<h5 id="发布脚本"><a href="#发布脚本" class="headerlink" title="发布脚本"></a>发布脚本</h5><pre class="line-numbers language-shell"><code class="language-shell">#!/bin/sh
+
+# 启动类型，支持uwsgi 或 gunicorn
+start_type="gunicorn"
+
+# 容器名称
+container_name="sanic_demo"
+
+# 运行端口
+run_port="8673"
+
+# 容器内部运行端口
+container_run_port="8673"
+
+#宿主机代码地址
+code_path="/Users/rex/Documents/Projects/Python/sanic_demo/sanic_part/"
+
+# 映射到容器内部的代码地址
+container_code_path="/app/docker/www/sanic_demo/"
+
+# 镜像名称
+image="sanic_demo:3.6"
+
+
+
+kill_container(){
+    # 停止并且删除待发布正在运行的容器
+    echo "**INFO**: " 停止旧服务: $container_name
+    docker rm -f $container_name
+    echo "**INFO**: " 停止 $container_name 服务成功！: 
+}
+
+pull_new_image(){
+    # 拉取本次最新的镜像
+    echo "**INFO**: " 拉取所需镜像: $image
+    docker pull $image
+    echo "**INFO**: " 拉取镜像 $image 成功！ 
+}
+
+
+publish(){
+    # 启动服务
+    echo "**INFO**: " 启动服务, 运行类型为 $start_type:
+
+    if [ "$start_type" == "uwsgi" ]
+        then
+            docker run -d -p $run_port:$container_run_port -v $code_path:$container_code_path -e SERVICE_NAME=$container_name -e SERVICE_TAGS=$container_name -w $container_code_path --name=$container_name $image nohup uwsgi --ini uwsgi.ini --wsgi-disable-file-wrapper
+    elif [ "$start_type" == "gunicorn" ]
+        then
+            docker run -d -p $run_port:$container_run_port -v $code_path:$container_code_path -e SERVICE_NAME=$container_name -e SERVICE_TAGS=$container_name -w $container_code_path --name=$container_name $image nohup gunicorn -c gunicorn.conf -t 60 server:app
+    else
+        echo "**INFO**: " 目前只支持 uwsgi 或 gunicorn 发布 Python 项目！
+    fi
+}
+
+get_publish_status(){
+    # 获取本次发布状态:
+    grep_container_name=`docker ps --format "{{.Names}}" | grep $container_name` 
+    if [ "$grep_container_name" == "$container_name" ]
+        then
+            echo "**INFO**: " $container_name 发布成功！！！
+    else
+        echo "**INFO**: " $container_name 发布失败！！！
+    fi
+}
+
+get_all_container_status(){
+    # 查看所有容器状态
+    docker ps
+}
+
+
+main(){
+    kill_container
+    pull_new_image
+    publish
+    get_publish_status
+    # get_all_container_status
+}
+
+main
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h5 id="启动"><a href="#启动" class="headerlink" title="启动"></a>启动</h5><p>输出日志如下：</p>
+<pre><code>192:docker rex$ sh publish.sh 
+**INFO**:  停止旧服务: sanic_demo
+sanic_demo
+**INFO**:  停止 sanic_demo 服务成功！:
+**INFO**:  拉取所需镜像: sanic_demo:3.6
+Error response from daemon: pull access denied for sanic_demo, repository does not exist or may require &#39;docker login&#39;
+**INFO**:  拉取镜像 sanic_demo:3.6 成功！
+**INFO**:  启动服务, 运行类型为 gunicorn:
+2a2ce354f08b4d62d86f600f19f691ff8062798d00308cd0e7abb683010b77ae
+**INFO**:  sanic_demo 发布成功！！！
+</code></pre><p>查看容器状态：</p>
+<pre><code>192:~ rex$ docker ps 
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS                    NAMES
+2a2ce354f08b        sanic_demo:3.6      &quot;nohup gunicorn -c g…&quot;   5 seconds ago       Up 3 seconds        0.0.0.0:8673-&gt;8673/tcp   sanic_demo
+</code></pre><p>访问 <a href="http://127.0.0.1:8673/async" target="_blank" rel="noopener">http://127.0.0.1:8673/async</a> 却得到一个 <strong>Internal Server Error</strong> 后来查询官方文档，才知道若 sanic 使用 gunicorn 启动，那么需要加上  –worker-class sanic.worker.GunicornWorker 参数。加上后正常启动，访问页面，就能看到返回的内容了。</p>
+<h5 id="压力测试"><a href="#压力测试" class="headerlink" title="压力测试"></a>压力测试</h5><p>安装 wrk</p>
+<pre><code>brew install wrk
+</code></pre><p>并发测试</p>
+<pre class="line-numbers language-shell"><code class="language-shell">wrk -t4 -c1000 -d30s -T30s --latency http://127.0.0.1:8673/async
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>这条命令的意思是用4个线程来模拟 1000 个并发连接，整个测试持续 30 秒，连接超时 30 秒，打印出请求的延迟统计信息。需要注意的是 wrk 使用异步非阻塞的 io，并不是用线程去模拟并发连接，因此不需要设置很多的线程，一般根据 CPU 的核心数量设置即可。另外 -c 参数设置的值必须大于 -t 参数的值。</p>
+<pre><code>192:~ rex$ wrk -t4 -c1000 -d30s -T30s --latency http://127.0.0.1:8673/async
+Running 30s test @ http://127.0.0.1:8673/async
+  4 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency   190.17ms  137.14ms   1.31s    78.88%
+    Req/Sec   311.78     97.57   700.00     69.82%
+  Latency Distribution
+     50%  163.99ms
+     75%  248.01ms
+     90%  336.62ms
+     99%  646.97ms
+  37275 requests in 30.05s, 4.98MB read
+  Socket errors: connect 751, read 361, write 1, timeout 0
+Requests/sec:   1240.28
+Transfer/sec:    169.57KB
+</code></pre><p>主要关注的几个数据是</p>
+<ul>
+<li><code>Socket errors</code> socket 错误的数量</li>
+<li><code>Requests/sec</code> 每秒请求数量，也就是并发能力</li>
+<li><code>Latency</code> 延迟情况及其分布</li>
+</ul>
+<p><strong>由此可以看到使用 gunicorn 部署 Requests/sec 为 1240.28</strong>。</p>
+<p>若不使用 gunicorn 部署，而是直接启动 server.py, 测试结果如下:</p>
+<pre><code>192:~ rex$ wrk -t4 -c1000 -d30s -T30s --latency http://127.0.0.1:8673/async
+Running 30s test @ http://127.0.0.1:8673/async
+  4 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    25.00ms    9.13ms  43.74ms   61.46%
+    Req/Sec     2.41k   289.07     4.85k    74.20%
+  Latency Distribution
+     50%   19.40ms
+     75%   34.88ms
+     90%   36.38ms
+     99%   39.80ms
+  288839 requests in 30.10s, 38.56MB read
+  Socket errors: connect 751, read 222, write 0, timeout 0
+Requests/sec:   9595.17
+Transfer/sec:      1.28MB
+</code></pre><p><strong>由此可以看到不使用 gunicorn 部署 Requests/sec 为 9595.17</strong> 刚开始我也不相信，所以这里做了两遍的测试，结果出来结果都是一样。特意去官网上查了一下，sanic 官方说明了两种部署方式，一种是直接运行，另一种使用时 gunicorn，但是并没有说明两种方式在性能上的差异性。</p>
+<p>接下来我们可以对 Flask 进行测试</p>
+<h3 id="Flask"><a href="#Flask" class="headerlink" title="Flask"></a>Flask</h3><h4 id="安装-Flask"><a href="#安装-Flask" class="headerlink" title="安装 Flask"></a>安装 Flask</h4><pre><code>pip install flask
+</code></pre><h4 id="编写简单的-Flask-view"><a href="#编写简单的-Flask-view" class="headerlink" title="编写简单的 Flask view"></a>编写简单的 Flask view</h4><pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">from</span> flask <span class="token keyword">import</span> Flask
+
+app <span class="token operator">=</span> Flask<span class="token punctuation">(</span>__name__<span class="token punctuation">)</span>
+
+
+@app<span class="token punctuation">.</span>route<span class="token punctuation">(</span><span class="token string">"/flask"</span><span class="token punctuation">)</span>
+<span class="token keyword">def</span> <span class="token function">hello</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">return</span> <span class="token string">"I am flask get method"</span>
+
+
+<span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">"__main__"</span><span class="token punctuation">:</span>
+    app<span class="token punctuation">.</span>run<span class="token punctuation">(</span>host<span class="token operator">=</span><span class="token string">"127.0.0.1"</span><span class="token punctuation">,</span> port<span class="token operator">=</span><span class="token string">"8673"</span><span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>有了 Sanic 的部署和设置，Flask 部署起来很轻松。只需将 publish.sh 中的宿主机代码地址改为 /Users/rex/Documents/Projects/Python/sanic_demo/sanic_part/ 即可。同时去除 –worker-class sanic.worker.GunicornWorker 参数。容器启动之后就能通过浏览器访问到页面了。</p>
+<h4 id="测试-1"><a href="#测试-1" class="headerlink" title="测试"></a>测试</h4><p>其余准备工作和测试 Sanic 差不对，这里就直接进行压力测试了。</p>
+<h5 id="压力测试-1"><a href="#压力测试-1" class="headerlink" title="压力测试"></a>压力测试</h5><p>并发测试</p>
+<pre><code>wrk -t4 -c1000 -d30s -T30s --latency http://127.0.0.1:8673/flask
+</code></pre><pre><code>192:~ rex$ wrk -t4 -c1000 -d30s -T30s --latency http://127.0.0.1:8673/flask
+Running 30s test @ http://127.0.0.1:8673/flask
+  4 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency   398.12ms  833.40ms  20.42s    91.13%
+    Req/Sec   156.88     38.44   306.00     73.70%
+  Latency Distribution
+     50%  225.86ms
+     75%  242.44ms
+     90%  302.70ms
+     99%    3.90s 
+  16589 requests in 30.10s, 2.86MB read
+  Socket errors: connect 751, read 446, write 2, timeout 0
+Requests/sec:    551.04
+Transfer/sec:     97.40KB
+</code></pre><p><strong>由此可以看到使用 gunicorn 部署  Requests/sec 为 551.04</strong> 比sanci 低了一倍多。</p>
+<p>若不使用 gunicorn 部署，而是直接启动 server.py, 测试结果如下:</p>
+<pre><code>192:~ rex$ wrk -t4 -c1000 -d30s -T30s --latency http://127.0.0.1:8673/flask
+Running 30s test @ http://127.0.0.1:8673/flask
+  4 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    63.42ms   10.12ms  93.95ms   92.39%
+    Req/Sec   470.13    147.27   777.00     77.49%
+  Latency Distribution
+     50%   65.15ms
+     75%   65.61ms
+     90%   66.20ms
+     99%   79.72ms
+  16574 requests in 30.05s, 2.77MB read
+  Socket errors: connect 763, read 833, write 9, timeout 0
+Requests/sec:    551.48
+Transfer/sec:     94.25KB
+</code></pre><p><strong>由此可以看到不使用 gunicorn 部署 Requests/sec 为 551.48</strong> 二者方式却别不大。</p>
+<h3 id="Tronado"><a href="#Tronado" class="headerlink" title="Tronado"></a>Tronado</h3><h4 id="安装-Tornado"><a href="#安装-Tornado" class="headerlink" title="安装 Tornado"></a>安装 Tornado</h4><pre><code>pip install tornado
+</code></pre><h5 id="编写简单的-Tornado-view"><a href="#编写简单的-Tornado-view" class="headerlink" title="编写简单的 Tornado view"></a>编写简单的 Tornado view</h5><pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">import</span> tornado<span class="token punctuation">.</span>ioloop
+<span class="token keyword">import</span> tornado<span class="token punctuation">.</span>web
+
+
+<span class="token keyword">class</span> <span class="token class-name">MainHandler</span><span class="token punctuation">(</span>tornado<span class="token punctuation">.</span>web<span class="token punctuation">.</span>RequestHandler<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">get</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        self<span class="token punctuation">.</span>write<span class="token punctuation">(</span><span class="token string">"I am tornado get method"</span><span class="token punctuation">)</span>
+
+
+<span class="token keyword">def</span> <span class="token function">make_app</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">return</span> tornado<span class="token punctuation">.</span>web<span class="token punctuation">.</span>Application<span class="token punctuation">(</span><span class="token punctuation">[</span>
+        <span class="token punctuation">(</span>r<span class="token string">"/tornado"</span><span class="token punctuation">,</span> MainHandler<span class="token punctuation">)</span><span class="token punctuation">,</span>
+    <span class="token punctuation">]</span><span class="token punctuation">)</span>
+
+
+<span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">"__main__"</span><span class="token punctuation">:</span>
+    app <span class="token operator">=</span> make_app<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    app<span class="token punctuation">.</span>listen<span class="token punctuation">(</span><span class="token number">8673</span><span class="token punctuation">)</span>
+    tornado<span class="token punctuation">.</span>ioloop<span class="token punctuation">.</span>IOLoop<span class="token punctuation">.</span>current<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>start<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>因为 Tornado 不使用 gunicorn 启动，Tornado 本身就是一个 HTTP Server，所以我们直接运行 server.py 进行测试就行。</p>
+<h4 id="测试-2"><a href="#测试-2" class="headerlink" title="测试"></a>测试</h4><p>其余准备工作和测试 Sanic 差不对，这里就直接进行压力测试了。</p>
+<h5 id="压力测试-2"><a href="#压力测试-2" class="headerlink" title="压力测试"></a>压力测试</h5><p>并发测试</p>
+<pre><code>wrk -t4 -c1000 -d30s -T30s --latency http://127.0.0.1:8673/tornado
+</code></pre><pre><code>192:~ rex$ wrk -t4 -c1000 -d30s -T30s --latency http://127.0.0.1:8673/tornado
+Running 30s test @ http://127.0.0.1:8673/tornado
+  4 threads and 1000 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    78.63ms    4.31ms  88.15ms   91.13%
+    Req/Sec   785.93    179.12     1.19k    60.40%
+  Latency Distribution
+     50%   79.25ms
+     75%   79.93ms
+     90%   80.71ms
+     99%   85.43ms
+  93959 requests in 30.07s, 19.53MB read
+  Socket errors: connect 751, read 181, write 0, timeout 0
+Requests/sec:   3124.51
+Transfer/sec:    665.18KB
+</code></pre><p><strong>由此可以看到不使用 gunicorn 部署  Requests/sec 为 3124.51</strong> 比 Flask 高很多，比 Sanic 低很多。</p>
+
+            </div>
+            <hr/>
+
+            
+
+            <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+
+<div id="article-share">
+    
+    <div class="social-share" data-disabled="qzone" data-wechat-qrcode-helper="<p>微信里点“发现”->“扫一扫”二维码便可查看分享。</p>"></div>
+    
+</div>
+
+<script src="/libs/share/js/social-share.min.js"></script>
+
+            
+
+
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6 overflow-policy" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fa fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/2019/04/24/Python 单分派/">
+                    <div class="card-image">
+                        
+                        
+                        <img src="/medias/featureimages/7.jpg" class="responsive-img" alt="Python 单分派">
+                        
+                        <span class="card-title">Python 单分派</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            在 Python 中（3.4+ ），也可以实现简单的泛型函数。
+在 Python 中只能实现基于单个（第一个）参数的数据类型来选择具体的实现方式，官方名称 是 single-dispatch。你或许听不懂，说简单点，就是可以实现第一个参数的
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="fa fa-clock-o fa-fw icon-date"></i>2019-04-24
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fa fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/Python-进阶/" class="post-category" target="_blank">
+                                    Python 进阶
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/Python-单分派/" target="_blank">
+                        <span class="chip bg-color">Python 单分派</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6 overflow-policy" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fa fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/2019/04/24/Flask Sanic 数据库操作对比/">
+                    <div class="card-image">
+                        
+                        
+                        <img src="/medias/featureimages/4.jpg" class="responsive-img" alt="Flask Sanic 数据库操作对比">
+                        
+                        <span class="card-title">Flask Sanic 数据库操作对比</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            Sanicsanic 既然是使用了 io 异步，那么我们就使用 aiomysql 和 sqlalchemy 来对数据进行处理  
+获取 enginefrom aiomysql.sa import create_engine
+
+DB_SETT
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="fa fa-clock-o fa-fw icon-date"></i>2019-04-24
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fa fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/Python/" class="post-category" target="_blank">
+                                    Python
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/Python/" target="_blank">
+                        <span class="chip bg-color">Python</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+</div>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget">
+            <div class="toc-title"><i class="fa fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            // headingsOffset: -205,
+            headingSelector: 'h2, h3, h4, h5, h6',
+            collapseDepth: 6,
+        });
+
+        // modify the toc link href to support Chinese.
+        let i = 0;
+        let tocHeading = 'toc-heading-';
+        $('#toc-content a').each(function () {
+            $(this).attr('href', '#' + tocHeading + (++i));
+        });
+
+        // modify the heading title id to support Chinese.
+        i = 0;
+        $('#articleContent').children('h2, h3, h4, h5, h6').each(function () {
+            $(this).attr('id', tocHeading + (++i));
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+    });
+</script>
+    
+
+</main>
+
+
+<footer class="page-footer bg-color">
+    <div class="container row center-align">
+        <div class="col s12 m8 l8 copy-right">
+            
+                &nbsp;<i class="fa fa-area-chart"></i>&nbsp;站点总字数:&nbsp;
+                <span class="white-color">209.7k</span>
+            
+
+            
+			
+                <br>
+                
+                <span id="busuanzi_container_site_pv">
+                    <i class="fa fa-heart-o"></i>
+                    本站总访问量 <span id="busuanzi_value_site_pv" class="white-color"></span>
+                </span>
+                
+                
+                <span id="busuanzi_container_site_uv">
+                    <i class="fa fa-users"></i>
+                    次,&nbsp;访客数 <span id="busuanzi_value_site_uv" class="white-color"></span> 人.
+                </span>
+                
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+
+
+    <a href="mailto:rex_yan@126.com" class="tooltipped" target="_blank" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fa fa-envelope-open"></i>
+    </a>
+
+
+
+    <a href="tencent://AddContact/?fromId=50&fromSubId=1&subcmd=all&uin=1572402228" class="tooltipped" data-tooltip="QQ联系我: 1572402228" data-position="top" data-delay="50">
+        <i class="fa fa-qq"></i>
+    </a>
+
+
+
+    <a href="/atom.xml" class="tooltipped" target="_blank" data-tooltip="RSS 订阅" data-position="top" data-delay="50">
+        <i class="fa fa-rss"></i>
+    </a>
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+<!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fa fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script src="/js/search.js"></script>
+<script type="text/javascript">
+$(function () {
+    searchFunc("/" + "search.xml", 'searchInput', 'searchResult');
+});
+</script>
+<!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fa fa-angle-up"></i>
+    </a>
+</div>
+
+
+<script src="/libs/materialize/materialize.min.js"></script>
+<script src="/libs/masonry/masonry.pkgd.min.js"></script>
+<script src="/libs/aos/aos.js"></script>
+<script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+<script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+<script src="/js/matery.js"></script>
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+
+
+
+
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+
+
+</body>
+</html>

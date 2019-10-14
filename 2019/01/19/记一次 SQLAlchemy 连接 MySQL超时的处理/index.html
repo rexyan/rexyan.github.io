@@ -1,0 +1,936 @@
+<!DOCTYPE HTML>
+<html lang="zh-CN">
+
+
+<head><meta name="generator" content="Hexo 3.9.0">
+    <meta charset="utf-8">
+    <meta name="keywords" content="记一次 SQLAlchemy 连接 MySQL超时的处理, 星尘">
+    <meta name="description" content="问题描述：在公司有一个项目使用 MySQL，ORM 使用的 SQLAlchemy，但是一段时间后总后出现MySQL 2013，或者 2006 之类的错误，大致的意思的就是链接失效了，导致不能正确的连接MySQL，因为是线上环境，错误要很长时">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="renderer" content="webkit|ie-stand|ie-comp">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>记一次 SQLAlchemy 连接 MySQL超时的处理 | 星尘</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+
+    <link rel="stylesheet" type="text/css" href="/libs/awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" type="text/css" href="/libs/materialize/materialize.min.css">
+    <link rel="stylesheet" type="text/css" href="/libs/aos/aos.css">
+    <link rel="stylesheet" type="text/css" href="/libs/animate/animate.min.css">
+    <link rel="stylesheet" type="text/css" href="/libs/lightGallery/css/lightgallery.min.css">
+    <link rel="stylesheet" type="text/css" href="/css/matery.css">
+    <link rel="stylesheet" type="text/css" href="/css/my.css">
+    <style type="text/css">
+        
+        code[class*="language-"], pre[class*="language-"] {
+            white-space: pre !important;
+        }
+        
+    </style>
+
+    <script src="/libs/jquery/jquery-2.2.0.min.js"></script>
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+
+<body>
+
+<header class="navbar-fixed">
+    <nav id="headNav" class="bg-color nav-transparent">
+        <div id="navContainer" class="nav-wrapper container">
+            <div class="brand-logo">
+                <a href="/" class="waves-effect waves-light">
+                    <span class="logo-span">星尘</span>
+                </a>
+            </div>
+            
+
+<a href="#" data-target="mobile-nav" class="sidenav-trigger button-collapse"><i class="fa fa-navicon"></i></a>
+<ul class="right">
+    
+    <li class="hide-on-med-and-down">
+        <a href="/" class="waves-effect waves-light">
+            
+            <i class="fa fa-home"></i>
+            
+            <span>首页</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/categories" class="waves-effect waves-light">
+            
+            <i class="fa fa-bookmark"></i>
+            
+            <span>分类</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/books/" class="waves-effect waves-light">
+            
+            <i class="fa fa-book"></i>
+            
+            <span>书单</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/crap" class="waves-effect waves-light">
+            
+            <i class="fa fa-crosshairs"></i>
+            
+            <span>瞎扯</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/tags" class="waves-effect waves-light">
+            
+            <i class="fa fa-tags"></i>
+            
+            <span>标签</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/archives" class="waves-effect waves-light">
+            
+            <i class="fa fa-archive"></i>
+            
+            <span>归档</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/friends" class="waves-effect waves-light">
+            
+            <i class="fa fa-address-book"></i>
+            
+            <span>友情链接</span>
+        </a>
+    </li>
+    
+    <li class="hide-on-med-and-down">
+        <a href="/about" class="waves-effect waves-light">
+            
+            <i class="fa fa-user-circle-o"></i>
+            
+            <span>关于</span>
+        </a>
+    </li>
+    
+    <li>
+        <a href="#searchModal" class="modal-trigger waves-effect waves-light">
+            <i id="searchIcon" class="fa fa-search" title="搜索"></i>
+        </a>
+    </li>
+</ul>
+
+<div id="mobile-nav" class="side-nav sidenav">
+
+    <div class="mobile-head bg-color">
+        
+        <img src="/medias/logo.png" class="logo-img circle responsive-img">
+        
+        <div class="logo-name">星尘</div>
+        <div class="logo-desc">
+            
+            任汝千圣现,我有天真佛
+            
+        </div>
+    </div>
+
+    
+
+    <ul class="menu-list mobile-menu-list">
+        
+        <li>
+            <a href="/" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-home"></i>
+                
+                首页
+            </a>
+        </li>
+        
+        <li>
+            <a href="/categories" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-bookmark"></i>
+                
+                分类
+            </a>
+        </li>
+        
+        <li>
+            <a href="/books/" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-book"></i>
+                
+                书单
+            </a>
+        </li>
+        
+        <li>
+            <a href="/crap" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-crosshairs"></i>
+                
+                瞎扯
+            </a>
+        </li>
+        
+        <li>
+            <a href="/tags" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-tags"></i>
+                
+                标签
+            </a>
+        </li>
+        
+        <li>
+            <a href="/archives" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-archive"></i>
+                
+                归档
+            </a>
+        </li>
+        
+        <li>
+            <a href="/friends" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-address-book"></i>
+                
+                友情链接
+            </a>
+        </li>
+        
+        <li>
+            <a href="/about" class="waves-effect waves-light">
+                
+                <i class="fa fa-fw fa-user-circle-o"></i>
+                
+                关于
+            </a>
+        </li>
+        
+        
+    </ul>
+</div>
+
+        </div>
+
+        
+    </nav>
+
+</header>
+
+
+<script src="/libs/cryptojs/crypto-js.min.js"></script>
+<script>
+    (function() {
+        let pwd = '';
+        if (pwd && pwd.length > 0) {
+            if (pwd !== CryptoJS.SHA256(prompt('请输入访问本文章的密码')).toString(CryptoJS.enc.Hex)) {
+                alert('密码错误，将返回主页！');
+                location.href = '/';
+            }
+        }
+    })();
+</script>
+
+
+
+
+<div class="bg-cover pd-header post-cover" style="background-image: url('/medias/featureimages/6.jpg')">
+    <div class="container">
+        <div class="row">
+            <div class="col s12 m12 l12">
+                <div class="brand">
+                    <div class="description center-align post-title">
+                        记一次 SQLAlchemy 连接 MySQL超时的处理
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<main class="post-container content">
+
+    
+    <link rel="stylesheet" href="/libs/tocbot/tocbot.css">
+<style>
+    #articleContent h1::before,
+    #articleContent h2::before,
+    #articleContent h3::before,
+    #articleContent h4::before,
+    #articleContent h5::before,
+    #articleContent h6::before {
+        display: block;
+        content: " ";
+        height: 100px;
+        margin-top: -100px;
+        visibility: hidden;
+    }
+
+    #articleContent :focus {
+        outline: none;
+    }
+
+    .toc-fixed {
+        position: fixed;
+        top: 64px;
+    }
+
+    .toc-widget {
+        padding-left: 20px;
+    }
+
+    .toc-widget .toc-title {
+        margin: 35px 0 15px 0;
+        padding-left: 17px;
+        font-size: 1.5rem;
+        font-weight: bold;
+        line-height: 1.5rem;
+    }
+
+    .toc-widget ol {
+        padding: 0;
+        list-style: none;
+    }
+
+    #toc-content ol {
+        padding-left: 10px;
+    }
+
+    #toc-content ol li {
+        padding-left: 10px;
+    }
+
+    #toc-content .toc-link:hover {
+        color: #42b983;
+        font-weight: 700;
+        text-decoration: underline;
+    }
+
+    #toc-content .toc-link::before {
+        background-color: transparent;
+        max-height: 25px;
+    }
+
+    #toc-content .is-active-link {
+        color: #42b983;
+    }
+
+    #toc-content .is-active-link::before {
+        background-color: #42b983;
+    }
+
+    #floating-toc-btn {
+        position: fixed;
+        right: 20px;
+        bottom: 76px;
+        padding-top: 15px;
+        margin-bottom: 0;
+        z-index: 998;
+    }
+
+    #floating-toc-btn .btn-floating {
+        width: 48px;
+        height: 48px;
+    }
+
+    #floating-toc-btn .btn-floating i {
+        line-height: 48px;
+        font-size: 1.4rem;
+    }
+</style>
+<div class="row">
+    <div id="main-content" class="col s12 m12 l9">
+        <!-- 文章内容详情 -->
+<div id="artDetail">
+    <div class="card">
+        <div class="card-content article-info">
+            <div class="row tag-cate">
+                <div class="col s7">
+                    
+                    <div class="article-tag">
+                        
+                            <a href="/tags/MySQL/" target="_blank">
+                                <span class="chip bg-color">MySQL</span>
+                            </a>
+                        
+                            <a href="/tags/SQLAlchemy/" target="_blank">
+                                <span class="chip bg-color">SQLAlchemy</span>
+                            </a>
+                        
+                            <a href="/tags/SQLAlchemy-连接-MySQL-超时/" target="_blank">
+                                <span class="chip bg-color">SQLAlchemy 连接 MySQL 超时</span>
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+                <div class="col s5 right-align">
+                    
+                    <div class="post-cate">
+                        <i class="fa fa-bookmark fa-fw icon-category"></i>
+                        
+                            <a href="/categories/博客/" class="post-category" target="_blank">
+                                博客
+                            </a>
+                        
+                    </div>
+                    
+                </div>
+            </div>
+
+            <div class="post-info">
+                <div class="post-date info-break-policy">
+                    <i class="fa fa-calendar-minus-o fa-fw"></i>发布日期:&nbsp;&nbsp;
+                    2019-01-19
+                </div>
+
+                
+                    
+                    <div class="info-break-policy">
+                        <i class="fa fa-file-word-o fa-fw"></i>文章字数:&nbsp;&nbsp;
+                        1.1k
+                    </div>
+                    
+
+                    
+                    <div class="info-break-policy">
+                        <i class="fa fa-clock-o fa-fw"></i>阅读时长:&nbsp;&nbsp;
+                        5 分
+                    </div>
+                    
+                
+				
+				
+                    <div id="busuanzi_container_page_pv" class="info-break-policy">
+                        <i class="fa fa-eye fa-fw"></i>阅读次数:&nbsp;&nbsp;
+                        <span id="busuanzi_value_page_pv"></span>
+                    </div>
+				
+            </div>
+        </div>
+        <hr class="clearfix">
+        <div class="card-content article-card-content">
+            <div id="articleContent">
+                <h3 id="问题描述："><a href="#问题描述：" class="headerlink" title="问题描述："></a>问题描述：</h3><p>在公司有一个项目使用 MySQL，ORM 使用的 SQLAlchemy，但是一段时间后总后出现MySQL 2013，或者 2006 之类的错误，大致的意思的就是链接失效了，导致不能正确的连接MySQL，因为是线上环境，错误要很长时间才会出错，加上每次修改都需要上线，且测试环境不好复现，没办法，知道今天才把代码悄悄的拷回来研究。</p>
+<h3 id="使用-docker-启动-MySQL"><a href="#使用-docker-启动-MySQL" class="headerlink" title="使用 docker 启动 MySQL"></a>使用 docker 启动 MySQL</h3><pre class="line-numbers language-shell"><code class="language-shell">docker pull mysql 
+
+docker run -itd  --name mysql8 -p 3306:3306 MYSQL_ROOT_PASSWORD=123456  mysql:latest 
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+<h3 id="Navicat-连接-MySQL"><a href="#Navicat-连接-MySQL" class="headerlink" title="Navicat 连接 MySQL"></a>Navicat 连接 MySQL</h3><p>因为拉取的是最新的 MySQL 镜像，即 MySQL8，所以默认不能使用 Navicat 连接，只需要修改即可。<br>进入docker 后，修改配置文件  /etc/my.cnf 下 在 [mysqld] 下新增 ( 因为我们要测试MySQL主动断开链接的情况，默认是 8 小时，是不能等8小时的 )</p>
+<pre class="line-numbers language-cnf"><code class="language-cnf">wait_timeout=20  
+interactive_timeout=20 
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+<p>也可以不使用修改配置文件的方式来改变wait_timeout，interactive_timeout等，我们也可以在交互式命令行中使用下面命令</p>
+<pre><code>msyql&gt; set global wait_timeout=28800;
+msyql&gt; set global interactive_timeout=28800;
+</code></pre><p>查看设置的过期时间</p>
+<pre><code>show global variables like &#39;%timeout%&#39;; 
+</code></pre><p>设置允许远程连接，密码等</p>
+<pre><code>mysql -uroot -p
+grant all PRIVILEGES on *.* to root@&#39;%&#39; WITH GRANT OPTION;
+ALTER user &#39;root&#39;@&#39;%&#39; IDENTIFIED BY &#39;123456&#39; PASSWORD EXPIRE NEVER;
+ALTER user &#39;root&#39;@&#39;%&#39; IDENTIFIED WITH mysql_native_password BY &#39;123456&#39;;
+FLUSH PRIVILEGES;
+</code></pre><p>最后成功的代码如下，大致就是使用请求上下文，不使用pool，每次操作前都去获取一个链接，并且添加监听，使用 MySQL 的 ping 让其保持有效</p>
+<h3 id="app-加载时-session-配置"><a href="#app-加载时-session-配置" class="headerlink" title="app 加载时 session 配置"></a>app 加载时 session 配置</h3><pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">def</span> <span class="token function">checkout_listener</span><span class="token punctuation">(</span>dbapi_con<span class="token punctuation">,</span> con_record<span class="token punctuation">,</span> con_proxy<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">try</span><span class="token punctuation">:</span>
+        <span class="token keyword">try</span><span class="token punctuation">:</span>
+            dbapi_con<span class="token punctuation">.</span>ping<span class="token punctuation">(</span><span class="token boolean">False</span><span class="token punctuation">)</span>
+        <span class="token keyword">except</span> TypeError <span class="token keyword">as</span> e<span class="token punctuation">:</span>
+            dbapi_con<span class="token punctuation">.</span>ping<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token keyword">except</span> dbapi_con<span class="token punctuation">.</span>OperationalError <span class="token keyword">as</span> exc<span class="token punctuation">:</span>
+        <span class="token keyword">if</span> exc<span class="token punctuation">.</span>args<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span> <span class="token keyword">in</span> <span class="token punctuation">(</span><span class="token number">2006</span><span class="token punctuation">,</span> <span class="token number">2013</span><span class="token punctuation">,</span> <span class="token number">2014</span><span class="token punctuation">,</span> <span class="token number">2045</span><span class="token punctuation">,</span> <span class="token number">2055</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+            <span class="token keyword">raise</span> DisconnectionError<span class="token punctuation">(</span><span class="token punctuation">)</span>
+        <span class="token keyword">else</span><span class="token punctuation">:</span>
+            <span class="token keyword">raise</span>
+
+<span class="token keyword">with</span> app<span class="token punctuation">.</span>app_context<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+    engine <span class="token operator">=</span> create_engine<span class="token punctuation">(</span>app<span class="token punctuation">.</span>config<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'SQLALCHEMY_DATABASE_URI'</span><span class="token punctuation">)</span><span class="token punctuation">,</span> pool_pre_ping<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span> encoding<span class="token operator">=</span><span class="token string">'utf-8'</span><span class="token punctuation">,</span>poolclass<span class="token operator">=</span>NullPool<span class="token punctuation">,</span> convert_unicode<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span> echo<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+    event<span class="token punctuation">.</span>listen<span class="token punctuation">(</span>engine<span class="token punctuation">,</span> <span class="token string">'checkout'</span><span class="token punctuation">,</span> checkout_listener<span class="token punctuation">)</span>
+
+session_factory <span class="token operator">=</span> sessionmaker<span class="token punctuation">(</span>bind<span class="token operator">=</span>engine<span class="token punctuation">)</span>
+
+@contextmanager
+<span class="token keyword">def</span> <span class="token function">session_scope</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+    session <span class="token operator">=</span> session_factory<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token keyword">try</span><span class="token punctuation">:</span>
+        <span class="token keyword">yield</span> session
+        session<span class="token punctuation">.</span>commit<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token keyword">except</span><span class="token punctuation">:</span>
+        session<span class="token punctuation">.</span>rollback<span class="token punctuation">(</span><span class="token punctuation">)</span>
+        <span class="token keyword">raise</span>
+    <span class="token keyword">finally</span><span class="token punctuation">:</span>
+        <span class="token keyword">pass</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h3 id="dbUtils"><a href="#dbUtils" class="headerlink" title="dbUtils"></a>dbUtils</h3><pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">from</span> tool <span class="token keyword">import</span> const
+<span class="token keyword">from</span> tool<span class="token punctuation">.</span>error <span class="token keyword">import</span> CustomFlaskErr
+<span class="token keyword">from</span> fishbase<span class="token punctuation">.</span>fish_logger <span class="token keyword">import</span> logger
+<span class="token keyword">from</span> fishbase<span class="token punctuation">.</span>fish_common <span class="token keyword">import</span> SingleTon
+<span class="token keyword">from</span> application <span class="token keyword">import</span> session_scope
+
+<span class="token keyword">class</span> <span class="token class-name">DBUtils</span><span class="token punctuation">(</span>SingleTon<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> db<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">pass</span>
+
+    <span class="token keyword">def</span> <span class="token function">add</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> table_object<span class="token punctuation">,</span> <span class="token operator">*</span>data_list<span class="token punctuation">,</span> <span class="token operator">**</span>data<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token triple-quoted-string string">"""
+        新增数据
+        :param table_object: 表对象
+        :param data_list: list, 批量插入的数据
+        :param data: dict, 插入单条数据
+        :return:
+        """</span>
+        <span class="token keyword">with</span> session_scope<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> session<span class="token punctuation">:</span>
+            <span class="token keyword">try</span><span class="token punctuation">:</span>
+                <span class="token keyword">if</span> data_list<span class="token punctuation">:</span>  <span class="token comment" spellcheck="true"># 批量插入</span>
+                    table_object_list <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+                    <span class="token keyword">for</span> x <span class="token keyword">in</span> data_list<span class="token punctuation">:</span>
+                        table_object_list<span class="token punctuation">.</span>append<span class="token punctuation">(</span>table_object<span class="token punctuation">(</span><span class="token operator">**</span>x<span class="token punctuation">)</span><span class="token punctuation">)</span>
+                    session<span class="token punctuation">.</span>add_all<span class="token punctuation">(</span>table_object_list<span class="token punctuation">)</span>
+                <span class="token keyword">elif</span> data<span class="token punctuation">:</span>  <span class="token comment" spellcheck="true"># 单条插入</span>
+                    obj <span class="token operator">=</span> table_object<span class="token punctuation">(</span><span class="token operator">**</span>data<span class="token punctuation">)</span>
+                    session<span class="token punctuation">.</span>add<span class="token punctuation">(</span>obj<span class="token punctuation">)</span>
+                    session<span class="token punctuation">.</span>commit<span class="token punctuation">(</span><span class="token punctuation">)</span>
+            <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
+                session<span class="token punctuation">.</span>rollback<span class="token punctuation">(</span><span class="token punctuation">)</span>
+                session<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span>
+                logger<span class="token punctuation">.</span>error<span class="token punctuation">(</span><span class="token string">"数据库插入错误: {0}"</span><span class="token punctuation">.</span>format<span class="token punctuation">(</span>str<span class="token punctuation">(</span>e<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+                <span class="token keyword">raise</span> CustomFlaskErr<span class="token punctuation">(</span>const<span class="token punctuation">.</span>INSERT_DATA_TO_DB_ERROR<span class="token punctuation">.</span>format<span class="token punctuation">(</span><span class="token string">'插入'</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+    <span class="token keyword">def</span> <span class="token function">delete</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> table_object<span class="token punctuation">,</span> <span class="token operator">**</span>filter_data<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token triple-quoted-string string">"""
+        删除数据
+        :param table_object: 表对象
+        :param filter_data: dict, 删除条件
+        :return:
+        """</span>
+        <span class="token keyword">with</span> session_scope<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> session<span class="token punctuation">:</span>
+            <span class="token keyword">try</span><span class="token punctuation">:</span>
+                session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>table_object<span class="token punctuation">)</span><span class="token punctuation">.</span>filter_by<span class="token punctuation">(</span><span class="token operator">**</span>filter_data<span class="token punctuation">)</span><span class="token punctuation">.</span>delete<span class="token punctuation">(</span><span class="token punctuation">)</span>
+                session<span class="token punctuation">.</span>commit<span class="token punctuation">(</span><span class="token punctuation">)</span>
+            <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
+                session<span class="token punctuation">.</span>rollback<span class="token punctuation">(</span><span class="token punctuation">)</span>
+                session<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span>
+                logger<span class="token punctuation">.</span>error<span class="token punctuation">(</span><span class="token string">"数据库删除错误: {0}"</span><span class="token punctuation">.</span>format<span class="token punctuation">(</span>str<span class="token punctuation">(</span>e<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+                <span class="token keyword">raise</span> CustomFlaskErr<span class="token punctuation">(</span>const<span class="token punctuation">.</span>INSERT_DATA_TO_DB_ERROR<span class="token punctuation">.</span>format<span class="token punctuation">(</span><span class="token string">'删除'</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+    <span class="token keyword">def</span> <span class="token function">modify</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> table_object<span class="token punctuation">,</span> filter_dict<span class="token punctuation">,</span> update_dict<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token triple-quoted-string string">"""
+        修改操作
+        :param table_object: 表对象
+        :param filter_dict: dict, 修改条件
+        :param update_dict: dict, 修改的值
+        :return:
+        """</span>
+        <span class="token keyword">with</span> session_scope<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> session<span class="token punctuation">:</span>
+            <span class="token keyword">try</span><span class="token punctuation">:</span>
+                logger<span class="token punctuation">.</span>info<span class="token punctuation">(</span><span class="token string">"开始更新数据库数据"</span><span class="token punctuation">)</span>
+                session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>table_object<span class="token punctuation">)</span><span class="token punctuation">.</span>filter_by<span class="token punctuation">(</span><span class="token operator">**</span>filter_dict<span class="token punctuation">)</span><span class="token punctuation">.</span>update<span class="token punctuation">(</span>update_dict<span class="token punctuation">,</span> synchronize_session<span class="token operator">=</span><span class="token string">'fetch'</span><span class="token punctuation">)</span>
+                logger<span class="token punctuation">.</span>info<span class="token punctuation">(</span><span class="token string">"update 结束"</span><span class="token punctuation">)</span>
+                session<span class="token punctuation">.</span>commit<span class="token punctuation">(</span><span class="token punctuation">)</span>
+                logger<span class="token punctuation">.</span>info<span class="token punctuation">(</span><span class="token string">"commit 结束"</span><span class="token punctuation">)</span>
+            <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
+                logger<span class="token punctuation">.</span>info<span class="token punctuation">(</span><span class="token string">"出现错误！"</span><span class="token punctuation">)</span>
+                session<span class="token punctuation">.</span>rollback<span class="token punctuation">(</span><span class="token punctuation">)</span>
+                logger<span class="token punctuation">.</span>error<span class="token punctuation">(</span><span class="token string">"数据库修改错误: {0}"</span><span class="token punctuation">.</span>format<span class="token punctuation">(</span>str<span class="token punctuation">(</span>e<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+                session<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span>
+                <span class="token keyword">raise</span> CustomFlaskErr<span class="token punctuation">(</span>const<span class="token punctuation">.</span>INSERT_DATA_TO_DB_ERROR<span class="token punctuation">.</span>format<span class="token punctuation">(</span><span class="token string">'修改'</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+
+
+    <span class="token keyword">def</span> <span class="token function">search</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> table_object<span class="token punctuation">,</span> result_range<span class="token operator">=</span><span class="token string">'all'</span><span class="token punctuation">,</span> start<span class="token operator">=</span>None<span class="token punctuation">,</span> end<span class="token operator">=</span>None<span class="token punctuation">,</span> <span class="token operator">**</span>filter_dict<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token triple-quoted-string string">"""
+        简单条件查询, 支持查询所有数据, 第一条, 最后一条和切片操作
+        :param table_object: 表对象
+        :param result_range: 结果范围
+        :param start: 开始截取位置
+        :param end: 结束位置
+        :param filter_dict: 过滤条件
+        :return:
+        """</span>
+        ret <span class="token operator">=</span> None
+        <span class="token keyword">with</span> session_scope<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> session<span class="token punctuation">:</span>
+            <span class="token keyword">try</span><span class="token punctuation">:</span>
+                <span class="token keyword">if</span> result_range <span class="token operator">==</span> <span class="token string">'all'</span><span class="token punctuation">:</span>
+                    ret <span class="token operator">=</span> session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>table_object<span class="token punctuation">)</span><span class="token punctuation">.</span>filter_by<span class="token punctuation">(</span><span class="token operator">**</span>filter_dict<span class="token punctuation">)</span><span class="token punctuation">.</span>all<span class="token punctuation">(</span><span class="token punctuation">)</span>
+                <span class="token keyword">elif</span> result_range <span class="token operator">==</span> <span class="token string">'first'</span><span class="token punctuation">:</span>
+                    ret <span class="token operator">=</span> session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>table_object<span class="token punctuation">)</span><span class="token punctuation">.</span>filter_by<span class="token punctuation">(</span><span class="token operator">**</span>filter_dict<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token punctuation">:</span><span class="token number">1</span><span class="token punctuation">]</span>
+                <span class="token keyword">elif</span> result_range <span class="token operator">==</span> <span class="token string">'last'</span><span class="token punctuation">:</span>
+                    ret <span class="token operator">=</span> session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>table_object<span class="token punctuation">)</span><span class="token punctuation">.</span>filter_by<span class="token punctuation">(</span><span class="token operator">**</span>filter_dict<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">:</span><span class="token punctuation">]</span>
+                <span class="token keyword">elif</span> start <span class="token operator">and</span> end<span class="token punctuation">:</span>
+                    ret <span class="token operator">=</span> session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>table_object<span class="token punctuation">)</span><span class="token punctuation">.</span>filter_by<span class="token punctuation">(</span><span class="token operator">**</span>filter_dict<span class="token punctuation">)</span><span class="token punctuation">.</span>all<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">[</span>start<span class="token punctuation">:</span>end<span class="token punctuation">]</span>
+                session<span class="token punctuation">.</span>commit<span class="token punctuation">(</span><span class="token punctuation">)</span>
+            <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
+                session<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span>
+                logger<span class="token punctuation">.</span>error<span class="token punctuation">(</span><span class="token string">"数据库查询错误: {0}"</span><span class="token punctuation">.</span>format<span class="token punctuation">(</span>str<span class="token punctuation">(</span>e<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+            <span class="token keyword">return</span> ret
+
+    <span class="token keyword">def</span> <span class="token function">create_table</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> all_table<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">,</span> table_name<span class="token operator">=</span>None<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token triple-quoted-string string">"""
+        创建表
+        :param all_table:  创建所有表
+        :param table_name:  创建指定表
+        :return:
+        """</span>
+        <span class="token keyword">with</span> session_scope<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> session<span class="token punctuation">:</span>
+            <span class="token keyword">if</span> all_table<span class="token punctuation">:</span>
+                session<span class="token punctuation">.</span>create_all<span class="token punctuation">(</span><span class="token punctuation">)</span>
+            <span class="token keyword">elif</span> table_name<span class="token punctuation">:</span>
+                <span class="token keyword">pass</span>
+
+    <span class="token keyword">def</span> <span class="token function">delete_table</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> all_table<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">,</span> table_name<span class="token operator">=</span>None<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token triple-quoted-string string">"""
+        删除表
+        :param all_table: 删除所有的表
+        :param table_name:  删除指定表
+        :return:
+        """</span>
+        <span class="token keyword">with</span> session_scope<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> session<span class="token punctuation">:</span>
+            <span class="token keyword">if</span> all_table<span class="token punctuation">:</span>
+                session<span class="token punctuation">.</span>drop_all<span class="token punctuation">(</span><span class="token punctuation">)</span>
+            <span class="token keyword">elif</span> table_name<span class="token punctuation">:</span>
+                <span class="token keyword">pass</span>
+
+    <span class="token keyword">def</span> <span class="token function">like</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> table_object<span class="token punctuation">,</span> lick_obj<span class="token punctuation">,</span> result_range<span class="token operator">=</span><span class="token string">'all'</span><span class="token punctuation">,</span> start<span class="token operator">=</span>None<span class="token punctuation">,</span> end<span class="token operator">=</span>None<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">with</span> session_scope<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> session<span class="token punctuation">:</span>
+            ret <span class="token operator">=</span> None
+            <span class="token keyword">try</span><span class="token punctuation">:</span>
+                <span class="token keyword">if</span> result_range <span class="token operator">==</span> <span class="token string">'all'</span><span class="token punctuation">:</span>
+                    ret <span class="token operator">=</span> session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>table_object<span class="token punctuation">)</span><span class="token punctuation">.</span>filter<span class="token punctuation">(</span>lick_obj<span class="token punctuation">)</span><span class="token punctuation">.</span>all<span class="token punctuation">(</span><span class="token punctuation">)</span>
+                <span class="token keyword">elif</span> result_range <span class="token operator">==</span> <span class="token string">'first'</span><span class="token punctuation">:</span>
+                    ret <span class="token operator">=</span> session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>table_object<span class="token punctuation">)</span><span class="token punctuation">.</span>filter_by<span class="token punctuation">(</span>lick_obj<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token punctuation">:</span><span class="token number">1</span><span class="token punctuation">]</span>
+                <span class="token keyword">elif</span> result_range <span class="token operator">==</span> <span class="token string">'last'</span><span class="token punctuation">:</span>
+                    ret <span class="token operator">=</span> session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>table_object<span class="token punctuation">)</span><span class="token punctuation">.</span>filter_by<span class="token punctuation">(</span>lick_obj<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">:</span><span class="token punctuation">]</span>
+                <span class="token keyword">elif</span> start <span class="token operator">and</span> end<span class="token punctuation">:</span>
+                    ret <span class="token operator">=</span> session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>table_object<span class="token punctuation">)</span><span class="token punctuation">.</span>filter_by<span class="token punctuation">(</span>lick_obj<span class="token punctuation">)</span><span class="token punctuation">.</span>all<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">[</span>start<span class="token punctuation">:</span>end<span class="token punctuation">]</span>
+            <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
+                logger<span class="token punctuation">.</span>error<span class="token punctuation">(</span><span class="token string">"数据库查询错误: {0}"</span><span class="token punctuation">.</span>format<span class="token punctuation">(</span>str<span class="token punctuation">(</span>e<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+                session<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span>
+            <span class="token keyword">return</span> ret
+
+    <span class="token keyword">def</span> <span class="token function">object_search</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> table_object<span class="token punctuation">,</span> filter_object<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">with</span> session_scope<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> session<span class="token punctuation">:</span>
+            ret <span class="token operator">=</span> None
+            <span class="token keyword">try</span><span class="token punctuation">:</span>
+                ret <span class="token operator">=</span> session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>table_object<span class="token punctuation">)</span><span class="token punctuation">.</span>filter<span class="token punctuation">(</span>filter_object<span class="token punctuation">)</span>
+            <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
+                logger<span class="token punctuation">.</span>error<span class="token punctuation">(</span><span class="token string">"数据库查询错误: {0}"</span><span class="token punctuation">.</span>format<span class="token punctuation">(</span>str<span class="token punctuation">(</span>e<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+                session<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span>
+            <span class="token keyword">return</span> ret
+
+    <span class="token comment" spellcheck="true"># TODO 待完善like, and, or, 排序, 分组等</span>
+
+<span class="token comment" spellcheck="true"># if __name__ == '__main__':</span>
+    <span class="token keyword">pass</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+            </div>
+            <hr/>
+
+            
+
+            <link rel="stylesheet" type="text/css" href="/libs/share/css/share.min.css">
+
+<div id="article-share">
+    
+    <div class="social-share" data-disabled="qzone" data-wechat-qrcode-helper="<p>微信里点“发现”->“扫一扫”二维码便可查看分享。</p>"></div>
+    
+</div>
+
+<script src="/libs/share/js/social-share.min.js"></script>
+
+            
+
+
+        </div>
+    </div>
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+<article id="prenext-posts" class="prev-next articles">
+    <div class="row article-row">
+        
+        <div class="article col s12 m6 overflow-policy" data-aos="fade-up">
+            <div class="article-badge left-badge text-color">
+                <i class="fa fa-chevron-left"></i>&nbsp;上一篇</div>
+            <div class="card">
+                <a href="/2019/02/15/1. Spring初探/">
+                    <div class="card-image">
+                        
+                        
+                        <img src="/medias/featureimages/3.jpg" class="responsive-img" alt="1. Spring 初探">
+                        
+                        <span class="card-title">1. Spring 初探</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            介绍Spring是一个轻量级的控制反转（IoC）和面向切面（AOP）的容器框架。
+导包导入spring 必须的包，这里使用的是 3.2.2 版本，核心jar包如下：
+
+spring-core-3.2.2.RELEASE.jar，包含Spri
+                        
+                    </div>
+                    <div class="publish-info">
+                        <span class="publish-date">
+                            <i class="fa fa-clock-o fa-fw icon-date"></i>2019-02-15
+                        </span>
+                        <span class="publish-author">
+                            
+                            <i class="fa fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/Spring/" class="post-category" target="_blank">
+                                    Spring
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/Spring/" target="_blank">
+                        <span class="chip bg-color">Spring</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+        
+        <div class="article col s12 m6 overflow-policy" data-aos="fade-up">
+            <div class="article-badge right-badge text-color">
+                下一篇&nbsp;<i class="fa fa-chevron-right"></i>
+            </div>
+            <div class="card">
+                <a href="/2019/01/13/5. 继承/">
+                    <div class="card-image">
+                        
+                        
+                        <img src="/medias/featureimages/23.jpg" class="responsive-img" alt="5. 继承">
+                        
+                        <span class="card-title">5. 继承</span>
+                    </div>
+                </a>
+                <div class="card-content article-content">
+                    <div class="summary block-with-text">
+                        
+                            定义格式class 子类 extends 父类 {}
+
+示例注意⚠️：一个java文件中不推荐写多个类，如果要写多个类，那么只允许和.java文件名相同的类有 public 属性，例如上面 Example01.java 文件中，定义了三个类
+                        
+                    </div>
+                    <div class="publish-info">
+                            <span class="publish-date">
+                                <i class="fa fa-clock-o fa-fw icon-date"></i>2019-01-13
+                            </span>
+                        <span class="publish-author">
+                            
+                            <i class="fa fa-bookmark fa-fw icon-category"></i>
+                            
+                            <a href="/categories/Java-入门到放弃/" class="post-category" target="_blank">
+                                    Java 入门到放弃
+                                </a>
+                            
+                            
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="card-action article-tags">
+                    
+                    <a href="/tags/Java-入门到放弃/" target="_blank">
+                        <span class="chip bg-color">Java 入门到放弃</span>
+                    </a>
+                    
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+</article>
+</div>
+
+
+
+    </div>
+    <div id="toc-aside" class="expanded col l3 hide-on-med-and-down">
+        <div class="toc-widget">
+            <div class="toc-title"><i class="fa fa-list-alt"></i>&nbsp;&nbsp;目录</div>
+            <div id="toc-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- TOC 悬浮按钮. -->
+
+
+<script src="/libs/tocbot/tocbot.min.js"></script>
+<script>
+    $(function () {
+        tocbot.init({
+            tocSelector: '#toc-content',
+            contentSelector: '#articleContent',
+            headingsOffset: -($(window).height() * 0.4 - 45),
+            // headingsOffset: -205,
+            headingSelector: 'h2, h3, h4, h5, h6',
+            collapseDepth: 6,
+        });
+
+        // modify the toc link href to support Chinese.
+        let i = 0;
+        let tocHeading = 'toc-heading-';
+        $('#toc-content a').each(function () {
+            $(this).attr('href', '#' + tocHeading + (++i));
+        });
+
+        // modify the heading title id to support Chinese.
+        i = 0;
+        $('#articleContent').children('h2, h3, h4, h5, h6').each(function () {
+            $(this).attr('id', tocHeading + (++i));
+        });
+
+        // Set scroll toc fixed.
+        let tocHeight = parseInt($(window).height() * 0.4 - 64);
+        let $tocWidget = $('.toc-widget');
+        $(window).scroll(function () {
+            let scroll = $(window).scrollTop();
+            /* add post toc fixed. */
+            if (scroll > tocHeight) {
+                $tocWidget.addClass('toc-fixed');
+            } else {
+                $tocWidget.removeClass('toc-fixed');
+            }
+        });
+
+        
+    });
+</script>
+    
+
+</main>
+
+
+<footer class="page-footer bg-color">
+    <div class="container row center-align">
+        <div class="col s12 m8 l8 copy-right">
+            
+                &nbsp;<i class="fa fa-area-chart"></i>&nbsp;站点总字数:&nbsp;
+                <span class="white-color">209.7k</span>
+            
+
+            
+			
+                <br>
+                
+                <span id="busuanzi_container_site_pv">
+                    <i class="fa fa-heart-o"></i>
+                    本站总访问量 <span id="busuanzi_value_site_pv" class="white-color"></span>
+                </span>
+                
+                
+                <span id="busuanzi_container_site_uv">
+                    <i class="fa fa-users"></i>
+                    次,&nbsp;访客数 <span id="busuanzi_value_site_uv" class="white-color"></span> 人.
+                </span>
+                
+            
+        </div>
+        <div class="col s12 m4 l4 social-link social-statis">
+
+
+    <a href="mailto:rex_yan@126.com" class="tooltipped" target="_blank" data-tooltip="邮件联系我" data-position="top" data-delay="50">
+        <i class="fa fa-envelope-open"></i>
+    </a>
+
+
+
+    <a href="tencent://AddContact/?fromId=50&fromSubId=1&subcmd=all&uin=1572402228" class="tooltipped" data-tooltip="QQ联系我: 1572402228" data-position="top" data-delay="50">
+        <i class="fa fa-qq"></i>
+    </a>
+
+
+
+    <a href="/atom.xml" class="tooltipped" target="_blank" data-tooltip="RSS 订阅" data-position="top" data-delay="50">
+        <i class="fa fa-rss"></i>
+    </a>
+</div>
+    </div>
+</footer>
+
+<div class="progress-bar"></div>
+
+
+<!-- 搜索遮罩框 -->
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <div class="search-header">
+            <span class="title"><i class="fa fa-search"></i>&nbsp;&nbsp;搜索</span>
+            <input type="search" id="searchInput" name="s" placeholder="请输入搜索的关键字"
+                   class="search-input">
+        </div>
+        <div id="searchResult"></div>
+    </div>
+</div>
+
+<script src="/js/search.js"></script>
+<script type="text/javascript">
+$(function () {
+    searchFunc("/" + "search.xml", 'searchInput', 'searchResult');
+});
+</script>
+<!-- 回到顶部按钮 -->
+<div id="backTop" class="top-scroll">
+    <a class="btn-floating btn-large waves-effect waves-light" href="#!">
+        <i class="fa fa-angle-up"></i>
+    </a>
+</div>
+
+
+<script src="/libs/materialize/materialize.min.js"></script>
+<script src="/libs/masonry/masonry.pkgd.min.js"></script>
+<script src="/libs/aos/aos.js"></script>
+<script src="/libs/scrollprogress/scrollProgress.min.js"></script>
+<script src="/libs/lightGallery/js/lightgallery-all.min.js"></script>
+<script src="/js/matery.js"></script>
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+
+
+
+
+    <script async src="/libs/others/busuanzi.pure.mini.js"></script>
+
+
+</body>
+</html>
