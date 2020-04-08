@@ -727,7 +727,159 @@ eureka:
 <p>访问 <a href="http://localhost:9000/buyMovie/1/2" target="_blank" rel="noopener">http://localhost:9000/buyMovie/1/2</a> 返回数据如下：</p>
 <pre class="line-numbers language-json"><code class="language-json"><span class="token punctuation">{</span><span class="token property">"movie"</span><span class="token operator">:</span><span class="token punctuation">{</span><span class="token property">"id"</span><span class="token operator">:</span><span class="token number">2</span><span class="token punctuation">,</span><span class="token property">"name"</span><span class="token operator">:</span><span class="token string">"电影名称2"</span><span class="token punctuation">}</span><span class="token punctuation">,</span><span class="token property">"user"</span><span class="token operator">:</span><span class="token punctuation">{</span><span class="token property">"id"</span><span class="token operator">:</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token property">"name"</span><span class="token operator">:</span><span class="token string">"User1"</span><span class="token punctuation">}</span><span class="token punctuation">}</span>
 <span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<h5 id="集成-Ribbon"><a href="#集成-Ribbon" class="headerlink" title="集成 Ribbon"></a>集成 Ribbon</h5><p>多运行几个 Movie 服务（多拷贝几份配置，并将配置端口设置为不一样的值）</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjPrwZI5.EX6*d0OoqZf0jmxMFMGVRcgrqxP2gASA.jQx8fDaoPTJasQEAJa0e8K9Fw!!/mnull&amp;bo=ggWAAmwG6gIDCas!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjE.mdVWiW4b1MjDHygdH2Q7ynVjdGjoL8jMfDtM*dP4iBgTYO05MOoANNNbXhVpZlA!!/mnull&amp;bo=YgaAApoGlgIDCcI!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>配置多个 Movie 服务的端口。并在 Controller 中打印服务的端口信息，用来显示当前运行的端口</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjGZD.1Ob2U9Sh.mQX7fEM9R0*nauN2jU4.Yv89Z*B4vRnjspDtGwBKFqw24CIPpcrA!!/mnull&amp;bo=9Af6BPQH.gQDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<pre class="line-numbers language-java"><code class="language-java"><span class="token keyword">package</span> com<span class="token punctuation">.</span>itguigu<span class="token punctuation">.</span>springcloud<span class="token punctuation">.</span>controller<span class="token punctuation">;</span>
 
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>beans<span class="token punctuation">.</span>factory<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>Autowired<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>beans<span class="token punctuation">.</span>factory<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>Value<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>stereotype<span class="token punctuation">.</span>Controller<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>web<span class="token punctuation">.</span>bind<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>GetMapping<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>web<span class="token punctuation">.</span>bind<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>PathVariable<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>web<span class="token punctuation">.</span>bind<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>ResponseBody<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>web<span class="token punctuation">.</span>bind<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>RestController<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> com<span class="token punctuation">.</span>itguigu<span class="token punctuation">.</span>springcloud<span class="token punctuation">.</span>bean<span class="token punctuation">.</span>Movie<span class="token punctuation">;</span>
+<span class="token keyword">import</span> com<span class="token punctuation">.</span>itguigu<span class="token punctuation">.</span>springcloud<span class="token punctuation">.</span>service<span class="token punctuation">.</span>MovieService<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">// 这里使用 @RestController 来替代 @Controller 和 @ResponseBody</span>
+<span class="token annotation punctuation">@RestController</span>
+
+<span class="token comment" spellcheck="true">// @Controller</span>
+<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">MovieController</span> <span class="token punctuation">{</span>
+
+    <span class="token annotation punctuation">@Autowired</span>
+    MovieService moviceService<span class="token punctuation">;</span>
+
+    <span class="token comment" spellcheck="true">// 获取当前配置的端口信息，用来判断那个 Movie 服务被调用</span>
+    <span class="token annotation punctuation">@Value</span><span class="token punctuation">(</span><span class="token string">"${server.port}"</span><span class="token punctuation">)</span>
+    <span class="token keyword">int</span> port<span class="token punctuation">;</span>
+
+    <span class="token comment" spellcheck="true">// @ResponseBody</span>
+    <span class="token annotation punctuation">@GetMapping</span><span class="token punctuation">(</span><span class="token string">"/getMovieById/{id}"</span><span class="token punctuation">)</span>
+    <span class="token keyword">public</span> Movie <span class="token function">getMovieById</span><span class="token punctuation">(</span><span class="token annotation punctuation">@PathVariable</span><span class="token punctuation">(</span><span class="token string">"id"</span><span class="token punctuation">)</span> Integer id<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token comment" spellcheck="true">// 打印端口信息</span>
+        System<span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span><span class="token string">"port: "</span> <span class="token operator">+</span> port<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> moviceService<span class="token punctuation">.</span><span class="token function">getMovieById</span><span class="token punctuation">(</span>id<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>启动项目</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjDKWu4FkNTat3JsQ4fd9GBZ6duA*mZloXRDgP9pTACgHMF74YiDWdJzzCesKXDTUbg!!/mnull&amp;bo=YAcWAWAHFgEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>查看注册中心，就会发现 Movie 的三个服务都注册到注册中心了</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjCdee99S.piwDAkK9qIrvf9pQIheWvvc*Mqse8cx8244yMVyb0vJ0Zg3ILbKddamvg!!/mnull&amp;bo=2gxgAdoMYAEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>再次调用购买电影票的接口 <a href="http://localhost:9000/buyMovie/1/2" target="_blank" rel="noopener">http://localhost:9000/buyMovie/1/2</a>  6 次就会看到打印的端口信息。每个服务都打印了端口两次，也就说被调用了两次。（默认是轮训策略，每个 Movie 服务被调用一次，六次就是每个被调用两次。这说明 RestTemplate 默认就是和 Ribbon 集成的）</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjE4w5BihH5M34gM*B1wQZ6PdxeLzvTxQfGJcAl4lSoh8*EYTQ3I64U6*tXzzyAvW3A!!/mnull&amp;bo=YgcIAWIHCAEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>注意⚠️：这里的 <code>@LoadBalanced</code> 是配置在 User 服务上的，也就是说这里 Ribbon 是在发挥正向代理的作用，请求发给 User 服务，然后进入到 Ribbon 中进行负载均衡，将请求发往不同的 Movie 服务。Nginx 的那种代理是反向代理。</p>
+<h4 id="Feign"><a href="#Feign" class="headerlink" title="Feign"></a>Feign</h4><h5 id="创建项目"><a href="#创建项目" class="headerlink" title="创建项目"></a>创建项目</h5><p>复制一份 User 服务，名字叫做 cloud-provider-user-feign，并将以前的 User 服务名称修改为 cloud-provider-user-restTemplate，分别修改两个服务中的 pom 坐标和 application.yml 中的名称。</p>
+<h5 id="引入-Feign"><a href="#引入-Feign" class="headerlink" title="引入 Feign"></a>引入 Feign</h5><p>在 cloud-provider-user-feign 的 pom 文件中引入 feign 的依赖</p>
+<pre class="line-numbers language-xml"><code class="language-xml"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dependency</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>groupId</span><span class="token punctuation">></span></span>org.springframework.cloud<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>groupId</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>artifactId</span><span class="token punctuation">></span></span>spring-cloud-starter-openfeign<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>artifactId</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dependency</span><span class="token punctuation">></span></span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+<h5 id="启用-Feign"><a href="#启用-Feign" class="headerlink" title="启用 Feign"></a>启用 Feign</h5><p>在主程序中加上注解 <code>@EnableFeignClients</code> 启用 Feign 客户端</p>
+<pre class="line-numbers language-java"><code class="language-java"><span class="token keyword">package</span> com<span class="token punctuation">.</span>itguigu<span class="token punctuation">.</span>springcloud<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>boot<span class="token punctuation">.</span>SpringApplication<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>boot<span class="token punctuation">.</span>autoconfigure<span class="token punctuation">.</span>SpringBootApplication<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>cloud<span class="token punctuation">.</span>client<span class="token punctuation">.</span>discovery<span class="token punctuation">.</span>EnableDiscoveryClient<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>cloud<span class="token punctuation">.</span>client<span class="token punctuation">.</span>loadbalancer<span class="token punctuation">.</span>LoadBalanced<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>cloud<span class="token punctuation">.</span>openfeign<span class="token punctuation">.</span>EnableFeignClients<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>context<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>Bean<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>web<span class="token punctuation">.</span>client<span class="token punctuation">.</span>RestTemplate<span class="token punctuation">;</span>
+
+<span class="token annotation punctuation">@EnableFeignClients</span>
+<span class="token annotation punctuation">@EnableDiscoveryClient</span>
+<span class="token annotation punctuation">@SpringBootApplication</span>
+<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">CloudProviderUserApplication</span> <span class="token punctuation">{</span>
+    <span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token keyword">void</span> <span class="token function">main</span><span class="token punctuation">(</span>String<span class="token punctuation">[</span><span class="token punctuation">]</span> args<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        SpringApplication<span class="token punctuation">.</span><span class="token function">run</span><span class="token punctuation">(</span>CloudProviderUserApplication<span class="token punctuation">.</span><span class="token keyword">class</span><span class="token punctuation">,</span> args<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h5 id="创建-Feign-远程调用接口"><a href="#创建-Feign-远程调用接口" class="headerlink" title="创建 Feign 远程调用接口"></a>创建 Feign 远程调用接口</h5><p>在 service 包下新建 MovieServiceFeign 接口，并在接口上加上 <code>@FeignClient</code> 注解。并添加和要远程调用的 Movie 中的方法（确保名称和参数都一摸一样，只是不需要实现而已）</p>
+<pre class="line-numbers language-java"><code class="language-java"><span class="token keyword">package</span> com<span class="token punctuation">.</span>itguigu<span class="token punctuation">.</span>springcloud<span class="token punctuation">.</span>service<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>cloud<span class="token punctuation">.</span>openfeign<span class="token punctuation">.</span>FeignClient<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>web<span class="token punctuation">.</span>bind<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>GetMapping<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>web<span class="token punctuation">.</span>bind<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>PathVariable<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> com<span class="token punctuation">.</span>itguigu<span class="token punctuation">.</span>springcloud<span class="token punctuation">.</span>bean<span class="token punctuation">.</span>Movie<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">// 声明这是一个 Feign 的客户端（远程调用端）并指定远程服务地址（名称）</span>
+<span class="token annotation punctuation">@FeignClient</span><span class="token punctuation">(</span>value<span class="token operator">=</span><span class="token string">"CLOUD-PROVIDER-MOVIE"</span><span class="token punctuation">)</span>
+<span class="token keyword">public</span> <span class="token keyword">interface</span> <span class="token class-name">MovieServiceFeign</span> <span class="token punctuation">{</span>
+    <span class="token comment" spellcheck="true">// 要远程调用的方法。这里的方法和 Movie Controller 中的一摸一样。</span>
+    <span class="token annotation punctuation">@GetMapping</span><span class="token punctuation">(</span><span class="token string">"/getMovieById/{id}"</span><span class="token punctuation">)</span>
+    <span class="token keyword">public</span> Movie <span class="token function">getMovieById</span><span class="token punctuation">(</span><span class="token annotation punctuation">@PathVariable</span><span class="token punctuation">(</span><span class="token string">"id"</span><span class="token punctuation">)</span> Integer id<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h5 id="实现调用"><a href="#实现调用" class="headerlink" title="实现调用"></a>实现调用</h5><p>在 User Controller 中修改购买电影票接口，让其去调用 Feign 中配置的接口。只需要将以前 RestTemplate 中的远程调用方法更换为使用 Feign 去调用就行。</p>
+<pre class="line-numbers language-java"><code class="language-java"><span class="token keyword">package</span> com<span class="token punctuation">.</span>itguigu<span class="token punctuation">.</span>springcloud<span class="token punctuation">.</span>controller<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>HashMap<span class="token punctuation">;</span>
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>Map<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>beans<span class="token punctuation">.</span>factory<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>Autowired<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>web<span class="token punctuation">.</span>bind<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>GetMapping<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>web<span class="token punctuation">.</span>bind<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>PathVariable<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>web<span class="token punctuation">.</span>bind<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>RestController<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>web<span class="token punctuation">.</span>client<span class="token punctuation">.</span>RestTemplate<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> com<span class="token punctuation">.</span>itguigu<span class="token punctuation">.</span>springcloud<span class="token punctuation">.</span>bean<span class="token punctuation">.</span>Movie<span class="token punctuation">;</span>
+<span class="token keyword">import</span> com<span class="token punctuation">.</span>itguigu<span class="token punctuation">.</span>springcloud<span class="token punctuation">.</span>bean<span class="token punctuation">.</span>User<span class="token punctuation">;</span>
+<span class="token keyword">import</span> com<span class="token punctuation">.</span>itguigu<span class="token punctuation">.</span>springcloud<span class="token punctuation">.</span>service<span class="token punctuation">.</span>MovieServiceFeign<span class="token punctuation">;</span>
+<span class="token keyword">import</span> com<span class="token punctuation">.</span>itguigu<span class="token punctuation">.</span>springcloud<span class="token punctuation">.</span>service<span class="token punctuation">.</span>UserService<span class="token punctuation">;</span>
+
+<span class="token annotation punctuation">@RestController</span>
+<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">UserController</span> <span class="token punctuation">{</span>
+
+    <span class="token annotation punctuation">@Autowired</span>
+    UserService userService<span class="token punctuation">;</span>
+
+    <span class="token annotation punctuation">@Autowired</span>
+    MovieServiceFeign moviceServiceFeign<span class="token punctuation">;</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 获取用户信息
+     * @param id
+     * @return
+     */</span>
+    <span class="token annotation punctuation">@GetMapping</span><span class="token punctuation">(</span><span class="token string">"/getUserById/{id}"</span><span class="token punctuation">)</span>
+    <span class="token keyword">public</span> User <span class="token function">getUserById</span><span class="token punctuation">(</span><span class="token annotation punctuation">@PathVariable</span><span class="token punctuation">(</span><span class="token string">"id"</span><span class="token punctuation">)</span> Integer id<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> userService<span class="token punctuation">.</span><span class="token function">getUserById</span><span class="token punctuation">(</span>id<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+
+    <span class="token comment" spellcheck="true">/**
+     * 购买电影票
+     * @param userId
+     * @param movieId
+     * @return
+     */</span>
+    <span class="token annotation punctuation">@GetMapping</span><span class="token punctuation">(</span><span class="token string">"/buyMovie/{userId}/{movieId}"</span><span class="token punctuation">)</span>
+    <span class="token keyword">public</span> Map<span class="token operator">&lt;</span>String<span class="token punctuation">,</span> Object<span class="token operator">></span> <span class="token function">buyMovie</span><span class="token punctuation">(</span>
+            <span class="token annotation punctuation">@PathVariable</span><span class="token punctuation">(</span><span class="token string">"userId"</span><span class="token punctuation">)</span> Integer userId<span class="token punctuation">,</span> 
+            <span class="token annotation punctuation">@PathVariable</span><span class="token punctuation">(</span><span class="token string">"movieId"</span><span class="token punctuation">)</span> Integer movieId
+    <span class="token punctuation">)</span><span class="token punctuation">{</span>
+        HashMap<span class="token operator">&lt;</span>String<span class="token punctuation">,</span> Object<span class="token operator">></span> result <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">HashMap</span><span class="token operator">&lt;</span><span class="token operator">></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment" spellcheck="true">// 获取用户信息，查询自己的服务即可</span>
+        User user <span class="token operator">=</span> userService<span class="token punctuation">.</span><span class="token function">getUserById</span><span class="token punctuation">(</span>userId<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token comment" spellcheck="true">// 查询电影信息，需要远程调用</span>
+        Movie movie <span class="token operator">=</span> moviceServiceFeign<span class="token punctuation">.</span><span class="token function">getMovieById</span><span class="token punctuation">(</span>movieId<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        result<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"user"</span><span class="token punctuation">,</span> user<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        result<span class="token punctuation">.</span><span class="token function">put</span><span class="token punctuation">(</span><span class="token string">"movie"</span><span class="token punctuation">,</span> movie<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">return</span> result<span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h5 id="集成-Ribbon-1"><a href="#集成-Ribbon-1" class="headerlink" title="集成 Ribbon"></a>集成 Ribbon</h5><p>Feign 默认就是和 Ribbon 集成的。调用六次会发现，每个 Movie 服务都被平均的调用了两次。</p>
+<h3 id="熔断"><a href="#熔断" class="headerlink" title="熔断"></a>熔断</h3>
           
         
       
