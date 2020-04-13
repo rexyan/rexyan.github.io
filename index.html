@@ -1158,6 +1158,105 @@ server:
 <span class="token punctuation">}</span>
 <span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 <p>这里面还涉及自定义错误和错误枚举，处理接口统一返回等问题，值得看看。</p>
+<h3 id="文件上传-OSS"><a href="#文件上传-OSS" class="headerlink" title="文件上传 OSS"></a>文件上传 OSS</h3><p>在 zcw-project 模块下参考阿里云 OSS SDK 编写AliOssTemplate 代码</p>
+<pre class="line-numbers language-java"><code class="language-java"><span class="token keyword">package</span> com<span class="token punctuation">.</span>itguigu<span class="token punctuation">.</span>zcw<span class="token punctuation">.</span>components<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>io<span class="token punctuation">.</span>InputStream<span class="token punctuation">;</span>
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>util<span class="token punctuation">.</span>UUID<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> com<span class="token punctuation">.</span>aliyun<span class="token punctuation">.</span>oss<span class="token punctuation">.</span>OSS<span class="token punctuation">;</span>
+<span class="token keyword">import</span> com<span class="token punctuation">.</span>aliyun<span class="token punctuation">.</span>oss<span class="token punctuation">.</span>OSSClientBuilder<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> lombok<span class="token punctuation">.</span>Data<span class="token punctuation">;</span>
+<span class="token keyword">import</span> lombok<span class="token punctuation">.</span>ToString<span class="token punctuation">;</span>
+<span class="token keyword">import</span> lombok<span class="token punctuation">.</span>extern<span class="token punctuation">.</span>slf4j<span class="token punctuation">.</span>Slf4j<span class="token punctuation">;</span>
+
+<span class="token annotation punctuation">@Slf4j</span>
+<span class="token annotation punctuation">@ToString</span>
+<span class="token annotation punctuation">@Data</span>
+<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">AliOssTemplate</span> <span class="token punctuation">{</span>
+    <span class="token comment" spellcheck="true">// 这里不使用 @Value 注解读取 properties 中的配置，而是使用配置的方式，详见 com.itguigu.zcw.config 下 AliOssConfig.java</span>
+    <span class="token comment" spellcheck="true">// 注意加上 @Data 注解，否则值不能注入进来</span>
+    <span class="token comment" spellcheck="true">// 上传地址</span>
+    <span class="token keyword">private</span> String endpoint<span class="token punctuation">;</span>
+    <span class="token comment" spellcheck="true">// accessKeyId</span>
+    <span class="token keyword">private</span> String accessKeyId<span class="token punctuation">;</span>
+    <span class="token comment" spellcheck="true">// accessKeySecret</span>
+    <span class="token keyword">private</span> String accessKeySecret<span class="token punctuation">;</span>
+    <span class="token comment" spellcheck="true">// bucketName</span>
+    <span class="token keyword">private</span> String bucketName<span class="token punctuation">;</span>
+    <span class="token comment" spellcheck="true">// 上传存储文件夹</span>
+    <span class="token keyword">private</span> String uploadFolderName<span class="token punctuation">;</span>
+
+
+    <span class="token keyword">public</span> String <span class="token function">upload</span><span class="token punctuation">(</span>InputStream inputStream<span class="token punctuation">,</span> String uploadFileName<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        log<span class="token punctuation">.</span><span class="token function">info</span><span class="token punctuation">(</span><span class="token string">"endpoint:{}"</span><span class="token punctuation">,</span> endpoint<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        log<span class="token punctuation">.</span><span class="token function">info</span><span class="token punctuation">(</span><span class="token string">"accessKeyId:{}"</span><span class="token punctuation">,</span> accessKeyId<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        log<span class="token punctuation">.</span><span class="token function">info</span><span class="token punctuation">(</span><span class="token string">"accessKeySecret:{}"</span><span class="token punctuation">,</span> accessKeySecret<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        log<span class="token punctuation">.</span><span class="token function">info</span><span class="token punctuation">(</span><span class="token string">"bucketName:{}"</span><span class="token punctuation">,</span> bucketName<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        log<span class="token punctuation">.</span><span class="token function">info</span><span class="token punctuation">(</span><span class="token string">"uploadFolderName:{}"</span><span class="token punctuation">,</span> uploadFolderName<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        log<span class="token punctuation">.</span><span class="token function">info</span><span class="token punctuation">(</span><span class="token string">"uploadFileName:{}"</span><span class="token punctuation">,</span> uploadFileName<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        String fileName<span class="token punctuation">;</span>
+
+        <span class="token keyword">try</span> <span class="token punctuation">{</span>
+            <span class="token comment" spellcheck="true">// 创建OSSClient实例。</span>
+            OSS ossClient <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">OSSClientBuilder</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">build</span><span class="token punctuation">(</span>endpoint<span class="token punctuation">,</span> accessKeyId<span class="token punctuation">,</span> accessKeySecret<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token comment" spellcheck="true">// 上传内容到指定的存储空间（bucketName）并保存为指定的文件名称（objectName）。</span>
+            String fileSuffix <span class="token operator">=</span> UUID<span class="token punctuation">.</span><span class="token function">randomUUID</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token string">"-"</span><span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            fileName <span class="token operator">=</span> fileSuffix <span class="token operator">+</span> <span class="token string">"_"</span> <span class="token operator">+</span> uploadFileName<span class="token punctuation">;</span>
+            ossClient<span class="token punctuation">.</span><span class="token function">putObject</span><span class="token punctuation">(</span>bucketName<span class="token punctuation">,</span> uploadFolderName <span class="token operator">+</span> <span class="token string">"/"</span> <span class="token operator">+</span> fileName<span class="token punctuation">,</span> inputStream<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token comment" spellcheck="true">// 关闭OSSClient。</span>
+            ossClient<span class="token punctuation">.</span><span class="token function">shutdown</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span><span class="token class-name">Exception</span> e<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            <span class="token keyword">return</span> <span class="token string">""</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span>
+        <span class="token comment" spellcheck="true">// 返回上传后文件完整路径</span>
+        <span class="token comment" spellcheck="true">// https://osssssssss.oss-cn-shanghai.aliyuncs.com/zcw/2020-04-11_17-28-06.png</span>
+        <span class="token keyword">return</span> <span class="token string">"https://"</span> <span class="token operator">+</span> bucketName <span class="token operator">+</span> <span class="token string">".oss-cn-shanghai.aliyuncs.com/"</span> <span class="token operator">+</span> uploadFolderName <span class="token operator">+</span> <span class="token string">"/"</span> <span class="token operator">+</span> fileName<span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>这里的配置采用配置类的方式注入，不是之前的 <code>@Value</code>, 配置类如下：</p>
+<pre class="line-numbers language-java"><code class="language-java"><span class="token keyword">package</span> com<span class="token punctuation">.</span>itguigu<span class="token punctuation">.</span>zcw<span class="token punctuation">.</span>config<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>boot<span class="token punctuation">.</span>context<span class="token punctuation">.</span>properties<span class="token punctuation">.</span>ConfigurationProperties<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>context<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>Bean<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>context<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>Configuration<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> com<span class="token punctuation">.</span>itguigu<span class="token punctuation">.</span>zcw<span class="token punctuation">.</span>components<span class="token punctuation">.</span>AliOssTemplate<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">// 使用 @Configuration 或者 @SpringBootConfiguration 让其成为一个配置类</span>
+<span class="token annotation punctuation">@Configuration</span>
+<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">AliOssConfig</span> <span class="token punctuation">{</span>
+
+    <span class="token comment" spellcheck="true">// 从 Properties 中读取前缀为 oss 的配置值，并且注入到 AliOssTemplate 属性中去</span>
+    <span class="token annotation punctuation">@ConfigurationProperties</span><span class="token punctuation">(</span>prefix <span class="token operator">=</span> <span class="token string">"oss"</span><span class="token punctuation">)</span>
+    <span class="token annotation punctuation">@Bean</span>
+    <span class="token keyword">public</span> AliOssTemplate <span class="token function">aliOssTemplate</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">AliOssTemplate</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>controller 代码如下，这里可以接受上传的多个文件。</p>
+<pre class="line-numbers language-java"><code class="language-java"><span class="token annotation punctuation">@ApiOperation</span><span class="token punctuation">(</span>value <span class="token operator">=</span> <span class="token string">"上传图片"</span><span class="token punctuation">)</span>
+    <span class="token annotation punctuation">@PostMapping</span><span class="token punctuation">(</span><span class="token string">"/upload"</span><span class="token punctuation">)</span>
+    <span class="token keyword">public</span> AppResponse<span class="token operator">&lt;</span>Object<span class="token operator">></span> <span class="token function">upload</span><span class="token punctuation">(</span><span class="token annotation punctuation">@RequestParam</span><span class="token punctuation">(</span><span class="token string">"files"</span><span class="token punctuation">)</span> MultipartFile<span class="token punctuation">[</span><span class="token punctuation">]</span> files<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        ArrayList<span class="token operator">&lt;</span>String<span class="token operator">></span> fileUrlList <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">ArrayList</span><span class="token operator">&lt;</span><span class="token operator">></span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token keyword">for</span> <span class="token punctuation">(</span>MultipartFile file <span class="token operator">:</span> files<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            <span class="token keyword">try</span> <span class="token punctuation">{</span>
+                String fileUrl <span class="token operator">=</span> aliOssTemplate<span class="token punctuation">.</span><span class="token function">upload</span><span class="token punctuation">(</span>file<span class="token punctuation">.</span><span class="token function">getInputStream</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> file<span class="token punctuation">.</span><span class="token function">getOriginalFilename</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                fileUrlList<span class="token punctuation">.</span><span class="token function">add</span><span class="token punctuation">(</span>fileUrl<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span><span class="token class-name">IOException</span> e<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+                log<span class="token punctuation">.</span><span class="token function">error</span><span class="token punctuation">(</span><span class="token string">"文件上传错误:{}"</span><span class="token punctuation">,</span> file<span class="token punctuation">.</span><span class="token function">getOriginalFilename</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                e<span class="token punctuation">.</span><span class="token function">printStackTrace</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                AppResponse<span class="token operator">&lt;</span>Object<span class="token operator">></span> resp <span class="token operator">=</span> AppResponse<span class="token punctuation">.</span><span class="token function">fail</span><span class="token punctuation">(</span><span class="token string">""</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+                resp<span class="token punctuation">.</span><span class="token function">setMsg</span><span class="token punctuation">(</span><span class="token string">"文件上传失败"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token punctuation">}</span>
+        <span class="token punctuation">}</span>
+        <span class="token keyword">return</span> AppResponse<span class="token punctuation">.</span><span class="token function">ok</span><span class="token punctuation">(</span>fileUrlList<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 
           
         
