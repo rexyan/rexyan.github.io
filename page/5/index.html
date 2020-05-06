@@ -348,6 +348,1156 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2019/06/28/元类/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2019/06/28/元类/" itemprop="url">元类</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-06-28T10:25:57+08:00">
+                2019-06-28
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Python-进阶/" itemprop="url" rel="index">
+                    <span itemprop="name">Python 进阶</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <p>元类注册子类：</p>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">import</span> json
+
+registry <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token punctuation">}</span>
+
+
+<span class="token keyword">def</span> <span class="token function">register_class</span><span class="token punctuation">(</span>target_class<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    registry<span class="token punctuation">[</span>target_class<span class="token punctuation">.</span>__name__<span class="token punctuation">]</span> <span class="token operator">=</span> target_class
+
+
+<span class="token keyword">class</span> <span class="token class-name">Meta</span><span class="token punctuation">(</span>type<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__new__</span><span class="token punctuation">(</span>cls<span class="token punctuation">,</span> <span class="token operator">*</span>args<span class="token punctuation">,</span> <span class="token operator">**</span>kwargs<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token triple-quoted-string string">"""
+        1. cls 为当前准备创建对象的类
+        2. args 中第一个参数为类的名字
+        3. args 中第二个参数为类继承的父类集合
+        4. args 中第三个参数为类的方法集合
+        :param args:
+        :param kwargs:
+        :return:
+        """</span>
+        cls <span class="token operator">=</span> type<span class="token punctuation">.</span>__new__<span class="token punctuation">(</span>cls<span class="token punctuation">,</span> <span class="token operator">*</span>args<span class="token punctuation">,</span> <span class="token operator">**</span>kwargs<span class="token punctuation">)</span>
+        register_class<span class="token punctuation">(</span>cls<span class="token punctuation">)</span>
+        <span class="token keyword">return</span> cls
+
+
+<span class="token keyword">class</span> <span class="token class-name">Serializable</span><span class="token punctuation">(</span>object<span class="token punctuation">,</span> metaclass<span class="token operator">=</span>Meta<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> <span class="token operator">*</span>args<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        self<span class="token punctuation">.</span>args <span class="token operator">=</span> args
+
+    <span class="token keyword">def</span> <span class="token function">serialize</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> json<span class="token punctuation">.</span>dumps<span class="token punctuation">(</span>
+            <span class="token punctuation">{</span>
+                <span class="token string">"class"</span><span class="token punctuation">:</span> self<span class="token punctuation">.</span>__class__<span class="token punctuation">.</span>__name__<span class="token punctuation">,</span>
+                <span class="token string">"args"</span><span class="token punctuation">:</span> self<span class="token punctuation">.</span>args
+            <span class="token punctuation">}</span>
+        <span class="token punctuation">)</span>
+
+
+<span class="token keyword">def</span> <span class="token function">deserialize</span><span class="token punctuation">(</span>data<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    params <span class="token operator">=</span> json<span class="token punctuation">.</span>loads<span class="token punctuation">(</span>data<span class="token punctuation">)</span>
+    name <span class="token operator">=</span> params<span class="token punctuation">[</span><span class="token string">"class"</span><span class="token punctuation">]</span>
+    target_class <span class="token operator">=</span> registry<span class="token punctuation">[</span>name<span class="token punctuation">]</span>
+    <span class="token keyword">return</span> target_class<span class="token punctuation">(</span><span class="token operator">*</span>params<span class="token punctuation">[</span><span class="token string">"args"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+
+
+<span class="token keyword">class</span> <span class="token class-name">Point2D</span><span class="token punctuation">(</span>Serializable<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> x<span class="token punctuation">,</span> y<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        super<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>__init__<span class="token punctuation">(</span>x<span class="token punctuation">,</span> y<span class="token punctuation">)</span>
+        self<span class="token punctuation">.</span>x <span class="token operator">=</span> x
+        self<span class="token punctuation">.</span>y <span class="token operator">=</span> y
+
+    <span class="token keyword">def</span> <span class="token function">__repr__</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> f<span class="token string">"Point2D:{self.x, self.y}"</span>
+
+
+<span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">"__main__"</span><span class="token punctuation">:</span>
+    point <span class="token operator">=</span> Point2D<span class="token punctuation">(</span><span class="token number">5</span><span class="token punctuation">,</span> <span class="token number">3</span><span class="token punctuation">)</span>
+    serializePoint2D <span class="token operator">=</span> <span class="token punctuation">(</span>point<span class="token punctuation">.</span>serialize<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span>point<span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span>serializePoint2D<span class="token punctuation">)</span>
+    obj <span class="token operator">=</span> deserialize<span class="token punctuation">(</span>serializePoint2D<span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span>obj<span class="token punctuation">)</span>
+
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>元类注解类的属性：</p>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">class</span> <span class="token class-name">Field</span><span class="token punctuation">(</span>object<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> name<span class="token punctuation">,</span> internal_name<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        self<span class="token punctuation">.</span>name <span class="token operator">=</span> name
+        self<span class="token punctuation">.</span>internal_name <span class="token operator">=</span> internal_name
+
+
+<span class="token keyword">class</span> <span class="token class-name">Meta</span><span class="token punctuation">(</span>type<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__new__</span><span class="token punctuation">(</span>meta<span class="token punctuation">,</span> name<span class="token punctuation">,</span> bases<span class="token punctuation">,</span> class_dict<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">for</span> key<span class="token punctuation">,</span> value <span class="token keyword">in</span> class_dict<span class="token punctuation">.</span>items<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+            <span class="token keyword">if</span> isinstance<span class="token punctuation">(</span>value<span class="token punctuation">,</span> Field<span class="token punctuation">)</span><span class="token punctuation">:</span>
+                value<span class="token punctuation">.</span>name <span class="token operator">=</span> key
+                value<span class="token punctuation">.</span>internal_name <span class="token operator">=</span> <span class="token string">"_"</span> <span class="token operator">+</span> key
+        cls <span class="token operator">=</span> type<span class="token punctuation">.</span>__new__<span class="token punctuation">(</span>meta<span class="token punctuation">,</span> name<span class="token punctuation">,</span> bases<span class="token punctuation">,</span> class_dict<span class="token punctuation">)</span>
+        <span class="token keyword">return</span> cls
+
+
+<span class="token keyword">class</span> <span class="token class-name">DataBase</span><span class="token punctuation">(</span>object<span class="token punctuation">,</span> metaclass<span class="token operator">=</span>Meta<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">pass</span>
+
+
+<span class="token comment" spellcheck="true"># apply</span>
+<span class="token keyword">class</span> <span class="token class-name">UserTable</span><span class="token punctuation">(</span>DataBase<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    name <span class="token operator">=</span> Field<span class="token punctuation">(</span>name<span class="token operator">=</span><span class="token string">"user_name"</span><span class="token punctuation">,</span> internal_name<span class="token operator">=</span><span class="token string">"user_name"</span><span class="token punctuation">)</span>
+    age <span class="token operator">=</span> Field<span class="token punctuation">(</span>name<span class="token operator">=</span><span class="token string">"user_age"</span><span class="token punctuation">,</span> internal_name<span class="token operator">=</span><span class="token string">"user_gae"</span><span class="token punctuation">)</span>
+
+
+<span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">"__main__"</span><span class="token punctuation">:</span>
+    user <span class="token operator">=</span> UserTable<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span>user<span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span>user<span class="token punctuation">.</span>name<span class="token punctuation">)</span>
+    user<span class="token punctuation">.</span>name <span class="token operator">=</span> <span class="token string">"zhangsan"</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span>user<span class="token punctuation">.</span>__dict__<span class="token punctuation">)</span>
+
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>元类强制子类实现某方法</p>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">class</span> <span class="token class-name">Meta</span><span class="token punctuation">(</span>type<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__new__</span><span class="token punctuation">(</span>cls<span class="token punctuation">,</span> name<span class="token punctuation">,</span> bases<span class="token punctuation">,</span> class_dict<span class="token punctuation">,</span> <span class="token operator">**</span>kwargs<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">if</span> name <span class="token operator">!=</span> <span class="token string">"Base"</span> <span class="token operator">and</span> <span class="token string">"foo"</span> <span class="token operator">not</span> <span class="token keyword">in</span> class_dict<span class="token punctuation">:</span>
+            <span class="token keyword">raise</span> TypeError<span class="token punctuation">(</span><span class="token string">"需要重写 foo 方法！"</span><span class="token punctuation">)</span>
+        cls <span class="token operator">=</span> type<span class="token punctuation">.</span>__new__<span class="token punctuation">(</span>cls<span class="token punctuation">,</span> name<span class="token punctuation">,</span> bases<span class="token punctuation">,</span> class_dict<span class="token punctuation">,</span> <span class="token operator">**</span>kwargs<span class="token punctuation">)</span>
+        <span class="token keyword">return</span> cls
+
+
+<span class="token keyword">class</span> <span class="token class-name">Base</span><span class="token punctuation">(</span>object<span class="token punctuation">,</span> metaclass<span class="token operator">=</span>Meta<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token comment" spellcheck="true"># 继承 Base 的子类需要重写此方法</span>
+    <span class="token keyword">def</span> <span class="token function">foo</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> self<span class="token punctuation">.</span>foo<span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+
+<span class="token keyword">class</span> <span class="token class-name">Apply</span><span class="token punctuation">(</span>Base<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">pass</span>
+
+    <span class="token comment" spellcheck="true"># def foo(self):</span>
+    <span class="token comment" spellcheck="true">#     pass</span>
+
+
+<span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">"__main__"</span><span class="token punctuation">:</span>
+    apply <span class="token operator">=</span> Apply<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span>apply<span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>统计一个类的所有子类</p>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">class</span> <span class="token class-name">Meta</span><span class="token punctuation">(</span>type<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>cls<span class="token punctuation">,</span> name<span class="token punctuation">,</span> bases<span class="token punctuation">,</span> namespace<span class="token punctuation">,</span> <span class="token operator">**</span>kwargs<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        super<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>__init__<span class="token punctuation">(</span>name<span class="token punctuation">,</span> bases<span class="token punctuation">,</span> namespace<span class="token punctuation">,</span> <span class="token operator">**</span>kwargs<span class="token punctuation">)</span>
+        <span class="token keyword">if</span> <span class="token operator">not</span> hasattr<span class="token punctuation">(</span>cls<span class="token punctuation">,</span> <span class="token string">'registory'</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+            <span class="token comment" spellcheck="true"># this is the base class</span>
+            cls<span class="token punctuation">.</span>registory <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token punctuation">}</span>
+        <span class="token keyword">else</span><span class="token punctuation">:</span>
+            <span class="token comment" spellcheck="true"># this is the subclass</span>
+            cls<span class="token punctuation">.</span>registory<span class="token punctuation">[</span>name<span class="token punctuation">.</span>lower<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">]</span> <span class="token operator">=</span> cls
+
+
+<span class="token keyword">class</span> <span class="token class-name">Fruit</span><span class="token punctuation">(</span>object<span class="token punctuation">,</span> metaclass<span class="token operator">=</span>Meta<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">pass</span>
+
+
+<span class="token keyword">class</span> <span class="token class-name">Apple</span><span class="token punctuation">(</span>Fruit<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">pass</span>
+
+
+<span class="token keyword">class</span> <span class="token class-name">Orange</span><span class="token punctuation">(</span>Fruit<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">pass</span>
+
+
+<span class="token keyword">print</span><span class="token punctuation">(</span>Fruit<span class="token punctuation">.</span>registory<span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2019/06/22/StatefulSet/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2019/06/22/StatefulSet/" itemprop="url">StatefulSet</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-06-22T17:22:57+08:00">
+                2019-06-22
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Kubernetes/" itemprop="url" rel="index">
+                    <span itemprop="name">Kubernetes</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <p>StatefulSet 用于管理有状态 Pod 的控制器，例如 Redis，ZK 等，与 Deployment 相反。在 K8s 上定义和管理有状态的应用是比较困难的，每个有状态的服务都有自己的特性，你要考虑它们出现问题之后的重启方式，数据恢复方式等等问题。github 上有很多已经写好了相对应的服务的有状态服务的配置方式，但是都不建议使用在自己的 K8s 生产环境中。</p>
+<h3 id="StatefulSet"><a href="#StatefulSet" class="headerlink" title="StatefulSet"></a>StatefulSet</h3><p>主要用于管理有以下状态的应用：</p>
+<ol>
+<li><p>稳定且有唯一的网络标识符。</p>
+</li>
+<li><p>稳定且持久的存储。</p>
+</li>
+<li><p>有序，平滑的部署和拓展。</p>
+</li>
+<li><p>有序，平滑的删除和终止。</p>
+</li>
+</ol>
+<p>StatefulSet 由三部分组成：</p>
+<ol>
+<li>headless service (无头服务)</li>
+<li>StatefulSet (StatefulSet 控制器)</li>
+<li>volumeClaimTemplate (存储卷申请模版。能自动为 Pod 创建 Volume 并且创建 Pvc。)</li>
+</ol>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/StatefulSet.png" alt></p>
+<p>定义一个 StatefulSet 示例如下：</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/statefulset1.png" alt></p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/statefulset2.png" alt></p>
+<p>以上 yaml 配置文件创建了一个 ClusterIP 为 Node 的无头服务，并且创建了一个 Statefulset，里面有volumeClainmTemplate 存储卷申请模版，申请绑定一个模式为 RWO，大小为 5G 的存储。并且将映射到容器中的 /usr/share/nginx/html 下。</p>
+<p>创建 Pod 是顺序创建的，且名称是固定有序的，能被解析的。当对 Pod 进行删除动作时，会进行逆序删除。当对 StatefulSet Replicas 数量进行增加的时候，他也会像新创建的时候创建出对应的 pod，pvc。</p>
+<p>当对 StatefulSet 应用进行镜像升级的时候，我们可以选择 rollingUpdate，并可以设置 patition。</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190622165952.png" alt></p>
+<p>partition 默认为 0，即代表大于等于 0 的 Pod 都将会被更新。如果设置为 5 则代表 Pod 序号大于等于 5 的 Pod 都将会被更新。我们可以设置 partition 的数值来实现金丝雀发布。例如现在有 10 个 Pod，我们可以设置 partition 为 10。这样就只能更新序号为 10 的 Pod。如果序号为 10 的 Pod 没问题之后，我们在将 partition 设置为 0，使其全部进行更新。</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190622170045.png" alt></p>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2019/06/22/Python 描述器/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2019/06/22/Python 描述器/" itemprop="url">Python 描述器</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-06-22T14:22:57+08:00">
+                2019-06-22
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Python-进阶/" itemprop="url" rel="index">
+                    <span itemprop="name">Python 进阶</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <p>本文转载自 <a href="https://zhuanlan.zhihu.com/p/32764345" target="_blank" rel="noopener">此处</a></p>
+<p>我们可以用@property装饰器将方法包装成属性，这样的属性，相比于其他属性有一个优点就是可以在对属性赋值时，进行变量检查，举例代码如下</p>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">class</span> <span class="token class-name">A</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> name<span class="token punctuation">,</span> score<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        self<span class="token punctuation">.</span>name <span class="token operator">=</span> name <span class="token comment" spellcheck="true"># 普通属性</span>
+        self<span class="token punctuation">.</span>_score <span class="token operator">=</span> score
+
+    @property
+    <span class="token keyword">def</span> <span class="token function">score</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> self<span class="token punctuation">.</span>_score
+
+    @score<span class="token punctuation">.</span>setter
+    <span class="token keyword">def</span> <span class="token function">score</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> value<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">'setting score here'</span><span class="token punctuation">)</span>
+        <span class="token keyword">if</span> isinstance<span class="token punctuation">(</span>value<span class="token punctuation">,</span> int<span class="token punctuation">)</span><span class="token punctuation">:</span>
+            self<span class="token punctuation">.</span>_score <span class="token operator">=</span> value
+        <span class="token keyword">else</span><span class="token punctuation">:</span>
+            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">'please input an int'</span><span class="token punctuation">)</span>
+
+a <span class="token operator">=</span> A<span class="token punctuation">(</span><span class="token string">'Bob'</span><span class="token punctuation">,</span><span class="token number">90</span><span class="token punctuation">)</span>
+a<span class="token punctuation">.</span>name <span class="token comment" spellcheck="true"># 'Bob'</span>
+a<span class="token punctuation">.</span>score <span class="token comment" spellcheck="true"># 90</span>
+a<span class="token punctuation">.</span>name <span class="token operator">=</span> <span class="token number">1</span>
+a<span class="token punctuation">.</span>name <span class="token comment" spellcheck="true"># 1 ，名字本身不应该允许赋值为数字，但是这里无法控制其赋值</span>
+a<span class="token punctuation">.</span>score <span class="token operator">=</span> <span class="token number">83</span>
+a<span class="token punctuation">.</span>score <span class="token comment" spellcheck="true"># 83，当赋值为数值型的时候，可以顺利运行</span>
+a<span class="token punctuation">.</span>score <span class="token operator">=</span> <span class="token string">'bob'</span> <span class="token comment" spellcheck="true"># please input an int</span>
+a<span class="token punctuation">.</span>score <span class="token comment" spellcheck="true"># 83，赋值为字符串时，score没有被改变</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>当我们有很多这样的属性时，如果每一个都去使用@property，代码就会过于冗余。如下</p>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">class</span> <span class="token class-name">A</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> name<span class="token punctuation">,</span> score<span class="token punctuation">,</span> age<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        self<span class="token punctuation">.</span>name <span class="token operator">=</span> name <span class="token comment" spellcheck="true"># 普通属性</span>
+        self<span class="token punctuation">.</span>_score <span class="token operator">=</span> score
+        self<span class="token punctuation">.</span>_age <span class="token operator">=</span> age
+
+    @property
+    <span class="token keyword">def</span> <span class="token function">score</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> self<span class="token punctuation">.</span>_score
+
+    @score<span class="token punctuation">.</span>setter
+    <span class="token keyword">def</span> <span class="token function">score</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> value<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">'setting score here'</span><span class="token punctuation">)</span>
+        <span class="token keyword">if</span> isinstance<span class="token punctuation">(</span>value<span class="token punctuation">,</span> int<span class="token punctuation">)</span><span class="token punctuation">:</span>
+            self<span class="token punctuation">.</span>_score <span class="token operator">=</span> value
+        <span class="token keyword">else</span><span class="token punctuation">:</span>
+            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">'please input an int'</span><span class="token punctuation">)</span>
+
+    @property
+    <span class="token keyword">def</span> <span class="token function">age</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> self<span class="token punctuation">.</span>_age
+
+    @age<span class="token punctuation">.</span>setter
+    <span class="token keyword">def</span> <span class="token function">age</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> value<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">'setting age here'</span><span class="token punctuation">)</span>
+        <span class="token keyword">if</span> isinstance<span class="token punctuation">(</span>value<span class="token punctuation">,</span> int<span class="token punctuation">)</span><span class="token punctuation">:</span>
+            self<span class="token punctuation">.</span>_age <span class="token operator">=</span> value
+        <span class="token keyword">else</span><span class="token punctuation">:</span>
+            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">'please input an int'</span><span class="token punctuation">)</span>
+
+a <span class="token operator">=</span> A<span class="token punctuation">(</span><span class="token string">'Bob'</span><span class="token punctuation">,</span> <span class="token number">90</span><span class="token punctuation">,</span> <span class="token number">20</span><span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>因为每一次检验的方法都是一样的，所以最好有方法可以批量实现这件事，只写一次<code>if isinstance</code>。描述器就可以用来实现这件事。</p>
+<p>为了能够更清楚地理解描述器如何实现，我们先跳开这个话题，先讲一讲描述器的基本理论。</p>
+<h2 id="描述器基本理论及简单实例"><a href="#描述器基本理论及简单实例" class="headerlink" title="描述器基本理论及简单实例"></a>描述器基本理论及简单实例</h2><p>描述器功能强大，应用广泛，它可以控制我们访问属性、方法的行为，<strong>是@property、super、静态方法、类方法、甚至属性、实例背后的实现机制</strong>，是一种比较底层的设计，因此理解起来也会有一些困难。</p>
+<p>定义：从描述器的创建来说，一个类中定义了<code>__get__</code>、<code>__set__</code>、<code>__delete__</code>中的一个或几个，这个类的实例就可以叫做一个描述器。</p>
+<p>为了能更真切地体会描述器是什么，我们先看一个最简单的例子，这个例子不实现什么功能，只是使用了描述器</p>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token comment" spellcheck="true"># 创建一个描述器的类，它的实例就是一个描述器</span>
+<span class="token comment" spellcheck="true"># 这个类要有__get__  __set__ 这样的方法</span>
+<span class="token comment" spellcheck="true"># 这种类是当做工具使用的，不单独使用</span>
+<span class="token keyword">class</span> <span class="token class-name">M</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> x<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+        self<span class="token punctuation">.</span>x <span class="token operator">=</span> x
+
+    <span class="token keyword">def</span> <span class="token function">__get__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> instance<span class="token punctuation">,</span> owner<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> self<span class="token punctuation">.</span>x
+
+    <span class="token keyword">def</span> <span class="token function">__set__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> instance<span class="token punctuation">,</span> value<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        self<span class="token punctuation">.</span>x <span class="token operator">=</span> value
+
+<span class="token comment" spellcheck="true"># 调用描述器的类</span>
+<span class="token keyword">class</span> <span class="token class-name">AA</span><span class="token punctuation">:</span>
+    m <span class="token operator">=</span> M<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># m就是一个描述器</span>
+
+aa <span class="token operator">=</span> AA<span class="token punctuation">(</span><span class="token punctuation">)</span>
+aa<span class="token punctuation">.</span>m <span class="token comment" spellcheck="true"># 1</span>
+aa<span class="token punctuation">.</span>m <span class="token operator">=</span> <span class="token number">2</span>
+aa<span class="token punctuation">.</span>m <span class="token comment" spellcheck="true"># 2</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>我们分析一下上面这个例子</p>
+<ul>
+<li>创建aa实例和普通类没什么区别，我们从<code>aa.m</code>开始看</li>
+<li><code>aa.m</code>是aa实例调用了m这个类属性，然而这个类属性不是普通的值，而是一个描述器，所以我们从访问这个类属性变成了访问这个描述器</li>
+<li>如果调用时得到的是一个描述器，python内部就会自动触发一套使用机制</li>
+<li>访问的话自动触发描述器的<code>__get__</code>方法</li>
+<li>修改设置的话就自动触发描述器的<code>__set__</code>方法</li>
+<li>这里就是<code>aa.m</code>触发了<code>__get__</code>方法，得到的是<code>self.x</code>的值，在前面<code>__init__</code>中定义的为1</li>
+<li><code>aa.m = 2</code>则触发了<code>__set__</code>方法，赋的值2传到<code>value</code>参数之中，改变了<code>self.x</code>的值，所以下一次<code>aa.m</code>调用的值也改变了</li>
+</ul>
+<p>进一步思考：当访问一个属性时，我们可以不直接给一个值，而是接一个描述器，让访问和修改设置时自动调用<code>__get__</code>方法和<code>__set__</code>方法。再在<code>__get__</code>方法和<code>__set__</code>方法中进行某种处理，就可以实现更改操作属性行为的目的。这就是描述器做的事情。</p>
+<p>相信有的读者已经想到了，开头引言部分的例子，就是用描述器这样实现的。在讲具体如何实现之前，我们要先了解更多关于描述器的调用机制</p>
+<h2 id="描述器的调用机制"><a href="#描述器的调用机制" class="headerlink" title="描述器的调用机制"></a>描述器的调用机制</h2><p><code>aa.m</code>命令其实是查找m属性的过程，程序会先到哪里找，没有的话再到哪里找，这是有一个顺序的，说明访问顺序时需要用到<code>__dict__</code>方法。</p>
+<p>先看下面的代码了解一下<code>__dict__</code>方法</p>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">class</span> <span class="token class-name">C</span><span class="token punctuation">:</span>
+    x <span class="token operator">=</span> <span class="token number">1</span>
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> y<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        self<span class="token punctuation">.</span>y <span class="token operator">=</span> y
+
+    <span class="token keyword">def</span> <span class="token function">fun</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span>self<span class="token punctuation">.</span>y<span class="token punctuation">)</span>
+
+c <span class="token operator">=</span> C<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span>
+<span class="token comment" spellcheck="true"># 实例有哪些属性</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>c<span class="token punctuation">.</span>__dict__<span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># {'y': 2}</span>
+<span class="token comment" spellcheck="true"># 类有什么属性</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>C<span class="token punctuation">.</span>__dict__<span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 里面有 x fun</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>type<span class="token punctuation">(</span>c<span class="token punctuation">)</span><span class="token punctuation">.</span>__dict__<span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 和上一条一样</span>
+
+<span class="token keyword">print</span><span class="token punctuation">(</span>vars<span class="token punctuation">(</span>c<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># __dict__ 也可以用 vars 函数替代，功能完全相同</span>
+
+<span class="token comment" spellcheck="true"># 调用</span>
+c<span class="token punctuation">.</span>fun<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 2</span>
+c<span class="token punctuation">.</span>__dict__<span class="token punctuation">[</span><span class="token string">'y'</span><span class="token punctuation">]</span> <span class="token comment" spellcheck="true"># 2</span>
+<span class="token comment" spellcheck="true"># type(c).__dict__['fun']() # 报错，说明函数不是这么调用的</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p><code>__dict__</code>方法返回的是一个字典，类和实例都可以调用，键就是类或实例所拥有的属性、方法，可以用这个字典访问属性，但是方法就不能这样直接访问，原因我们之后再说。</p>
+<p>下面我们来说一下，当我们调用<code>aa.m</code>时的访问顺序</p>
+<ul>
+<li>程序会先查找 <code>aa.__dict__[&#39;m&#39;]</code> 是否存在</li>
+<li>不存在再到<code>type(aa).__dict__[&#39;m&#39;]</code>中查找</li>
+<li>然后找<code>type(aa)</code>的父类</li>
+<li>期间找到的是普通值就输出，如果找到的是一个描述器，则调用<code>__get__</code>方法</li>
+</ul>
+<p>下面我们来看一下<code>__get__</code>方法的调用机制</p>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">class</span> <span class="token class-name">M</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        self<span class="token punctuation">.</span>x <span class="token operator">=</span> <span class="token number">1</span>
+
+    <span class="token keyword">def</span> <span class="token function">__get__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> instance<span class="token punctuation">,</span> owner<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> self<span class="token punctuation">.</span>x
+
+    <span class="token keyword">def</span> <span class="token function">__set__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> instance<span class="token punctuation">,</span> value<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        self<span class="token punctuation">.</span>x <span class="token operator">=</span> value
+
+<span class="token comment" spellcheck="true"># 调用描述器的类</span>
+<span class="token keyword">class</span> <span class="token class-name">AA</span><span class="token punctuation">:</span>
+    m <span class="token operator">=</span> M<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># m就是一个描述器</span>
+    n <span class="token operator">=</span> <span class="token number">2</span>
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> score<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        self<span class="token punctuation">.</span>score <span class="token operator">=</span> score
+
+
+aa <span class="token operator">=</span> AA<span class="token punctuation">(</span><span class="token number">3</span><span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>aa<span class="token punctuation">.</span>__dict__<span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># {'score': 3}</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>aa<span class="token punctuation">.</span>score<span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 3, 在 aa.__dict__ 中寻找，找到了score直接返回</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>aa<span class="token punctuation">.</span>__dict__<span class="token punctuation">[</span><span class="token string">'score'</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 3, 上面的调用机制实际上是这样的</span>
+
+<span class="token keyword">print</span><span class="token punctuation">(</span>type<span class="token punctuation">(</span>aa<span class="token punctuation">)</span><span class="token punctuation">.</span>__dict__<span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 里面有n和m</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>aa<span class="token punctuation">.</span>n<span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 2, 在aa.__dict__中找不到n，于是到type(aa).__dict__中找到了n，并返回其值</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>type<span class="token punctuation">(</span>aa<span class="token punctuation">)</span><span class="token punctuation">.</span>__dict__<span class="token punctuation">[</span><span class="token string">'n'</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 2, 其实是上面一条的调用机制</span>
+
+<span class="token keyword">print</span><span class="token punctuation">(</span>aa<span class="token punctuation">.</span>m<span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 1, 在aa.__dict__中找不到n，于是到type(aa).__dict__中找到了m</span>
+<span class="token comment" spellcheck="true"># m是一个描述器对象，于是调用__get__方法，将self.x的值返回，即1</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>type<span class="token punctuation">(</span>aa<span class="token punctuation">)</span><span class="token punctuation">.</span>__dict__<span class="token punctuation">[</span><span class="token string">'m'</span><span class="token punctuation">]</span><span class="token punctuation">.</span>__get__<span class="token punctuation">(</span>aa<span class="token punctuation">,</span>AA<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 1, 上面一条的调用方式是这样的</span>
+<span class="token comment" spellcheck="true"># __get__的定义中，除了self，还有instance和owner，其实分别表示的就是描述器所在的实例和类，这里的细节我们后文会讲</span>
+
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">'-'</span><span class="token operator">*</span><span class="token number">20</span><span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>AA<span class="token punctuation">.</span>m<span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 1, 也是一样调用了描述器</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>AA<span class="token punctuation">.</span>__dict__<span class="token punctuation">[</span><span class="token string">'m'</span><span class="token punctuation">]</span><span class="token punctuation">.</span>__get__<span class="token punctuation">(</span>None<span class="token punctuation">,</span> AA<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 类相当于调用这个</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>此外还有特例，与描述器的种类有关</p>
+<ul>
+<li>同时定义了<code>__get__</code>和<code>__set__</code>方法的描述器称为<strong>资料描述器</strong></li>
+<li>只定义了<code>__get__</code>的描述器称为<strong>非资料描述器</strong></li>
+<li>二者的区别是：当属性名和描述器名相同时，在访问这个同名属性时，如果是资料描述器就会先访问描述器，如果是非资料描述器就会先访问属性 举例如下</li>
+</ul>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token comment" spellcheck="true"># 既有__get__又有__set__，是一个资料描述器</span>
+<span class="token keyword">class</span> <span class="token class-name">M</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        self<span class="token punctuation">.</span>x <span class="token operator">=</span> <span class="token number">1</span>
+
+    <span class="token keyword">def</span> <span class="token function">__get__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> instance<span class="token punctuation">,</span> owner<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">'get m here'</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 打印一些信息，看这个方法何时被调用</span>
+        <span class="token keyword">return</span> self<span class="token punctuation">.</span>x
+
+    <span class="token keyword">def</span> <span class="token function">__set__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> instance<span class="token punctuation">,</span> value<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">'set m here'</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 打印一些信息，看这个方法何时被调用</span>
+        self<span class="token punctuation">.</span>x <span class="token operator">=</span> value <span class="token operator">+</span> <span class="token number">1</span> <span class="token comment" spellcheck="true"># 这里设置一个+1来更清楚了解调用机制</span>
+
+<span class="token comment" spellcheck="true"># 只有__get__是一个非资料描述器</span>
+<span class="token keyword">class</span> <span class="token class-name">N</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        self<span class="token punctuation">.</span>x <span class="token operator">=</span> <span class="token number">1</span>
+
+    <span class="token keyword">def</span> <span class="token function">__get__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> instance<span class="token punctuation">,</span> owner<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">'get n here'</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 打印一些信息，看这个方法何时被调用</span>
+        <span class="token keyword">return</span> self<span class="token punctuation">.</span>x
+
+<span class="token comment" spellcheck="true"># 调用描述器的类</span>
+<span class="token keyword">class</span> <span class="token class-name">AA</span><span class="token punctuation">:</span>
+    m <span class="token operator">=</span> M<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># m就是一个描述器</span>
+    n <span class="token operator">=</span> N<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> m<span class="token punctuation">,</span> n<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        self<span class="token punctuation">.</span>m <span class="token operator">=</span> m <span class="token comment" spellcheck="true"># 属性m和描述器m名字相同，调用时发生一些冲突</span>
+        self<span class="token punctuation">.</span>n <span class="token operator">=</span> n <span class="token comment" spellcheck="true"># 非资料描述器的情况，与m对比</span>
+
+aa <span class="token operator">=</span> AA<span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">,</span><span class="token number">5</span><span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>aa<span class="token punctuation">.</span>__dict__<span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 只有n没有m, 因为资料描述器同名时，不会访问到属性，会直接访问描述器，所以属性里就查不到m这个属性了</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>AA<span class="token punctuation">.</span>__dict__<span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># m和n都有</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>aa<span class="token punctuation">.</span>n<span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 5, 非资料描述器同名时调用的是属性，为传入的5</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>AA<span class="token punctuation">.</span>n<span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 1, 如果是类来访问，就调用的是描述器，返回self.x的值</span>
+
+<span class="token keyword">print</span><span class="token punctuation">(</span>aa<span class="token punctuation">.</span>m<span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 3, 其实在aa=AA(2,5)创建实例时，进行了属性赋值，其中相当于进行了aa.m=2</span>
+<span class="token comment" spellcheck="true"># 但是aa调用m时却不是常规地调用属性m，而是资料描述器m</span>
+<span class="token comment" spellcheck="true"># 所以定义实例aa时，其实触发了m的__set__方法，将2传给value，self.x变成3</span>
+<span class="token comment" spellcheck="true"># aa.m调用时也访问的是描述器，返回self.x即3的结果</span>
+<span class="token comment" spellcheck="true"># 其实看打印信息也能看出什么时候调用了__get__和__set__</span>
+
+aa<span class="token punctuation">.</span>m <span class="token operator">=</span> <span class="token number">6</span> <span class="token comment" spellcheck="true"># 另外对属性赋值也是调用了m的__set__方法</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>aa<span class="token punctuation">.</span>m<span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 7，调用__get__方法</span>
+
+<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">'-'</span><span class="token operator">*</span><span class="token number">20</span><span class="token punctuation">)</span>
+<span class="token comment" spellcheck="true"># 在代码中显式调用__get__方法</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>AA<span class="token punctuation">.</span>__dict__<span class="token punctuation">[</span><span class="token string">'n'</span><span class="token punctuation">]</span><span class="token punctuation">.</span>__get__<span class="token punctuation">(</span>None<span class="token punctuation">,</span> AA<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 1</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>AA<span class="token punctuation">.</span>__dict__<span class="token punctuation">[</span><span class="token string">'n'</span><span class="token punctuation">]</span><span class="token punctuation">.</span>__get__<span class="token punctuation">(</span>aa<span class="token punctuation">,</span> AA<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 1</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>注：要想制作一个只读的资料描述器，需要同时定义 <code>__set__</code> 和 <code>__get__</code>,并在 <code>__set__</code> 中引发一个 AttributeError 异常。定义一个引发异常的 <code>__set__</code> 方法就足够让一个描述器成为资料描述器。</p>
+<h2 id="描述器的细节"><a href="#描述器的细节" class="headerlink" title="描述器的细节"></a>描述器的细节</h2><p>本节分为如下两个部分</p>
+<ul>
+<li>调用描述器的原理</li>
+<li><code>__get__</code>和<code>__set__</code>方法中的参数解释</li>
+</ul>
+<p>1.首先是调用描述器的原理 当调用一个属性，而属性指向一个描述器时，为什么就会去调用这个描述器呢，其实这是由<code>object.__getattribute__()</code>方法控制的，其中<code>object</code>是新式类定义时默认继承的类，即py2这么写的<code>class(object)</code>中的<code>object</code>。新定义的一个类继承了object类，也就继承了<code>__getattribute__</code>方法。当访问一个属性比如<code>b.x</code>时，会自动调用这个方法 <code>__getattribute__()</code>的定义如下</p>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">def</span> <span class="token function">__getattribute__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> key<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token string">"Emulate type_getattro() in Objects/typeobject.c"</span>
+    v <span class="token operator">=</span> object<span class="token punctuation">.</span>__getattribute__<span class="token punctuation">(</span>self<span class="token punctuation">,</span> key<span class="token punctuation">)</span>
+    <span class="token keyword">if</span> hasattr<span class="token punctuation">(</span>v<span class="token punctuation">,</span> <span class="token string">'__get__'</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> v<span class="token punctuation">.</span>__get__<span class="token punctuation">(</span>None<span class="token punctuation">,</span> self<span class="token punctuation">)</span>
+    <span class="token keyword">return</span> v
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>上面的定义显示，如果<code>b.x</code>是一个描述器对象，即能找到<code>__get__</code>方法，则会调用这个get方法，否则就使用普通的属性。 如果在一个类中重写<code>__getattribute__</code>，将会改变描述器的行为，甚至将描述器这一功能关闭。</p>
+<p>2.<code>__get__</code>和<code>__set__</code>方法中的参数解释 官网中标明了这三个方法需要传入哪些参数，还有这些方法的返回结果是什么，如下所示</p>
+<pre class="line-numbers language-python"><code class="language-python">descr<span class="token punctuation">.</span>__get__<span class="token punctuation">(</span>self<span class="token punctuation">,</span> obj<span class="token punctuation">,</span> type<span class="token operator">=</span>None<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">-</span><span class="token operator">></span> value
+descr<span class="token punctuation">.</span>__set__<span class="token punctuation">(</span>self<span class="token punctuation">,</span> obj<span class="token punctuation">,</span> value<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">-</span><span class="token operator">></span> None
+descr<span class="token punctuation">.</span>__delete__<span class="token punctuation">(</span>self<span class="token punctuation">,</span> obj<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">-</span><span class="token operator">></span> None 
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+<p>我们要了解的就是<code>self obj type value</code>分别是什么 看下面一个例子</p>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">class</span> <span class="token class-name">M</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> name<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        self<span class="token punctuation">.</span>name <span class="token operator">=</span> name
+
+    <span class="token keyword">def</span> <span class="token function">__get__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> obj<span class="token punctuation">,</span> type<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">'get第一个参数self: '</span><span class="token punctuation">,</span> self<span class="token punctuation">.</span>name<span class="token punctuation">)</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">'get第二个参数obj: '</span><span class="token punctuation">,</span> obj<span class="token punctuation">.</span>age<span class="token punctuation">)</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">'get第三个参数type: '</span><span class="token punctuation">,</span> type<span class="token punctuation">.</span>name<span class="token punctuation">)</span>
+
+    <span class="token keyword">def</span> <span class="token function">__set__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> obj<span class="token punctuation">,</span> value<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        obj<span class="token punctuation">.</span>__dict__<span class="token punctuation">[</span>self<span class="token punctuation">.</span>name<span class="token punctuation">]</span> <span class="token operator">=</span> value
+
+<span class="token keyword">class</span> <span class="token class-name">A</span><span class="token punctuation">:</span>
+    name <span class="token operator">=</span> <span class="token string">'Bob'</span>
+    m <span class="token operator">=</span> M<span class="token punctuation">(</span><span class="token string">'age'</span><span class="token punctuation">)</span>
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> age<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        self<span class="token punctuation">.</span>age <span class="token operator">=</span> age
+
+a <span class="token operator">=</span> A<span class="token punctuation">(</span><span class="token number">20</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># age是20</span>
+a<span class="token punctuation">.</span>m
+<span class="token comment" spellcheck="true"># get第一个参数self:  age</span>
+<span class="token comment" spellcheck="true"># get第二个参数obj:  20</span>
+<span class="token comment" spellcheck="true"># get第三个参数type:  Bob</span>
+a<span class="token punctuation">.</span>m <span class="token operator">=</span> <span class="token number">30</span>
+a<span class="token punctuation">.</span>age <span class="token comment" spellcheck="true"># 30</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>总结如下</p>
+<ul>
+<li>self是描述器类M中的实例</li>
+<li>obj是调用描述器的类a中的实例</li>
+<li>type是调用描述器的类A</li>
+<li>value是对这个属性赋值时传入的值，即上面的30</li>
+</ul>
+<p>上面的代码逻辑如下</p>
+<ul>
+<li><code>a.m</code>访问描述器，调用<code>__get__</code>方法</li>
+<li>三次打印分别调用了<code>m.name a.age A.name</code></li>
+<li><code>a.m = 30</code>调用了<code>__set__</code>方法，令a(即obj)的属性中的’age’(即M(‘age’)这里传入的self.name)为30</li>
+</ul>
+<h2 id="实例方法、静态方法和类方法的描述器原理"><a href="#实例方法、静态方法和类方法的描述器原理" class="headerlink" title="实例方法、静态方法和类方法的描述器原理"></a>实例方法、静态方法和类方法的描述器原理</h2><p>本节说明访问些方法其实都访问的是描述器，并说明它们调用顺序是怎样的，以及类方法和静态方法描述器的python定义。</p>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">class</span> <span class="token class-name">B</span><span class="token punctuation">:</span>
+    @classmethod
+    <span class="token keyword">def</span> <span class="token function">print_classname</span><span class="token punctuation">(</span>cls<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">'Bob'</span><span class="token punctuation">)</span>
+
+    @staticmethod
+    <span class="token keyword">def</span> <span class="token function">print_staticname</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">'my name is bob'</span><span class="token punctuation">)</span>
+
+    <span class="token keyword">def</span> <span class="token function">print_name</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">'this name'</span><span class="token punctuation">)</span>
+
+b <span class="token operator">=</span> B<span class="token punctuation">(</span><span class="token punctuation">)</span>
+b<span class="token punctuation">.</span>print_classname<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 调用类方法</span>
+b<span class="token punctuation">.</span>print_staticname<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 调用静态方法</span>
+b<span class="token punctuation">.</span>print_name<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 调用实例方法</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>B<span class="token punctuation">.</span>__dict__<span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 里面有实例方法、静态方法和类方法</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token comment" spellcheck="true"># 但其实字典里的还不是可以直接调用的函数</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>B<span class="token punctuation">.</span>__dict__<span class="token punctuation">[</span><span class="token string">'print_classname'</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>b<span class="token punctuation">.</span>print_classname<span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 和上不一样</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>B<span class="token punctuation">.</span>__dict__<span class="token punctuation">[</span><span class="token string">'print_staticname'</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>b<span class="token punctuation">.</span>print_staticname<span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 和上不一样</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>B<span class="token punctuation">.</span>__dict__<span class="token punctuation">[</span><span class="token string">'print_name'</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>b<span class="token punctuation">.</span>print_name<span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 和上不一样</span>
+
+<span class="token comment" spellcheck="true"># &lt;classmethod object at 0x0000024A92DA67B8></span>
+<span class="token comment" spellcheck="true"># &lt;bound method B.print_classname of &lt;class '__main__.B'>></span>
+<span class="token comment" spellcheck="true"># &lt;staticmethod object at 0x0000024A92DA6860></span>
+<span class="token comment" spellcheck="true"># &lt;function B.print_staticname at 0x0000024A92D889D8></span>
+<span class="token comment" spellcheck="true"># &lt;function B.print_name at 0x0000024A92D88158></span>
+<span class="token comment" spellcheck="true"># &lt;bound method B.print_name of &lt;__main__.B object at 0x0000024A92DA6828>></span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>上面结果表明，实例直接调用时，类方法和实例方法都是<code>bound method</code>，而静态方法是<code>function</code>。因为静态方法本身就是定义在类里面的函数，所以不属于方法范畴。</p>
+<p>除此之外，由于实例直接调用后得到的结果可以直接接一个括号，当成函数来调用。而使用字典调用时，得到的结果和实例调用都不一样，所以它们是不可以直接接括号当成函数使用的。</p>
+<p>其实从显示的结果我们可以看出，静态方法和类方法用字典调用得到的其实分别是staticmethod和classmethod两个类的对象，这两个类其实是定义描述器的类，所以用字典访问的两个方法得到的都是描述器对象。它们需要用一个<code>__get__</code>方法才可以在后面接括号当成函数调用。</p>
+<p>而普通实例方法用字典调用得到的是一个function即函数，理论上是可以用括号直接调用的，但是调用时报错说少了self参数，其实它也是描述器对象，用通过<code>__get__</code>方法将self传入来调用</p>
+<p>三种方法本质上调用<code>__get__</code>方法的情况展示如下</p>
+<pre class="line-numbers language-python"><code class="language-python">B<span class="token punctuation">.</span>__dict__<span class="token punctuation">[</span><span class="token string">'print_classname'</span><span class="token punctuation">]</span><span class="token punctuation">.</span>__get__<span class="token punctuation">(</span>None<span class="token punctuation">,</span> B<span class="token punctuation">)</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+B<span class="token punctuation">.</span>__dict__<span class="token punctuation">[</span><span class="token string">'print_staticname'</span><span class="token punctuation">]</span><span class="token punctuation">.</span>__get__<span class="token punctuation">(</span>None<span class="token punctuation">,</span> B<span class="token punctuation">)</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+B<span class="token punctuation">.</span>__dict__<span class="token punctuation">[</span><span class="token string">'print_name'</span><span class="token punctuation">]</span><span class="token punctuation">.</span>__get__<span class="token punctuation">(</span>b<span class="token punctuation">,</span> B<span class="token punctuation">)</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+<span class="token keyword">print</span><span class="token punctuation">(</span>B<span class="token punctuation">.</span>__dict__<span class="token punctuation">[</span><span class="token string">'print_classname'</span><span class="token punctuation">]</span><span class="token punctuation">.</span>__get__<span class="token punctuation">(</span>None<span class="token punctuation">,</span> B<span class="token punctuation">)</span><span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>B<span class="token punctuation">.</span>__dict__<span class="token punctuation">[</span><span class="token string">'print_staticname'</span><span class="token punctuation">]</span><span class="token punctuation">.</span>__get__<span class="token punctuation">(</span>None<span class="token punctuation">,</span> B<span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+<span class="token keyword">print</span><span class="token punctuation">(</span>B<span class="token punctuation">.</span>__dict__<span class="token punctuation">[</span><span class="token string">'print_name'</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>B<span class="token punctuation">.</span>__dict__<span class="token punctuation">[</span><span class="token string">'print_name'</span><span class="token punctuation">]</span><span class="token punctuation">.</span>__get__<span class="token punctuation">(</span>None<span class="token punctuation">,</span> B<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 这是不传入实例即self的情况，和直接从字典调用结果相同，在python2中是一个unbound method</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>B<span class="token punctuation">.</span>__dict__<span class="token punctuation">[</span><span class="token string">'print_name'</span><span class="token punctuation">]</span><span class="token punctuation">.</span>__get__<span class="token punctuation">(</span>b<span class="token punctuation">,</span> B<span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+<span class="token comment" spellcheck="true"># B.print_name() # 报错，说少输入一个self参数</span>
+<span class="token comment" spellcheck="true"># B.print_name(B()) # this name  输入实例即不会报错</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>所以说我们平常调用的方法都是本质上在调用描述器对象，访问描述器时自动调用<code>__get__</code>方法。</p>
+<p>上面调用时注意到，前两个<code>__get__</code>的第一个参数都是<code>None</code>，而实例方法是一个<code>b</code>，这是因为实例方法需要具体的实例来调用而不能用类直接调用。在python2中，用类直接调用实例方法得到的是一个<code>unbound method</code>，用实例调用才是一个<code>bound method</code>，（在python3删除了<code>unbound method</code>的概念，改为<code>function</code>），而类方法本身就可以被类调用，所以参数是<code>None</code>时就是一个<code>bound method</code>了。所以说<code>__get__</code>的第一个参数使用<code>b</code>可以理解成方法的<code>bound</code>过程。</p>
+<p>既然三种方法都是调用了描述器对象，那么这些对象都是各自类的实例，它们的类是如何定义的呢？python中这些类的定义是用底层的C语言实现的，为了理解其工作原理，这里展示一个用python语言实现classmethod装饰器的方法，（<a href="https://link.zhihu.com/?target=https%3A//stackoverflow.com/questions/9247625/location-of-classmethod" target="_blank" rel="noopener">来源</a>），即构建能产生类方法对应描述器对象的类。</p>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">class</span> <span class="token class-name">myclassmethod</span><span class="token punctuation">(</span>object<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> method<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        self<span class="token punctuation">.</span>method <span class="token operator">=</span> method
+    <span class="token keyword">def</span> <span class="token function">__get__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> instance<span class="token punctuation">,</span> cls<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> <span class="token keyword">lambda</span> <span class="token operator">*</span>args<span class="token punctuation">,</span> <span class="token operator">**</span>kw<span class="token punctuation">:</span> self<span class="token punctuation">.</span>method<span class="token punctuation">(</span>cls<span class="token punctuation">,</span> <span class="token operator">*</span>args<span class="token punctuation">,</span> <span class="token operator">**</span>kw<span class="token punctuation">)</span>
+
+<span class="token keyword">class</span> <span class="token class-name">Myclass</span><span class="token punctuation">:</span>
+    x <span class="token operator">=</span> <span class="token number">3</span>
+    @myclassmethod
+    <span class="token keyword">def</span> <span class="token function">method</span><span class="token punctuation">(</span>cls<span class="token punctuation">,</span> a<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span>cls<span class="token punctuation">.</span>x<span class="token operator">+</span>a<span class="token punctuation">)</span>
+
+m <span class="token operator">=</span> Myclass<span class="token punctuation">(</span><span class="token punctuation">)</span>
+Myclass<span class="token punctuation">.</span>method<span class="token punctuation">(</span>a<span class="token operator">=</span><span class="token number">2</span><span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>下面我们分析一下上述代码</p>
+<ul>
+<li>我们看到使用@myclassmethod装饰器达到的效果和使用@classmethod装饰器没有什么区别</li>
+<li>首先定义了myclassmethod类，里面使用了<code>__get__</code>方法，所以它的实例会是一个描述器对象</li>
+<li>将<code>myclassmethod</code>当做装饰器作用于method函数，根据装饰器的知识，相当于这样设置<code>method=myclassmethod(method)</code></li>
+<li>调用<code>Myclass.method()</code>时调用了改变后了的<code>method</code>方法，即<code>myclassmethod(method)(a)</code></li>
+<li><code>myclassmethod(method)</code>这是<code>myclassmethod</code>类的一个实例，即一个描述器，此处访问于是调用<code>__get__</code>方法，返回一个匿名函数</li>
+<li><code>__get__</code>中其实是将owner(cls)部分传入method方法，因为methon在Myclass类中调用，这个owner也就是Myclass类。这一步其实是提前传入了method的第一个参数cls，后面的参数a由<code>myclassmethod(method)(a)</code>第二个括号调用</li>
+<li>仔细分析上面的定义与调用过程，我们会发现，我们常常说的类方法第一个参数要是cls，其实是不对的，第一个参数是任意都可以，它只是占第一个位置，用于接收类实例引用类属性，随便换成任意变量都可以，用cls只是约定俗成的。比如下面的代码正常运行</li>
+</ul>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">class</span> <span class="token class-name">Myclass</span><span class="token punctuation">:</span>
+    x <span class="token operator">=</span> <span class="token number">3</span>
+    @classmethod
+    <span class="token keyword">def</span> <span class="token function">method</span><span class="token punctuation">(</span>b<span class="token punctuation">,</span> a<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span>b<span class="token punctuation">.</span>x<span class="token operator">+</span>a<span class="token punctuation">)</span>
+
+m <span class="token operator">=</span> Myclass<span class="token punctuation">(</span><span class="token punctuation">)</span>
+Myclass<span class="token punctuation">.</span>method<span class="token punctuation">(</span>a<span class="token operator">=</span><span class="token number">2</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 5</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>下面看一下staticmethod类的等价python定义（<a href="https://link.zhihu.com/?target=https%3A//stackoverflow.com/questions/31916048/can-someone-explain-how-the-source-code-of-staticmethod-works-in-python" target="_blank" rel="noopener">来源</a>）</p>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">class</span> <span class="token class-name">mystaticmethod</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> callable<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        self<span class="token punctuation">.</span>f <span class="token operator">=</span> callable
+    <span class="token keyword">def</span> <span class="token function">__get__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> obj<span class="token punctuation">,</span> type<span class="token operator">=</span>None<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> self<span class="token punctuation">.</span>f
+
+<span class="token keyword">class</span> <span class="token class-name">Myclass</span><span class="token punctuation">:</span>
+    x <span class="token operator">=</span> <span class="token number">3</span>
+    @mystaticmethod
+    <span class="token keyword">def</span> <span class="token function">method</span><span class="token punctuation">(</span>a<span class="token punctuation">,</span> b<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span>a <span class="token operator">+</span> b<span class="token punctuation">)</span>
+
+m <span class="token operator">=</span> Myclass<span class="token punctuation">(</span><span class="token punctuation">)</span>
+m<span class="token punctuation">.</span>method<span class="token punctuation">(</span>a<span class="token operator">=</span><span class="token number">2</span><span class="token punctuation">,</span> b<span class="token operator">=</span><span class="token number">3</span><span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>注：从源码角度来理解静态方法和类方法</p>
+<ul>
+<li>静态方法相当于不自动传入实例对象作为方法的第一个参数，类方法相当于将默认传入的第一个参数由实例改为类</li>
+<li>使用<code>@classmethod</code>后无论类调用还是实例调用，都会自动转入类作为第一个参数，不用手动传入就可以调用类属性，而没有<code>@classmethod</code>的需要手动传入类</li>
+<li>既不用<code>@classmethod</code>也不用<code>@staticmethod</code>则类调用时不会自动传入参数，实例调用时自动传入实例作为第一个参数</li>
+<li>所以说加<code>@classmethod</code>是为了更方便调用类属性，加<code>@staticmethod</code>是为了防止自动传入的实例的干扰</li>
+<li>除此之外要说明一点：当属性和方法重名时，调用会自动访问属性，是因为这些方法调用的描述器都是非资料描述器。而当我们使用<code>@property</code>装饰器后，自动调用的就是新定义的<code>get set</code>方法，是因为<code>@property</code>装饰器是资料描述器</li>
+</ul>
+<h2 id="property装饰器的原理"><a href="#property装饰器的原理" class="headerlink" title="property装饰器的原理"></a>property装饰器的原理</h2><p>到这里我们可以讲一讲开头提出的问题了，即<code>@property</code>装饰器是如何使用描述器实现的，调用机制是怎样的，如何通过描述器达到精简多次使用<code>@property</code>装饰器的问题。</p>
+<p>首先要明确，property有两种调用形式，一种是用装饰器，一种是用类似函数的形式，下面会用引言中的例子分别说明两种形式的调用机制。</p>
+<p>下面贴出property的等价python定义（来源于<a href="https://link.zhihu.com/?target=https%3A//www.jianshu.com/p/58f1df955bda" target="_blank" rel="noopener">官网的中文翻译</a>）</p>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">class</span> <span class="token class-name">Property</span><span class="token punctuation">(</span>object<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token string">"Emulate PyProperty_Type() in Objects/descrobject.c"</span>
+
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> fget<span class="token operator">=</span>None<span class="token punctuation">,</span> fset<span class="token operator">=</span>None<span class="token punctuation">,</span> fdel<span class="token operator">=</span>None<span class="token punctuation">,</span> doc<span class="token operator">=</span>None<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        self<span class="token punctuation">.</span>fget <span class="token operator">=</span> fget
+        self<span class="token punctuation">.</span>fset <span class="token operator">=</span> fset
+        self<span class="token punctuation">.</span>fdel <span class="token operator">=</span> fdel
+        <span class="token keyword">if</span> doc <span class="token keyword">is</span> None <span class="token operator">and</span> fget <span class="token keyword">is</span> <span class="token operator">not</span> None<span class="token punctuation">:</span>
+            doc <span class="token operator">=</span> fget<span class="token punctuation">.</span>__doc__
+        self<span class="token punctuation">.</span>__doc__ <span class="token operator">=</span> doc
+
+    <span class="token keyword">def</span> <span class="token function">__get__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> obj<span class="token punctuation">,</span> objtype<span class="token operator">=</span>None<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">if</span> obj <span class="token keyword">is</span> None<span class="token punctuation">:</span>
+            <span class="token keyword">return</span> self
+        <span class="token keyword">if</span> self<span class="token punctuation">.</span>fget <span class="token keyword">is</span> None<span class="token punctuation">:</span>
+            <span class="token keyword">raise</span> AttributeError<span class="token punctuation">(</span><span class="token string">"unreadable attribute"</span><span class="token punctuation">)</span>
+        <span class="token keyword">return</span> self<span class="token punctuation">.</span>fget<span class="token punctuation">(</span>obj<span class="token punctuation">)</span>
+
+    <span class="token keyword">def</span> <span class="token function">__set__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> obj<span class="token punctuation">,</span> value<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">if</span> self<span class="token punctuation">.</span>fset <span class="token keyword">is</span> None<span class="token punctuation">:</span>
+            <span class="token keyword">raise</span> AttributeError<span class="token punctuation">(</span><span class="token string">"can't set attribute"</span><span class="token punctuation">)</span>
+        self<span class="token punctuation">.</span>fset<span class="token punctuation">(</span>obj<span class="token punctuation">,</span> value<span class="token punctuation">)</span>
+
+    <span class="token keyword">def</span> <span class="token function">__delete__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> obj<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">if</span> self<span class="token punctuation">.</span>fdel <span class="token keyword">is</span> None<span class="token punctuation">:</span>
+            <span class="token keyword">raise</span> AttributeError<span class="token punctuation">(</span><span class="token string">"can't delete attribute"</span><span class="token punctuation">)</span>
+        self<span class="token punctuation">.</span>fdel<span class="token punctuation">(</span>obj<span class="token punctuation">)</span>
+
+    <span class="token keyword">def</span> <span class="token function">getter</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> fget<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> type<span class="token punctuation">(</span>self<span class="token punctuation">)</span><span class="token punctuation">(</span>fget<span class="token punctuation">,</span> self<span class="token punctuation">.</span>fset<span class="token punctuation">,</span> self<span class="token punctuation">.</span>fdel<span class="token punctuation">,</span> self<span class="token punctuation">.</span>__doc__<span class="token punctuation">)</span>
+
+    <span class="token keyword">def</span> <span class="token function">setter</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> fset<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> type<span class="token punctuation">(</span>self<span class="token punctuation">)</span><span class="token punctuation">(</span>self<span class="token punctuation">.</span>fget<span class="token punctuation">,</span> fset<span class="token punctuation">,</span> self<span class="token punctuation">.</span>fdel<span class="token punctuation">,</span> self<span class="token punctuation">.</span>__doc__<span class="token punctuation">)</span>
+
+    <span class="token keyword">def</span> <span class="token function">deleter</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> fdel<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> type<span class="token punctuation">(</span>self<span class="token punctuation">)</span><span class="token punctuation">(</span>self<span class="token punctuation">.</span>fget<span class="token punctuation">,</span> self<span class="token punctuation">.</span>fset<span class="token punctuation">,</span> fdel<span class="token punctuation">,</span> self<span class="token punctuation">.</span>__doc__<span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>从上面的定义中我们可以看出，定义时分为两个部分，一个是<code>__get__</code>等方法的定义，另一部分是<code>getter</code>等方法的定义，同时注意到这个类要传入<code>fget</code>等三个函数作为属性。<code>getter</code>等方法的定义是为了让它可以完美地使用装饰器形式，我们先不看这一部分，先看看不是使用第一种即不使用装饰器的形式的调用机制。</p>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token comment" spellcheck="true"># 类似函数的形式</span>
+<span class="token keyword">class</span> <span class="token class-name">A</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> name<span class="token punctuation">,</span> score<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        self<span class="token punctuation">.</span>name <span class="token operator">=</span> name <span class="token comment" spellcheck="true"># 普通属性</span>
+        self<span class="token punctuation">.</span>score <span class="token operator">=</span> score
+
+    <span class="token keyword">def</span> <span class="token function">getscore</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> self<span class="token punctuation">.</span>_score
+
+    <span class="token keyword">def</span> <span class="token function">setscore</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> value<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">'setting score here'</span><span class="token punctuation">)</span>
+        <span class="token keyword">if</span> isinstance<span class="token punctuation">(</span>value<span class="token punctuation">,</span> int<span class="token punctuation">)</span><span class="token punctuation">:</span>
+            self<span class="token punctuation">.</span>_score <span class="token operator">=</span> value
+        <span class="token keyword">else</span><span class="token punctuation">:</span>
+            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">'please input an int'</span><span class="token punctuation">)</span>
+
+    score <span class="token operator">=</span> property<span class="token punctuation">(</span>getscore<span class="token punctuation">,</span> setscore<span class="token punctuation">)</span>
+
+a <span class="token operator">=</span> A<span class="token punctuation">(</span><span class="token string">'Bob'</span><span class="token punctuation">,</span><span class="token number">90</span><span class="token punctuation">)</span>
+a<span class="token punctuation">.</span>name <span class="token comment" spellcheck="true"># 'Bob'</span>
+a<span class="token punctuation">.</span>score <span class="token comment" spellcheck="true"># 90</span>
+a<span class="token punctuation">.</span>score <span class="token operator">=</span> <span class="token string">'bob'</span> <span class="token comment" spellcheck="true"># please input an int</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>分析上述调用score的过程</p>
+<ul>
+<li>初始化时即开始访问score，发现有两个选项，一个是属性，另一个是<code>property(getscore, setscore)</code>对象，因为后者中定义了<code>__get__</code>与<code>__set__</code>方法，因此是一个资料描述器，具有比属性更高的优先级，所以这里就访问了描述器</li>
+<li>因为初始化时是对属性进行设置，所以自动调用了描述器的<code>__set__</code>方法</li>
+<li><code>__set__</code>中对<code>fset</code>属性进行检查，这里即传入的<code>setscore</code>，不是<code>None</code>，所以调用了<code>fset</code>即<code>setscore</code>方法，这就实现了设置属性时使用自定义函数进行检查的目的</li>
+<li><code>__get__</code>也是一样，查询score时，调用<code>__get__</code>方法，触发了<code>getscore</code>方法</li>
+</ul>
+<p>下面是另一种使用property的方法</p>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token comment" spellcheck="true"># 装饰器形式，即引言中的形式</span>
+<span class="token keyword">class</span> <span class="token class-name">A</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> name<span class="token punctuation">,</span> score<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        self<span class="token punctuation">.</span>name <span class="token operator">=</span> name <span class="token comment" spellcheck="true"># 普通属性</span>
+        self<span class="token punctuation">.</span>score <span class="token operator">=</span> score
+
+    @property
+    <span class="token keyword">def</span> <span class="token function">score</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">'getting score here'</span><span class="token punctuation">)</span>
+        <span class="token keyword">return</span> self<span class="token punctuation">.</span>_score
+
+    @score<span class="token punctuation">.</span>setter
+    <span class="token keyword">def</span> <span class="token function">score</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> value<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">'setting score here'</span><span class="token punctuation">)</span>
+        <span class="token keyword">if</span> isinstance<span class="token punctuation">(</span>value<span class="token punctuation">,</span> int<span class="token punctuation">)</span><span class="token punctuation">:</span>
+            self<span class="token punctuation">.</span>_score <span class="token operator">=</span> value
+        <span class="token keyword">else</span><span class="token punctuation">:</span>
+            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">'please input an int'</span><span class="token punctuation">)</span>
+
+a <span class="token operator">=</span> A<span class="token punctuation">(</span><span class="token string">'Bob'</span><span class="token punctuation">,</span><span class="token number">90</span><span class="token punctuation">)</span>
+<span class="token comment" spellcheck="true"># a.name # 'Bob'</span>
+<span class="token comment" spellcheck="true"># a.score # 90</span>
+<span class="token comment" spellcheck="true"># a.score = 'bob' # please input an int</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>下面进行分析</p>
+<ul>
+<li>在第一种使用方法中，是将函数作为传入property中，所以可以想到是否可以用装饰器来封装</li>
+<li>get部分很简单，访问<code>score</code>时，加上装饰器变成访问<code>property(score)</code>这个描述器，这个<code>score</code>也作为<code>fget</code>参数传入<code>__get__</code>中指定调用时的操作</li>
+<li>而set部分就不行了，于是有了<code>setter</code>等方法的定义</li>
+<li>使用了<code>property</code>和<code>setter</code>装饰器的两个方法的命名都还是score，一般同名的方法后面的会覆盖前面的，所以调用时调用的是后面的<code>setter</code>装饰器处理过的<code>score</code>，是以如果两个装饰器定义的位置调换，将无法进行属性赋值操作。</li>
+<li>而调用<code>setter</code>装饰器的<code>score</code>时，面临一个问题，装饰器<code>score.setter</code>是什么呢？是<code>score</code>的<code>setter</code>方法，而<code>score</code>是什么呢，不是下面定义的这个<code>score</code>，因为那个<code>score</code>只相当于参数传入。自动向其他位置寻找有没有现成的<code>score</code>，发现了一个，是<code>property</code>修饰过的<code>score</code>，这是个描述器，根据<code>property</code>的定义，里面确实有一个<code>setter</code>方法，返回的是<code>property</code>类传入<code>fset</code>后的结果，还是一个描述器，这个描述器传入了<code>fget</code>和<code>fset</code>，这就是最新的<code>score</code>了，以后实例只要调用或修改<code>score</code>，使用的都是这个描述器</li>
+<li>如果还有<code>del</code>则装饰器中的<code>score</code>找到的是<code>setter</code>处理过的<code>score</code>，最新的<code>score</code>就会是三个函数都传入的<code>score</code></li>
+<li>对最新的<code>score</code>的调用及赋值删除都跟前面一样了</li>
+</ul>
+<p><code>property</code>的原理就讲到这里，从它的定义我们可以知道它其实就是将我们设置的检查等函数传入<code>get set</code>等方法中，让我们可以自由对属性进行操作。它是一个框架，让我们可以方便传入其他操作，当很多对象都要进行相同操作的话，重复就是难免的。如果想要避免重复，只有自己写一个类似<code>property</code>的框架，这个框架不是传入我们希望的操作了，而是就把这些操作放在框架里面，这个框架因为只能实现一种操作而不具有普适性，但是却能大大减少当前问题代码重复问题</p>
+<p>下面使用描述器定义了Checkint类之后，会发现A类简洁了非常多</p>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">class</span> <span class="token class-name">Checkint</span><span class="token punctuation">:</span>
+
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> name<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        self<span class="token punctuation">.</span>name <span class="token operator">=</span> name
+
+    <span class="token keyword">def</span> <span class="token function">__get__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> instance<span class="token punctuation">,</span> owner<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">if</span> instance <span class="token keyword">is</span> None<span class="token punctuation">:</span>
+            <span class="token keyword">return</span> self
+        <span class="token keyword">else</span><span class="token punctuation">:</span>
+            <span class="token keyword">return</span> instance<span class="token punctuation">.</span>__dict__<span class="token punctuation">[</span>self<span class="token punctuation">.</span>name<span class="token punctuation">]</span>
+
+    <span class="token keyword">def</span> <span class="token function">__set__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> instance<span class="token punctuation">,</span> value<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">if</span> isinstance<span class="token punctuation">(</span>value<span class="token punctuation">,</span> int<span class="token punctuation">)</span><span class="token punctuation">:</span>
+            instance<span class="token punctuation">.</span>__dict__<span class="token punctuation">[</span>self<span class="token punctuation">.</span>name<span class="token punctuation">]</span> <span class="token operator">=</span> value
+        <span class="token keyword">else</span><span class="token punctuation">:</span>
+            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">'please input an integer'</span><span class="token punctuation">)</span>
+
+<span class="token comment" spellcheck="true"># 类似函数的形式</span>
+<span class="token keyword">class</span> <span class="token class-name">A</span><span class="token punctuation">:</span>
+    score <span class="token operator">=</span> Checkint<span class="token punctuation">(</span><span class="token string">'score'</span><span class="token punctuation">)</span>
+    age <span class="token operator">=</span> Checkint<span class="token punctuation">(</span><span class="token string">'age'</span><span class="token punctuation">)</span>
+
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> name<span class="token punctuation">,</span> score<span class="token punctuation">,</span> age<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        self<span class="token punctuation">.</span>name <span class="token operator">=</span> name <span class="token comment" spellcheck="true"># 普通属性</span>
+        self<span class="token punctuation">.</span>score <span class="token operator">=</span> score
+        self<span class="token punctuation">.</span>age <span class="token operator">=</span> age
+
+a <span class="token operator">=</span> A<span class="token punctuation">(</span><span class="token string">'Bob'</span><span class="token punctuation">,</span> <span class="token number">90</span><span class="token punctuation">,</span> <span class="token number">30</span><span class="token punctuation">)</span>
+a<span class="token punctuation">.</span>name <span class="token comment" spellcheck="true"># 'Bob'</span>
+a<span class="token punctuation">.</span>score <span class="token comment" spellcheck="true"># 90</span>
+<span class="token comment" spellcheck="true"># a.score = 'bob' # please input an int</span>
+<span class="token comment" spellcheck="true"># a.age='a' # please input an integer</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h2 id="描述器的应用"><a href="#描述器的应用" class="headerlink" title="描述器的应用"></a>描述器的应用</h2><p>因为我本人也刚刚学描述器不久，对它的应用还不是非常了解，下面只列举我现在能想到的它有什么用，以后如果想到其他的再补充</p>
+<ul>
+<li>首先是上文提到的，它是实例方法、静态方法、类方法、property的实现原理</li>
+<li>当访问属性、赋值属性、删除属性，出现冗余操作，或者苦思无法找到答案时，可以求助于描述器</li>
+<li>具体使用1：缓存。比如调用一个类的方法要计算比较长的时间，这个结果还会被其他方法反复使用，我们不想每次使用和这个相关的函数都要把这个方法重新运行一遍，于是可以设计出第一次计算后将结果缓存下来，以后调用都使用存下来的结果。只要使用描述器在<code>__get__</code>方法中，在判断语句下，<code>obj.__dict__[self.name] = value</code>。这样每次再调用这个方法都会从这个字典中取得值，而不是重新运行这个方法。</li>
+</ul>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://yanrs.me/2019/06/16/存储卷 ConfigMap 和 Secret/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -5053,471 +6203,6 @@ float: 20.0
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2019/04/24/Flask Sanic 数据库操作对比/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2019/04/24/Flask Sanic 数据库操作对比/" itemprop="url">Flask Sanic 数据库操作对比</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-04-24T17:55:57+08:00">
-                2019-04-24
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Python/" itemprop="url" rel="index">
-                    <span itemprop="name">Python</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          <h3 id="Sanic"><a href="#Sanic" class="headerlink" title="Sanic"></a>Sanic</h3><p>sanic 既然是使用了 io 异步，那么我们就使用 aiomysql 和 sqlalchemy 来对数据进行处理</p>
-          <!--noindex-->
-          <div class="post-button text-center">
-            <a class="btn" href="/2019/04/24/Flask Sanic 数据库操作对比/#more" rel="contents">
-              阅读全文 &raquo;
-            </a>
-          </div>
-          <!--/noindex-->
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2019/04/24/Sanic Flask Tornado 性能测试/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2019/04/24/Sanic Flask Tornado 性能测试/" itemprop="url">Sanic Flask Tornado 性能测试</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-04-24T17:55:57+08:00">
-                2019-04-24
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Python/" itemprop="url" rel="index">
-                    <span itemprop="name">Python</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          <p>这其实是公司安排的一个任务，对 Sanic 框架进行简单的研究，并对比一下目前的性能。例子中我们使用 wrk 进行简单的压力测试，对简单的 HTTP 请求进行分析。</p>
-          <!--noindex-->
-          <div class="post-button text-center">
-            <a class="btn" href="/2019/04/24/Sanic Flask Tornado 性能测试/#more" rel="contents">
-              阅读全文 &raquo;
-            </a>
-          </div>
-          <!--/noindex-->
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2019/04/24/Sanic 维护及使用情况分析/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2019/04/24/Sanic 维护及使用情况分析/" itemprop="url">Sanic 维护及使用情况分析</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-04-24T17:54:57+08:00">
-                2019-04-24
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Python/" itemprop="url" rel="index">
-                    <span itemprop="name">Python</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="介绍"><a href="#介绍" class="headerlink" title="介绍"></a>介绍</h3><p>Sanic 是一个 Python Web 服务器和 Web 框架，可以快速进行开发。它允许使用 Python 3.5 中添加的 async / await 语法，这使您的代码无阻塞且快速。 Sanic 项目由社区维护 ，目标是提供一种易于构建、扩展并且简单启动和运行的高性能 HTTP 服务器。 </p>
-<h3 id="使用情况"><a href="#使用情况" class="headerlink" title="使用情况"></a>使用情况</h3><h4 id="技术社区"><a href="#技术社区" class="headerlink" title="技术社区"></a>技术社区</h4><p>从国内某技术社区 2018 年 11 月的一篇名为 “请教 Python 用什么框架写 API 比较好” 的文章中，进行了一个简要的分析。在网友的回复中，共提到三种语言，分别为 Python，PHP，Go。其中 Python Web 框架中，推荐排名第一的为 Flask（Flask-RESTful），第二的为 Django（Django REST framework），排名第三的为 Tornado，其他的还有 Falcon，Responder，Sanic，Bottle，Vibora，Apistar，Cherrypy，Starlette…</p>
-<p>部分网友考虑到 Python 部署问题和性能问题，选择了 PHP 和 Go。</p>
-<h4 id="搜索引擎"><a href="#搜索引擎" class="headerlink" title="搜索引擎"></a>搜索引擎</h4><p>从搜索引擎角度，将会对 Sanic 关键字在百度（国内）和 Google（国外）进行一个简要的分析，用此来反映国内外的用户数量，分析结果仅作参考。 </p>
-<h5 id="百度"><a href="#百度" class="headerlink" title="百度"></a>百度</h5><p>Sanic 关键字搜索指数（百度），如下图所示：</p>
-<p><img src="https://i.loli.net/2019/04/08/5caaabf14d88a.png" alt="Sanic 关键字搜索指数（百度）.png"></p>
-<p>Sanic，Django，Flask，Tornado，Falcon 关键字搜索指数（百度），如下图所示：</p>
-<p><img src="https://i.loli.net/2019/04/08/5caaabf318a9d.png" alt="Sanic，Django，Flask，Tornado，Falcon 关键字搜索指数（百度）.png"></p>
-<h5 id="google"><a href="#google" class="headerlink" title="google"></a>google</h5><p>Sanic 关键字搜索指数（Google），如下图所示：</p>
-<p><img src="https://i.loli.net/2019/04/08/5caaab9d872fd.png" alt="Sanic 关键字搜索指数（Google）.png"></p>
-<p>Sanic，Django，Flask，Tornado，Falcon 关键字搜索指数（Google），如下图所示：</p>
-<p><img src="https://i.loli.net/2019/04/08/5caaabf181a5f.png" alt="Sanic，Django，Flask，Tornado，Falcon 关键字搜索指数（Google）.png"></p>
-<p>从百度的搜索量来看，在 2015 年 6 月出现过一次爆发式的增长，而在这之后急速下降，直到 2017 年 4 月才呈上升趋势。为何在 2015 年 6 月出现过一次爆发式的增加，可能和 Python 3.5 的发布（2014 年 9 月）有关。</p>
-<p>谷歌的趋势没有出现过爆发增长的情况，最高点时间在 2015 年 3 月左右，和国内时间差不多。但是在这之后和国内呈现出相反的趋势，国外一直呈现出下滑的趋势，国内一直呈现出上升趋势。</p>
-<h3 id="维护情况"><a href="#维护情况" class="headerlink" title="维护情况"></a>维护情况</h3><p>Sanic 现在由社区运营，版本发布遵循  <a href="https://calver.org/" target="_blank" rel="noopener">CalVer</a> 。每年发布4 个版本（三月，六月，九月，十二月）。目前最新版本为 <a href="https://github.com/huge-success/sanic/releases/tag/19.03.1" target="_blank" rel="noopener">19.03.1</a>，最新 LST 版本为 <a href="https://github.com/huge-success/sanic/releases/tag/18.12.0" target="_blank" rel="noopener">18.12</a>。社区采用 “RM” 职位的方式轮流任职，“RM” 负责主持在这期间的问题修复和功能增加等工作。Sanic 希望每一位开发人员都能参与到他们的维护当中，如果感兴趣可以加入 <a href="https://groups.google.com/forum/#!forum/sanic-dev" target="_blank" rel="noopener">sanic-dev</a> 或者 <a href="https://community.sanicframework.org/" target="_blank" rel="noopener">社区</a> 。</p>
-<h3 id="简单教程"><a href="#简单教程" class="headerlink" title="简单教程"></a>简单教程</h3><pre><code>pip3 install sanic
-</code></pre><pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">from</span> sanic <span class="token keyword">import</span> Sanic
-<span class="token keyword">from</span> sanic<span class="token punctuation">.</span>response <span class="token keyword">import</span> json
-
-app <span class="token operator">=</span> Sanic<span class="token punctuation">(</span><span class="token punctuation">)</span>
-
-@app<span class="token punctuation">.</span>route<span class="token punctuation">(</span><span class="token string">'/'</span><span class="token punctuation">)</span>
-<span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">test</span><span class="token punctuation">(</span>request<span class="token punctuation">)</span><span class="token punctuation">:</span>
-    <span class="token keyword">return</span> json<span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token string">'hello'</span><span class="token punctuation">:</span> <span class="token string">'world'</span><span class="token punctuation">}</span><span class="token punctuation">)</span>
-
-<span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">'__main__'</span><span class="token punctuation">:</span>
-    app<span class="token punctuation">.</span>run<span class="token punctuation">(</span>host<span class="token operator">=</span><span class="token string">'0.0.0.0'</span><span class="token punctuation">,</span> port<span class="token operator">=</span><span class="token number">8000</span><span class="token punctuation">)</span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<h3 id="拓展"><a href="#拓展" class="headerlink" title="拓展"></a>拓展</h3><h4 id="官方拓展"><a href="#官方拓展" class="headerlink" title="官方拓展"></a>官方拓展</h4><p><a href="https://github.com/huge-success/sanic-openapi" target="_blank" rel="noopener">Sanic OpenAPI</a>:  为 Sanic API 提供 <a href="https://github.com/huge-success/sanic-openapi/raw/master/images/code-to-ui.png?raw=true" target="_blank" rel="noopener">Swagger UI</a> API 文档 </p>
-<p><a href="https://github.com/huge-success/sanic-docker" target="_blank" rel="noopener">Sanic-Docker</a>：官方提供了运行在 Python 3.7 之上，并且预安装了最新的 Sanic LTS 版本。平台为 Alpine Linux。 </p>
-<h4 id="其他拓展"><a href="#其他拓展" class="headerlink" title="其他拓展"></a>其他拓展</h4><p><a href="https://github.com/aio-libs/aiomysql" target="_blank" rel="noopener">aiomysql</a>：aiomysql 是一个用于从 asyncio 访问 MySQL 数据库的库，调研发现 <a href="https://aiomysql.readthedocs.io/en/latest/sa.html" target="_blank" rel="noopener">SqlAlchemy</a> 也支持 aiomysql，其次还有 <a href="https://tortoise-orm.readthedocs.io/en/latest/" target="_blank" rel="noopener">TortoiseORM</a>，二者都尝试了一下，体验都没有那么好，从 github 使用人数来看，还处于起步阶段。</p>
-<p><a href="https://github.com/aio-libs/aioredis" target="_blank" rel="noopener">aioredis</a>：一个支持 asyncio 的库。</p>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
   </section>
 
   
@@ -5568,7 +6253,7 @@ app <span class="token operator">=</span> Sanic<span class="token punctuation">(
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">279</span>
+                  <span class="site-state-item-count">282</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>
@@ -5590,7 +6275,7 @@ app <span class="token operator">=</span> Sanic<span class="token punctuation">(
               
               <div class="site-state-item site-state-tags">
                 <a href="/tags/index.html">
-                  <span class="site-state-item-count">133</span>
+                  <span class="site-state-item-count">134</span>
                   <span class="site-state-item-name">标签</span>
                 </a>
               </div>
