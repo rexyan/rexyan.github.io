@@ -348,6 +348,199 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2020/05/07/53. 分布式搜索引擎/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2020/05/07/53. 分布式搜索引擎/" itemprop="url">53. 分布式搜索引擎</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2020-05-07T22:30:57+08:00">
+                2020-05-07
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Java-大数据/" itemprop="url" rel="index">
+                    <span itemprop="name">Java 大数据</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="ES-集群"><a href="#ES-集群" class="headerlink" title="ES 集群"></a>ES 集群</h3><p>elasticsearch设计的理念就是分布式搜索引擎，底层其实还是基于lucene的。核心思想就是在多台机器上启动多个es进程实例，组成了一个es集群。</p>
+<p>es 中存储数据的基本单位是索引，比如说你现在要在 es 中存储一些订单数据，你就应该在 es 中创建一个索引，order_idx，所有的订单数据就都写到这个索引里面去，一个索引差不多就是相当于是 mysql 里的一张表。index -&gt; type -&gt; mapping -&gt; document -&gt; field。</p>
+<p>index：mysql 里的一张表</p>
+<p>type：没法跟 mysql 里去对比，一个index里可以有多个 type，每个 type 的字段都是差不多的，但是有一些略微的差别。</p>
+<p>很多情况下，一个 index 里可能就一个 type，但是确实如果说是一个 index 里有多个 type 的情况，你可以认为index是一个类别的表，具体的每个 type 代表了具体的一个mysql中的表，每个 type 有一个 mapping，如果你认为一个type是一个具体的一个表，index 代表了多个 type 的同属于的一个类型，mapping 就是这个 type 的表结构定义。实际上你往 index 里的一个 type 里面写的一条数据，叫做一条 document，一条 document 就代表了mysql 中某个表里的一行给，每个 document 有多个 field，每个 field 就代表了这个 document 中的一个字段的值。接着你搞一个索引，这个索引可以拆分成多个shard，每个shard存储部分数据。这个 shard 的数据实际是有多个备份，就是说每个 shard 都有一个 primary shard，负责写入数据，但是还有几个 replica shard。primary shard 写入数据之后，会将数据同步到其他几个 replica shard 上去。通过这个 replica 的方案，每个 shard 的数据都有多个备份，如果某个机器宕机了，那也没关系。要是master节点宕机了，那么会重新选举一个节点为master 节点。如果是非 master 节点宕机了，那么会由 master 节点，让那个宕机节点上的 primary shard 的身份转移到其他机器上的 replica shard。急着你要是修复了那个宕机机器，重启了之后，master 节点会控制将缺失的 replica shard 分配过去，同步后续修改的数据之类的，让集群恢复正常。</p>
+<h3 id="ES-写数据过程"><a href="#ES-写数据过程" class="headerlink" title="ES 写数据过程"></a>ES 写数据过程</h3><p>1）客户端选择一个 node 发送请求过去，这个 node 就是 coordinating node（协调节点）</p>
+<p>2）coordinating node，对 document 进行路由，将请求转发给对应的 node（primary shard）</p>
+<p>3）实际的 node 上的 primary shard 处理请求，然后将数据同步到 replica node</p>
+<p>4）coordinating node，如果发现 primary node 和所有 replica node 都搞定之后，就返回响应结果给客户端</p>
+<h3 id="ES-读数据过程"><a href="#ES-读数据过程" class="headerlink" title="ES 读数据过程"></a>ES 读数据过程</h3><p>1）客户端发送请求到任意一个 node，成为 coordinate node</p>
+<p>2）coordinate node 对 document 进行路由，将请求转发到对应的 node，此时会使用 round-robin 随机轮询算法，在 primary shard 以及其所有 replica 中随机选择一个，让读请求负载均衡</p>
+<p>3）接收请求的 node 返回 document 给 coordinate node</p>
+<p>4）coordinate node 返回 document 给客户端</p>
+<h3 id="ES-搜索数据过程"><a href="#ES-搜索数据过程" class="headerlink" title="ES 搜索数据过程"></a>ES 搜索数据过程</h3><p>1）客户端发送请求到一个 coordinate node</p>
+<p>2）协调节点将搜索请求转发到所有的 shard 对应的 primary shard 或 replica shard 也可以</p>
+<p>3）query phase：每个 shard 将自己的搜索结果（其实就是一些 doc id），返回给协调节点，由协调节点进行数据的合并、排序、分页等操作，产出最终结果</p>
+<p>4）fetch phase：接着由协调节点，根据doc id去各个节点上拉取实际的 document 数据，最终返回给客户端</p>
+<h3 id="写数据底层原理"><a href="#写数据底层原理" class="headerlink" title="写数据底层原理"></a>写数据底层原理</h3><p>1）先写入 buffer，在 buffer 里的时候数据是搜索不到的；同时将数据写入 translog 日志文件</p>
+<p>2）如果 buffer 快满了，或者到一定时间，就会将 buffer 数据 refresh 到一个新的 segment file 中，但是此时数据不是直接进入 segment file 的磁盘文件的，而是先进入 os cache 的。这个过程就是 refresh。</p>
+<p>3）只要数据进入 os cache，此时就可以让这个 segment file 的数据对外提供搜索了</p>
+<p>4）重复1~3步骤，新的数据不断进入 buffer 和 translog，不断将 buffer 数据写入一个又一个新的 segment file中去，每次 refresh 完 buffer 清空，translog 保留。随着这个过程推进，translo g会变得越来越大。当 translog达到一定长度的时候，就会触发 commit 操作。</p>
+<p>5）当 translog 日志文件大到一定程度的时候，就会执行 commit 操作。commit 操作发生第一步，就是将 buffer中现有数据 refresh 到 os cache 中去，清空 buffer。</p>
+<p>6）将一个 commit point 写入磁盘文件，里面标识着这个 commit point 对应的所有 segment file</p>
+<p>7）强行将 os cache 中目前所有的数据都 fsync 到磁盘文件中去</p>
+<p>8）将现有的 translog 清空，然后再次重启启用一个 translog，此时 commit 操作完成。默认每隔 30 分钟会自动执行一次 commit，但是如果 translog 过大，也会触发 commit。整个 commit 的过程，叫做 flush 操作。我们可以手动执行 flush 操作，就是将所有 os cache 数据刷到磁盘文件中去。</p>
+<p>9）translog 其实也是先写入 os cache 的，默认每隔 5 秒刷一次到磁盘中去，所以默认情况下，可能有5秒的数据会仅仅停留在 buffer 或者 translog 文件的 os cache 中，如果此时机器挂了，会丢失5秒钟的数据。但是这样性能比较好，最多丢5秒的数据。也可以将 translog 设置成每次写操作必须是直接 fsync 到磁盘，但是性能会差很多。</p>
+<p>10）如果是删除操作，commit 的时候会生成一个.del 文件，里面将某个 doc 标识为 deleted 状态，那么搜索的时候根据 .del 文件就知道这个 doc 被删除了 </p>
+<p>11）如果是更新操作，就是将原来的 doc 标识为 deleted 状态，然后新写入一条数据</p>
+<p>12）buffer 每次 refresh 一次，就会产生一个 segment file，所以默认情况下是1秒钟一个segment file，segment file 会越来越多，此时会定期执行merge （所以ES 是准实时的，因为数据 1 秒后写入 segment file 中后才会查询得到）</p>
+<p>13）每次 merge 的时候，会将多个 segment file 合并成一个，同时这里会将标识为 deleted 的 doc 给物理删除掉，然后将新的 segment file 写入磁盘，这里会写一个 commit point，标识所有新的 segment file，然后打开segment file 供搜索使用，同时删除旧的 segment file。</p>
+<p>translog日志文件的作用是什么？</p>
+<p>就是在你执行 commit 操作之前，数据要么是停留在 buffer 中，要么是停留在 os cache 中，无论是 buffer 还是os cache 都是内存，一旦这台机器死了，内存中的数据就全丢了。所以需要将数据对应的操作写入一个专门的日志文件，translog 日志文件中，一旦此时机器宕机，再次重启的时候，es 会自动读取 translog 日志文件中的数据，恢复到内存 buffer 和 os cache 中去。</p>
+<h3 id="性能优化"><a href="#性能优化" class="headerlink" title="性能优化"></a>性能优化</h3><p><strong>性能优化的杀手锏——filesystem cache</strong></p>
+<p>往 es 里写的数据，实际上都写到磁盘文件里去了，磁盘文件里的数据操作系统会自动将里面的数据缓存到 os cache 里面去，es 的搜索引擎严重依赖于底层的 filesystem cache，你如果给 filesystem cache 更多的内存，尽量让内存可以容纳所有的 indx segment file 索引数据文件，那么你搜索的时候就基本都是走内存的，性能会非常高。最佳的情况下，就是你的机器的内存，至少可以容纳你的总数据量的一半。比如 ES 集群共有 360G 内存，那么就最好放不超过 720G 的数据，这样能保证有一半在缓存中。假如一共要在 es 中存储 1T 的数据，那么你的多台机器留个 filesystem cache 的内存加起来综合，至少要到 512G，至少半数的情况下，搜索是走内存的，性能一般可以到几秒钟。</p>
+<p>比如说你现在有一行数据 id name age ….30个字段，但是你现在搜索，只需要根据 id name age 三个字段来搜索，如果你往 es 里写入一行数据所有的字段，就会导致说 70% 的数据是不用来搜索的，结果硬是占据了 es 机器上的 filesystem cache 的空间，单挑数据的数据量越大，就会导致 filesystem cahce 能缓存的数据就越少，仅仅只是写入 es 中要用来检索的少数几个字段就可以了，比如说，就写入 id name age三个字段就可以了，然后你可以把其他的字段数据存在 mysql 里面，我们一般是建议用 es + hbase 的这么一个架构。hbase 的特点是适用于海量数据的在线存储，就是对 hbase 可以写入海量数据，不要做复杂的搜索，就是做很简单的一些根据id或者范围进行查询的这么一个操作就可以了。从 es 中根据 name 和 age 去搜索，拿到的结果可能就 20 个 doc id，然后根据 doc id 到 hbase 里去查询每个 doc id 对应的完整的数据，给查出来，再返回给前端。</p>
+<p><strong>数据预热</strong></p>
+<p>假如说，哪怕是你就按照上述的方案去做了，es集群中每个机器写入的数据量还是超过了filesystem cache一倍，比如说你写入一台机器60g数据，结果filesystem cache就30g，还是有30g数据留在了磁盘上。</p>
+<p>举个例子，就比如说，微博，你可以把一些大v，平时看的人很多的数据给提前你自己后台搞个系统，每隔一会儿，你自己的后台系统去搜索一下热数据，刷到filesystem cache里去，后面用户实际上来看这个热数据的时候，他们就是直接从内存里搜索了，很快。</p>
+<p>电商，你可以将平时查看最多的一些商品，比如说iphone 8，热数据提前后台搞个程序，每隔1分钟自己主动访问一次，刷到filesystem cache里去。</p>
+<p>对于那些你觉得比较热的，经常会有人访问的数据，最好做一个专门的缓存预热子系统，就是对热数据，每隔一段时间，你就提前访问一下，让数据进入filesystem cache里面去。这样期待下次别人访问的时候，一定性能会好一些。</p>
+<p><strong>冷热分离</strong></p>
+<p>es 可以做类似于 mysql 的水平拆分，就是说将大量的访问很少，频率很低的数据，单独写一个索引，然后将访问很频繁的热数据单独写一个索引。你最好是将冷数据写入一个索引中，然后热数据写入另外一个索引中，这样可以确保热数据在被预热之后，尽量都让他们留在 filesystem os cache 里，别让冷数据给冲刷掉。</p>
+<p><strong>document 模型设计</strong></p>
+<p>es里面的复杂的关联查询，复杂的查询语法，尽量别用。尽量都是展开得宽表数据。</p>
+<p><strong>分页性能优化</strong></p>
+<p>es 的分页是较坑的，为啥呢？举个例子吧，假如你每页是 10 条数据，你现在要查询第 100 页，实际上是会把每个 shard 上存储的前 1000 条数据都查到一个协调节点上，如果你有个 5 个 shard，那么就有 5000条数据，接着协调节点对这 5000 条数据进行一些合并、处理，再获取到最终第 100 页的 10 条数据。</p>
+<p>翻页的时候，翻的越深，每个 shard 返回的数据就越多，而且协调节点处理的时间越长。所以用 es 做分页的时候，会发现越翻到后面，就越是慢。</p>
+<p>解决方法：</p>
+<ol>
+<li>不允许深度分页</li>
+<li>使用 scroll api。scroll 的原理实际上是保留一个数据快照，然后在一定时间内，你如果不断的滑动往后翻页的时候，类似于你现在在浏览微博，不断往下刷新翻页。那么就用 scroll 不断通过游标获取下一页数据。因为scroll api 是只能一页一页往后翻的，是不能说，先进入第 10 页，然后去 120 页，回到 58 页，不能随意乱跳页。</li>
+</ol>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://yanrs.me/2020/05/06/52. Redis 分布式缓存/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -465,7 +658,17 @@
 <p><strong>sorted set</strong></p>
 <p>排序的 set，去重但是可以排序，写进去的时候给一个分数，自动根据分数排序，这个可以玩儿很多的花样，最大的特点是有个分数可以自定义排序规则。</p>
 <p>比如说你要是想根据时间对数据排序，那么可以写入进去的时候用某个时间作为分数，自动给你按照时间排序了。</p>
-<h3 id="redis-的过期策略都有哪些？内存淘汰机制都有哪些？"><a href="#redis-的过期策略都有哪些？内存淘汰机制都有哪些？" class="headerlink" title="redis 的过期策略都有哪些？内存淘汰机制都有哪些？"></a>redis 的过期策略都有哪些？内存淘汰机制都有哪些？</h3><h3 id="redis-如何通过读写分离来承载读请求-QPS-超过-10万-？"><a href="#redis-如何通过读写分离来承载读请求-QPS-超过-10万-？" class="headerlink" title="redis 如何通过读写分离来承载读请求 QPS 超过 10万+？"></a>redis 如何通过读写分离来承载读请求 QPS 超过 10万+？</h3><p>单机的 redis 几乎不太可能说QPS超过10万+，除非一些特殊情况，比如你的机器性能特别好，配置特别高，物理机，维护做的特别好，而且你的整体的操作不是太复杂。</p>
+<h3 id="redis-的过期策略都有哪些？内存淘汰机制都有哪些？"><a href="#redis-的过期策略都有哪些？内存淘汰机制都有哪些？" class="headerlink" title="redis 的过期策略都有哪些？内存淘汰机制都有哪些？"></a>redis 的过期策略都有哪些？内存淘汰机制都有哪些？</h3><p>定期删除 + 惰性删除</p>
+<p>所谓定期删除，指的是 redis 默认是每隔 100ms 就随机抽取一些设置了过期时间的 key，检查其是否过期，如果过期就删除。假设 redis 里放了10 万个 key，都设置了过期时间，你每隔几百毫秒，就检查 10 万个 key，那 redis 基本上就死了，cpu 负载会很高的，消耗在你的检查过期 key 上了。注意，这里可不是每隔 100ms 就遍历所有的设置过期时间的 key，那样就是一场性能上的灾难。实际上 redis 是每隔 100ms 随机抽取一些 key 来检查和删除的。</p>
+<p>但是问题是，定期删除可能会导致很多过期 key 到了时间并没有被删除掉，那咋整呢？所以就是惰性删除了。这就是说，在你获取某个 key 的时候，redis 会检查一下 ，这个 key 如果设置了过期时间那么是否过期了？如果过期了此时就会删除，不会给你返回任何东西。 </p>
+<p>并不是key到时间就被删除掉，而是你查询这个key的时候，redis再懒惰的检查一下。但是实际上这还是有问题的，如果定期删除漏掉了很多过期 key，然后你也没及时去查，也就没走惰性删除，此时会怎么样？如果大量过期key 堆积在内存里，导致 redis 内存块耗尽了，咋整？答案是：走内存淘汰机制。</p>
+<p>1）noeviction：当内存不足以容纳新写入数据时，新写入操作会报错，这个一般没人用吧，实在是太恶心了</p>
+<p>2）allkeys-lru：当内存不足以容纳新写入数据时，在键空间中，移除最近最少使用的key（<strong>这个是最常用的</strong>）</p>
+<p>3）allkeys-random：当内存不足以容纳新写入数据时，在键空间中，随机移除某个key，这个一般没人用吧，为啥要随机，肯定是把最近最少使用的key给干掉啊</p>
+<p>4）volatile-lru：当内存不足以容纳新写入数据时，在设置了过期时间的键空间中，移除最近最少使用的key（这个一般不太合适）</p>
+<p>5）volatile-random：当内存不足以容纳新写入数据时，在设置了过期时间的键空间中，随机移除某个key</p>
+<p>6）volatile-ttl：当内存不足以容纳新写入数据时，在设置了过期时间的键空间中，有更早过期时间的key优先移除</p>
+<h3 id="redis-如何通过读写分离来承载读请求-QPS-超过-10万-？"><a href="#redis-如何通过读写分离来承载读请求-QPS-超过-10万-？" class="headerlink" title="redis 如何通过读写分离来承载读请求 QPS 超过 10万+？"></a>redis 如何通过读写分离来承载读请求 QPS 超过 10万+？</h3><p>单机的 redis 几乎不太可能说QPS超过10万+，除非一些特殊情况，比如你的机器性能特别好，配置特别高，物理机，维护做的特别好，而且你的整体的操作不是太复杂。</p>
 <p>解决方案是主从架构，实现一主多从，主节点负责写，并且将数据同步复制到其他的 slave 节点上去，从节点负责读，所有的读请求全部走从节点。这样设计还有一个好处是可以支持水平扩容，如果读的 QPS 在增加，那么继续增加 redis slave 就可以了。</p>
 <h3 id="redis-replication"><a href="#redis-replication" class="headerlink" title="redis replication"></a>redis replication</h3><p>Redis replication 是一种 master-slave 模式的复制机制，这种机制使得 slave 节点可以成为与 master 节点完全相同的副本。</p>
 <p>如果采用了主从架构，那么建议必须开启master node的持久化！不建议用slave node作为master node的数据热备，因为那样的话，如果你关掉master的持久化（关掉master的持久化，也就是数据全部放在内存中），可能在master宕机重启的时候数据是空的，然后可能一经过复制，salve node数据也丢了。</p>
@@ -9355,291 +9558,6 @@ afterCompletion, 相当于在 finally 里面，无论失败成功都会执行
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2020/03/01/37. SpringMVC2 - View 类型, 指定初始化配置文件, 控制 Servlet 加载时间, 编码过滤器, REST Demo/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2020/03/01/37. SpringMVC2 - View 类型, 指定初始化配置文件, 控制 Servlet 加载时间, 编码过滤器, REST Demo/" itemprop="url">37. SpringMVC2 - View 类型, 指定初始化配置文件, 控制 Servlet 加载时间, 编码过滤器, REST Demo</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2020-03-01T00:41:57+08:00">
-                2020-03-01
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Java-大数据/" itemprop="url" rel="index">
-                    <span itemprop="name">Java 大数据</span>
-                  </a>
-                </span>
-
-                
-                
-                  ， 
-                
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Java-大数据/SpringMVC/" itemprop="url" rel="index">
-                    <span itemprop="name">SpringMVC</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="视图解析"><a href="#视图解析" class="headerlink" title="视图解析"></a>视图解析</h3><h4 id="View-视图的类型"><a href="#View-视图的类型" class="headerlink" title="View 视图的类型"></a>View 视图的类型</h4><p>View 的作用: 处理模型数据和页面跳转（转发, 重定向）</p>
-<ol>
-<li>InternalResourceView: 转发视图</li>
-<li>JstlView: 转发视图，用来支持页面中的 jstl 的。继承自 InternalResourceView</li>
-<li>RedirectView: 重定向视图 </li>
-</ol>
-<pre class="line-numbers language-java"><code class="language-java"><span class="token keyword">package</span> com<span class="token punctuation">.</span>atguigu<span class="token punctuation">.</span>controller<span class="token punctuation">;</span>
-
-<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>stereotype<span class="token punctuation">.</span>Controller<span class="token punctuation">;</span>
-<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>web<span class="token punctuation">.</span>bind<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>PathVariable<span class="token punctuation">;</span>
-<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>web<span class="token punctuation">.</span>bind<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>RequestMapping<span class="token punctuation">;</span>
-<span class="token keyword">import</span> org<span class="token punctuation">.</span>springframework<span class="token punctuation">.</span>web<span class="token punctuation">.</span>bind<span class="token punctuation">.</span>annotation<span class="token punctuation">.</span>RequestMethod<span class="token punctuation">;</span>
-
-
-<span class="token annotation punctuation">@Controller</span>
-<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">TestController</span> <span class="token punctuation">{</span>
-    <span class="token comment" spellcheck="true">/**
-     * View 视图的类型：
-     * 1. InternalResourceView: 转发视图
-     * 2. JstlView: 转发视图，用来支持页面中的 jstl 的。继承自 InternalResourceView
-     * 3. RedirectView: 重定向视图 
-     * 
-     * View 的作用: 处理模型数据和页面跳转（转发, 重定向）
-     */</span>
-    <span class="token annotation punctuation">@RequestMapping</span><span class="token punctuation">(</span>value <span class="token operator">=</span> <span class="token string">"/test"</span><span class="token punctuation">,</span> method <span class="token operator">=</span> RequestMethod<span class="token punctuation">.</span>GET<span class="token punctuation">)</span>
-    <span class="token keyword">public</span> String <span class="token function">testGET</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
-        <span class="token keyword">return</span> <span class="token string">"success"</span><span class="token punctuation">;</span>
-        <span class="token comment" spellcheck="true">// return "redirect:/index.jsp" 重定向，使用的是重定向视图</span>
-    <span class="token punctuation">}</span> 
-<span class="token punctuation">}</span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<h3 id="SpringMVC-初始化配置"><a href="#SpringMVC-初始化配置" class="headerlink" title="SpringMVC 初始化配置"></a>SpringMVC 初始化配置</h3><h4 id="指定配置文件位置和名称"><a href="#指定配置文件位置和名称" class="headerlink" title="指定配置文件位置和名称"></a>指定配置文件位置和名称</h4><p>可以使用 <code>init-param</code> 设置配置文件的位置和名称</p>
-<pre class="line-numbers language-xml"><code class="language-xml">    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>init-param</span><span class="token punctuation">></span></span>
-            <span class="token comment" spellcheck="true">&lt;!-- 只能是 contextConfigLocation。对应的是 DispatcherServlet 里面的一个属性 --></span>
-            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>param-name</span><span class="token punctuation">></span></span>contextConfigLocation<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>param-name</span><span class="token punctuation">></span></span> 
-            <span class="token comment" spellcheck="true">&lt;!-- 指定配置文件位置在 classpath 下，即类路径下 --></span>
-            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>param-value</span><span class="token punctuation">></span></span>classpath:springMVC.xml<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>param-value</span><span class="token punctuation">></span></span>  
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>init-param</span><span class="token punctuation">></span></span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<h4 id="控制-Servlet-加载时间"><a href="#控制-Servlet-加载时间" class="headerlink" title="控制 Servlet 加载时间"></a>控制 Servlet 加载时间</h4><p>可以使用 <code>load-on-startup</code> 来设置 Servlet 的加载时间。默认是第一次访问的时候加载。若设置了 <code>load-on-startup</code> 则可以将 Servlet 加载时间提前到项目启动时。标签中的值范围是整数，但是只有设置为正整数才有效果。负数和0都没有效果。正整数值越小，优先级越高。</p>
-<pre class="line-numbers language-xml"><code class="language-xml"><span class="token comment" spellcheck="true">&lt;!-- 设置 Servlet 的加载时间，默认是第一次访问的时候加载。若设置了 load-on-startup 则可以将 Servlet 加载时间提前到项目启动时 --></span>
-<span class="token comment" spellcheck="true">&lt;!-- 标签中的值范围是整数，但是只有设置为正整数才有效果。负数和0都没有效果。正整数值越小，优先级越高 --></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>load-on-startup</span><span class="token punctuation">></span></span>1<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>load-on-startup</span><span class="token punctuation">></span></span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
-<p>web.xml 完整配置如下：</p>
-<pre class="line-numbers language-xml"><code class="language-xml"><span class="token prolog">&lt;?xml version="1.0" encoding="UTF-8"?></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>web-app</span> <span class="token attr-name"><span class="token namespace">xmlns:</span>xsi</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>http://www.w3.org/2001/XMLSchema-instance<span class="token punctuation">"</span></span> <span class="token attr-name">xmlns</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>http://java.sun.com/xml/ns/javaee<span class="token punctuation">"</span></span> <span class="token attr-name"><span class="token namespace">xsi:</span>schemaLocation</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd<span class="token punctuation">"</span></span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>WebApp_ID<span class="token punctuation">"</span></span> <span class="token attr-name">version</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>2.5<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
-  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>display-name</span><span class="token punctuation">></span></span>SpringMVC03<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>display-name</span><span class="token punctuation">></span></span>
-  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>welcome-file-list</span><span class="token punctuation">></span></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>welcome-file</span><span class="token punctuation">></span></span>index.jsp<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>welcome-file</span><span class="token punctuation">></span></span>
-  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>welcome-file-list</span><span class="token punctuation">></span></span>
-
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>servlet</span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>servlet-name</span><span class="token punctuation">></span></span>springMVC<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>servlet-name</span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>servlet-class</span><span class="token punctuation">></span></span>org.springframework.web.servlet.DispatcherServlet<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>servlet-class</span><span class="token punctuation">></span></span>
-        <span class="token comment" spellcheck="true">&lt;!-- 设置 SpringMVC 配置文件的位置和名称 --></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>init-param</span><span class="token punctuation">></span></span>
-            <span class="token comment" spellcheck="true">&lt;!-- 只能是 contextConfigLocation。对应的是 DispatcherServlet 里面的一个属性 --></span>
-            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>param-name</span><span class="token punctuation">></span></span>contextConfigLocation<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>param-name</span><span class="token punctuation">></span></span> 
-            <span class="token comment" spellcheck="true">&lt;!-- 指定配置文件位置在 classpath 下，即类路径下 --></span>
-            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>param-value</span><span class="token punctuation">></span></span>classpath:springMVC.xml<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>param-value</span><span class="token punctuation">></span></span>  
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>init-param</span><span class="token punctuation">></span></span>
-
-        <span class="token comment" spellcheck="true">&lt;!-- 设置 Servlet 的加载时间，默认是第一次访问的时候加载。若设置了 load-on-startup 则可以将 Servlet 加载时间提前到项目启动时 --></span>
-        <span class="token comment" spellcheck="true">&lt;!-- 标签中的值范围是整数，但是只有设置为正整数才有效果。负数和0都没有效果。正整数值越小，优先级越高 --></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>load-on-startup</span><span class="token punctuation">></span></span>1<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>load-on-startup</span><span class="token punctuation">></span></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>servlet</span><span class="token punctuation">></span></span>
-
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>servlet-mapping</span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>servlet-name</span><span class="token punctuation">></span></span>springMVC<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>servlet-name</span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>url-pattern</span><span class="token punctuation">></span></span>/<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>url-pattern</span><span class="token punctuation">></span></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>servlet-mapping</span><span class="token punctuation">></span></span>
-
-    <span class="token comment" spellcheck="true">&lt;!-- 配置 HiddenHttpMethodFilter --></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>filter</span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>filter-name</span><span class="token punctuation">></span></span>HiddenHttpMethodFilter<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>filter-name</span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>filter-class</span><span class="token punctuation">></span></span>org.springframework.web.filter.HiddenHttpMethodFilter<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>filter-class</span><span class="token punctuation">></span></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>filter</span><span class="token punctuation">></span></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>filter-mapping</span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>filter-name</span><span class="token punctuation">></span></span>HiddenHttpMethodFilter<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>filter-name</span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>url-pattern</span><span class="token punctuation">></span></span>/*<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>url-pattern</span><span class="token punctuation">></span></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>filter-mapping</span><span class="token punctuation">></span></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>web-app</span><span class="token punctuation">></span></span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20200229190928.png" alt></p>
-<h3 id="编码过滤器"><a href="#编码过滤器" class="headerlink" title="编码过滤器"></a>编码过滤器</h3><p>SpringMVC 自带了CharacterEncodingFilter 过滤器解决编码的问题。使用时需要将该过滤器在 web.xml 中排在第一的位置上。</p>
-<pre class="line-numbers language-xml"><code class="language-xml">  <span class="token comment" spellcheck="true">&lt;!-- 配置编码过滤器，必须在所有 filter 之前 --></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>filter</span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>filter-name</span><span class="token punctuation">></span></span>CharacterEncodingFilter<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>filter-name</span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>filter-class</span><span class="token punctuation">></span></span>org.springframework.web.filter.CharacterEncodingFilter<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>filter-class</span><span class="token punctuation">></span></span>
-        <span class="token comment" spellcheck="true">&lt;!-- 为 CharacterEncodingFilter 中的 encoding 赋值 --></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>init-param</span><span class="token punctuation">></span></span>
-            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>param-name</span><span class="token punctuation">></span></span>encoding<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>param-name</span><span class="token punctuation">></span></span>
-            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>param-value</span><span class="token punctuation">></span></span>UTF-8<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>param-value</span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>init-param</span><span class="token punctuation">></span></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>filter</span><span class="token punctuation">></span></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>filter-mapping</span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>filter-name</span><span class="token punctuation">></span></span>CharacterEncodingFilter<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>filter-name</span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>url-pattern</span><span class="token punctuation">></span></span>/*<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>url-pattern</span><span class="token punctuation">></span></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>filter-mapping</span><span class="token punctuation">></span></span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<p>到现在为止，我们需要在 web.xml 中配置的有，CharacterEncodingFilter，HiddenHttpMethodFilter 和 Servlet。需要在 SpringMVC 的 xml 配置的有 <code>context:component-scan</code> 和 视图解析器。</p>
-<p><a href="https://github.com/rexyan/it_guigu/tree/master/Spring/Code/SpringMVC03" target="_blank" rel="noopener">代码地址</a></p>
-<h3 id="REST-CRUD"><a href="#REST-CRUD" class="headerlink" title="REST CRUD"></a>REST CRUD</h3><p>在此项目中，会实现员工的添加，修改，展示等。<a href="https://github.com/rexyan/it_guigu/tree/master/Spring/Code/RestEmp" target="_blank" rel="noopener">源码地址</a></p>
-<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20200301003254.png" alt></p>
-<p>需要注意的是，在这里解决了如果静态资源受 <code>DispatcherServlet</code> 影响的问题。为什么会有这样的问题: 优雅的 REST 风格的资源URL 不希望带 .html 或 .do 等后缀，若将 DispatcherServlet 请求映射配置为 /, 则 Spring MVC 将捕获 WEB 容器的所有请求, 包括静态资源的请求, SpringMVC 会将他们当成一个普通请求处理, 因找不到对应处理器将导致错误。解决方法：在 SpringMVC 的配置文件中配置 <code>&lt;mvc:default-servlet-handler/&gt;</code> <code>&lt;mvc:annotation-driven /&gt;</code></p>
-<pre class="line-numbers language-xml"><code class="language-xml"><span class="token prolog">&lt;?xml version="1.0" encoding="UTF-8"?></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>beans</span> <span class="token attr-name">xmlns</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>http://www.springframework.org/schema/beans<span class="token punctuation">"</span></span>
-    <span class="token attr-name"><span class="token namespace">xmlns:</span>xsi</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>http://www.w3.org/2001/XMLSchema-instance<span class="token punctuation">"</span></span>
-    <span class="token attr-name"><span class="token namespace">xmlns:</span>context</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>http://www.springframework.org/schema/context<span class="token punctuation">"</span></span>
-    <span class="token attr-name"><span class="token namespace">xmlns:</span>mvc</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>http://www.springframework.org/schema/mvc<span class="token punctuation">"</span></span>
-    <span class="token attr-name"><span class="token namespace">xsi:</span>schemaLocation</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-4.0.xsd
-        http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
-        http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.0.xsd<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
-
-    <span class="token comment" spellcheck="true">&lt;!-- 扫描 --></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token namespace">context:</span>component-scan</span> <span class="token attr-name">base-package</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>com.atguigu.rest.crud<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span><span class="token namespace">context:</span>component-scan</span><span class="token punctuation">></span></span>
-
-    <span class="token comment" spellcheck="true">&lt;!-- 视图解析器 --></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>bean</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>org.springframework.web.servlet.view.InternalResourceViewResolver<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>prefix<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>/WEB-INF/view/<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>suffix<span class="token punctuation">"</span></span> <span class="token attr-name">value</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>.jsp<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>bean</span><span class="token punctuation">></span></span>
-
-    <span class="token comment" spellcheck="true">&lt;!-- 如果遇到静态资源问题，那么将静态资源交给 tomcat 默认的 servlet 来处理 --></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token namespace">mvc:</span>default-servlet-handler</span><span class="token punctuation">/></span></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token namespace">mvc:</span>annotation-driven</span> <span class="token punctuation">/></span></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>beans</span><span class="token punctuation">></span></span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<h3 id="静态资源处理"><a href="#静态资源处理" class="headerlink" title="静态资源处理"></a>静态资源处理</h3><p>如上面 REST CRUD 例子中出现的静态文件问题。解决方法是添加<code>&lt;mvc:default-servlet-handler/&gt;</code>配置。该配置将在 SpringMVC 上下文中定义一个 <strong>DefaultServletHttpRequestHandler</strong>，它会对进入 DispatcherServlet 的请求进行筛查，如果发现是没有经过映射的请求，就将该请求交由 WEB 应用服务器默认的 Servlet 处理，如果不是静态资源的请求，才由 DispatcherServlet 继续处理。配置后还需结合 <code>&lt;mvc:annotation-driven /&gt;</code> 进行使用，即</p>
-<pre class="line-numbers language-xml"><code class="language-xml">    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token namespace">mvc:</span>default-servlet-handler</span><span class="token punctuation">/></span></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span><span class="token namespace">mvc:</span>annotation-driven</span> <span class="token punctuation">/></span></span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
   </section>
 
   
@@ -9690,7 +9608,7 @@ afterCompletion, 相当于在 finally 里面，无论失败成功都会执行
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">282</span>
+                  <span class="site-state-item-count">283</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>
@@ -9712,7 +9630,7 @@ afterCompletion, 相当于在 finally 里面，无论失败成功都会执行
               
               <div class="site-state-item site-state-tags">
                 <a href="/tags/index.html">
-                  <span class="site-state-item-count">134</span>
+                  <span class="site-state-item-count">136</span>
                   <span class="site-state-item-name">标签</span>
                 </a>
               </div>
