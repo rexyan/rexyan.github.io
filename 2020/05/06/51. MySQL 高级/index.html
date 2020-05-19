@@ -159,7 +159,7 @@
 <meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjBonnkUTz0KlGNKVit6ysGXu9Tdht*dlxChpd3u9y8r6HmB0RX9LNEWjRw3n5mT2kA!!/mnull&bo=wQPbAMED2wADCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
 <meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjPMbOB92aonfn3oDMu5xNUTiaDVypyfGfDnblR2m3roh5UtxYVXzhYcu5c8O7xkMQg!!/mnull&bo=vwP2AL8D9gADCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
 <meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjHUVgvEXtkg*hze*wNx4uzi0tunpcDbEvcK8SnFAY5BadvMQlM9dnXR5oUOW2PmvVg!!/mnull&bo=DgT2AA4E9gADCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
-<meta property="og:updated_time" content="2020-05-06T14:13:35.042Z">
+<meta property="og:updated_time" content="2020-05-10T22:32:28.341Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="51. MySQL 高级">
 <meta name="twitter:description" content="安装centos 7 安装 MySQL  下载所需要的安装包    检查是否安装过 MySQL CentOS6 执行安装命令前，先执行查询命令   rpm -qa|grep mysql 如果存在mysql-libs的旧版本包如下： rpm -e --nodeps  mysql-libs CentOS7 需要执行 rpm -qa|grep mariadb 如果存在，需要先执行卸载命令 rpm -e">
@@ -256,7 +256,7 @@
       
         
         <li class="menu-item menu-item-home">
-          <a href="/" rel="section">
+          <a href="/archives/" rel="section">
             
             首页
           </a>
@@ -928,7 +928,7 @@ Extra: 【重要】值有很多中，但是这里列举其中不好的三种，�
 <ol>
 <li>驱动表的字段就算建立了索引，在关联查询的情况下也无法避免全表扫描。只有被驱动表的 join 字段被索引，此时关联查询的被驱动表的索引才会生效。也就是说需要保证被驱动表的 join 字段已经被索引。</li>
 <li>left join 时，尽量选择小表作为驱动表，大表作为被驱动表。这样能减少扫描</li>
-<li>inner join 时，mysql会自己帮你把小结果集的表选为驱动表。</li>
+<li>inner join 时，mysql会自己帮你把小结果集的表选为驱动表。(如果 MySQL 选择错误，可以使用 <code>STRAIGHT_JOIN</code> 指定关联关系，放在前面的是驱动表，后面是被驱动表。<a href="https://www.cnblogs.com/heyonggang/p/9462242.html" target="_blank" rel="noopener">STRAIGHT_JOIN 性能优化</a>)</li>
 <li>子查询尽量不要放在被驱动表。这是因为关联查询只有被驱动表建立的索引会生效，而如果将子查询放在了被驱动表，因为子查询会生成临时的虚拟表，并且是没有索引的，这就会导致全表扫描生成的生成临时虚拟表。再加上驱动表也被全表扫描，所以情况更坏。</li>
 <li>能够直接多表关联的尽量直接关联，不用子查询。这是因为子查询会生成临时的虚拟表，并且是没有索引的。</li>
 </ol>
@@ -967,6 +967,39 @@ explain select * from emp where age=45 order by deptid asc, name desc;
 # 有过滤条件且按照索引顺序但排序方向相反，所以不走索引
 </code></pre><p><strong>在使用 group by 的时候，以下情况不会使用索引：</strong></p>
 <p>group by 使用索引的原则几乎跟order by一致 ，唯一区别是groupby 即使没有过滤条件用到索引，也可以直接使用索引。</p>
+<h3 id="慢查询日志"><a href="#慢查询日志" class="headerlink" title="慢查询日志"></a>慢查询日志</h3><p>慢查询日志默认是关闭的。MySQL 的慢查询日志是 MySQL 提供的一种日志记录，它用来记录在 MySQL 中响应时间超过阀值的语句，具体指运行时间超过 long_query_time 值的 SQL，则会被记录到慢查询日志中。</p>
+<p>查看慢查询是否开启</p>
+<pre class="line-numbers language-shell"><code class="language-shell">SHOW VARIABLES LIKE '%slow_query_log%';
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>开启慢查询</p>
+<pre class="line-numbers language-shell"><code class="language-shell">set global slow_query_log=1;
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>查看当前多少秒算慢</p>
+<pre class="line-numbers language-shell"><code class="language-shell">SHOW VARIABLES LIKE 'long_query_time%';
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>设置慢的阙值时间</p>
+<pre class="line-numbers language-shell"><code class="language-shell">set  long_query_time=1
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>收集到日志后，后续可以使用 mysqldumpslow 工具进行慢查询日志分析</p>
+<h3 id="主从复制"><a href="#主从复制" class="headerlink" title="主从复制"></a>主从复制</h3><p>slave 会从 master 读取 binlog 来进行数据同步</p>
+<p><strong>MySQL 复制过程</strong></p>
+<ol>
+<li>master 将改变记录到二进制日志（binary log）。这些记录过程叫做二进制日志事件，binary log events</li>
+<li>slave 将 master 的 binary log events 拷贝到它的中继日志（relay log）</li>
+<li>slave 重做中继日志中的事件，将改变应用到自己的数据库中。 MySQL 复制是异步的且串行化的</li>
+</ol>
+<p><strong>复制的基本原则</strong></p>
+<ol>
+<li>每个 slave 只有一个 master</li>
+<li>每个 slave 只能有一个唯一的服务器 ID</li>
+<li>每个 master 可以有多个 salve</li>
+</ol>
+<p><strong>binlog 的三种格式</strong></p>
+<ol>
+<li>statement：基于 SQL 语句的模式，某些语句和函数如 UUID, LOAD DATA INFILE 等在复制过程可能导致数据不一致甚至出错。</li>
+<li>row：基于行的模式，记录的是行的变化，很安全。但是 binlog 会比其他两种模式大很多，在一些大表中清除大量数据时在binlog中会生成很多条语句，可能导致从库延迟变大。</li>
+<li>mixed：混合模式，根据语句来自动选择选用是 statement 还是 row 模式。</li>
+</ol>
 
       
     </div>
@@ -1086,7 +1119,7 @@ explain select * from emp where age=45 order by deptid asc, name desc;
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">283</span>
+                  <span class="site-state-item-count">286</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>
@@ -1108,7 +1141,7 @@ explain select * from emp where age=45 order by deptid asc, name desc;
               
               <div class="site-state-item site-state-tags">
                 <a href="/tags/index.html">
-                  <span class="site-state-item-count">136</span>
+                  <span class="site-state-item-count">139</span>
                   <span class="site-state-item-name">标签</span>
                 </a>
               </div>
@@ -1166,7 +1199,7 @@ explain select * from emp where age=45 order by deptid asc, name desc;
             
 
             
-              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#安装"><span class="nav-number">1.</span> <span class="nav-text">安装</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#修改字符集"><span class="nav-number">2.</span> <span class="nav-text">修改字符集</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#sql-mod"><span class="nav-number">3.</span> <span class="nav-text">sql_mod</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#逻辑架构"><span class="nav-number">4.</span> <span class="nav-text">逻辑架构</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#底层架构原理"><span class="nav-number">4.1.</span> <span class="nav-text">底层架构原理</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#show-profile-查看-SQL-声明周期"><span class="nav-number">4.2.</span> <span class="nav-text">show profile 查看 SQL 声明周期</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#存储引擎"><span class="nav-number">5.</span> <span class="nav-text">存储引擎</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#查看所有的存储引擎"><span class="nav-number">5.1.</span> <span class="nav-text">查看所有的存储引擎</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#MyISAM-和-InnoDB-的区别"><span class="nav-number">5.2.</span> <span class="nav-text">MyISAM 和 InnoDB 的区别</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#关联查询"><span class="nav-number">6.</span> <span class="nav-text">关联查询</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#索引"><span class="nav-number">7.</span> <span class="nav-text">索引</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#优缺点"><span class="nav-number">7.1.</span> <span class="nav-text">优缺点</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#B-Tree与B-Tree-的区别"><span class="nav-number">7.2.</span> <span class="nav-text">B+Tree与B-Tree 的区别</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#分类及创建"><span class="nav-number">7.3.</span> <span class="nav-text">分类及创建</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#单值索引"><span class="nav-number">7.3.1.</span> <span class="nav-text">单值索引</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#唯一索引"><span class="nav-number">7.3.2.</span> <span class="nav-text">唯一索引</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#主键索引"><span class="nav-number">7.3.3.</span> <span class="nav-text">主键索引</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#复合索引"><span class="nav-number">7.3.4.</span> <span class="nav-text">复合索引</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#什么时候需要创建索引"><span class="nav-number">7.4.</span> <span class="nav-text">什么时候需要创建索引</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#什么时候不需要创建索引"><span class="nav-number">7.5.</span> <span class="nav-text">什么时候不需要创建索引</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Explain"><span class="nav-number">7.6.</span> <span class="nav-text">Explain</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#单表查询优化"><span class="nav-number">7.7.</span> <span class="nav-text">单表查询优化</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#关联查询优化"><span class="nav-number">7.8.</span> <span class="nav-text">关联查询优化</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#子查询优化"><span class="nav-number">7.9.</span> <span class="nav-text">子查询优化</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#排序分组优化"><span class="nav-number">7.10.</span> <span class="nav-text">排序分组优化</span></a></li></ol></li></ol></div>
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#安装"><span class="nav-number">1.</span> <span class="nav-text">安装</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#修改字符集"><span class="nav-number">2.</span> <span class="nav-text">修改字符集</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#sql-mod"><span class="nav-number">3.</span> <span class="nav-text">sql_mod</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#逻辑架构"><span class="nav-number">4.</span> <span class="nav-text">逻辑架构</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#底层架构原理"><span class="nav-number">4.1.</span> <span class="nav-text">底层架构原理</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#show-profile-查看-SQL-声明周期"><span class="nav-number">4.2.</span> <span class="nav-text">show profile 查看 SQL 声明周期</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#存储引擎"><span class="nav-number">5.</span> <span class="nav-text">存储引擎</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#查看所有的存储引擎"><span class="nav-number">5.1.</span> <span class="nav-text">查看所有的存储引擎</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#MyISAM-和-InnoDB-的区别"><span class="nav-number">5.2.</span> <span class="nav-text">MyISAM 和 InnoDB 的区别</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#关联查询"><span class="nav-number">6.</span> <span class="nav-text">关联查询</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#索引"><span class="nav-number">7.</span> <span class="nav-text">索引</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#优缺点"><span class="nav-number">7.1.</span> <span class="nav-text">优缺点</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#B-Tree与B-Tree-的区别"><span class="nav-number">7.2.</span> <span class="nav-text">B+Tree与B-Tree 的区别</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#分类及创建"><span class="nav-number">7.3.</span> <span class="nav-text">分类及创建</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#单值索引"><span class="nav-number">7.3.1.</span> <span class="nav-text">单值索引</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#唯一索引"><span class="nav-number">7.3.2.</span> <span class="nav-text">唯一索引</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#主键索引"><span class="nav-number">7.3.3.</span> <span class="nav-text">主键索引</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#复合索引"><span class="nav-number">7.3.4.</span> <span class="nav-text">复合索引</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#什么时候需要创建索引"><span class="nav-number">7.4.</span> <span class="nav-text">什么时候需要创建索引</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#什么时候不需要创建索引"><span class="nav-number">7.5.</span> <span class="nav-text">什么时候不需要创建索引</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Explain"><span class="nav-number">7.6.</span> <span class="nav-text">Explain</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#单表查询优化"><span class="nav-number">7.7.</span> <span class="nav-text">单表查询优化</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#关联查询优化"><span class="nav-number">7.8.</span> <span class="nav-text">关联查询优化</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#子查询优化"><span class="nav-number">7.9.</span> <span class="nav-text">子查询优化</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#排序分组优化"><span class="nav-number">7.10.</span> <span class="nav-text">排序分组优化</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#慢查询日志"><span class="nav-number">8.</span> <span class="nav-text">慢查询日志</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#主从复制"><span class="nav-number">9.</span> <span class="nav-text">主从复制</span></a></li></ol></div>
             
 
           </div>

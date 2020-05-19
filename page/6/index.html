@@ -231,7 +231,7 @@
       
         
         <li class="menu-item menu-item-home">
-          <a href="/" rel="section">
+          <a href="/archives/" rel="section">
             
             首页
           </a>
@@ -334,6 +334,618 @@
           <div id="content" class="content">
             
   <section id="posts" class="posts-expand">
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2019/05/03/使用 Kubeadm 安装 k8s 集群/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2019/05/03/使用 Kubeadm 安装 k8s 集群/" itemprop="url">使用 Kubeadm 安装 k8s 集群</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-05-03T23:15:57+08:00">
+                2019-05-03
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Kubernetes/" itemprop="url" rel="index">
+                    <span itemprop="name">Kubernetes</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <p>以 kubeadm 安装的 k8s 集群，都会将 api server，etcd，controller-manager，scheduler，kubulet，kube-proxy 等以 Pod 的方式来启动。手工部署则是运行为系统级守护进程。</p>
+<p>使用 kubeadm 安装 k8s 集群的步骤：</p>
+<ol>
+<li>master, nodes： 安装 kubelet, kubeadm, docker, kubectl</li>
+<li>master：kubeadm init</li>
+<li>nodes：kubeadm join</li>
+</ol>
+<p><img src="https://i.loli.net/2019/05/03/5ccbeb7f8948c.png" alt></p>
+<p>在阿里云上购买三台硅谷的抢占式 ECS 实例</p>
+<p><img src="https://i.loli.net/2019/05/04/5ccd3acda29a8.png" alt></p>
+<h3 id="Master"><a href="#Master" class="headerlink" title="Master"></a>Master</h3><h4 id="修改-SSH-断开时间"><a href="#修改-SSH-断开时间" class="headerlink" title="修改 SSH 断开时间"></a>修改 SSH 断开时间</h4><pre><code>echo export TMOUT=1000000 &gt;&gt; /root/.bash_profile
+cat /root/.bash_profile
+source .bash_profile
+cp /etc/ssh/sshd_config /etc/ssh/sshd_config_bak
+echo ClientAliveInterval=60 &gt;&gt; /etc/ssh/sshd_config
+service sshd restart
+cat /etc/ssh/sshd_config
+service sshd restart
+exit
+</code></pre><h4 id="安装Docker"><a href="#安装Docker" class="headerlink" title="安装Docker"></a>安装Docker</h4><pre class="line-numbers language-shell"><code class="language-shell"> yum -y install docker
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<pre><code>systemctl start docker.service
+</code></pre><h4 id="安装kubeadm，kubelet和kubectl"><a href="#安装kubeadm，kubelet和kubectl" class="headerlink" title="安装kubeadm，kubelet和kubectl"></a>安装kubeadm，kubelet和kubectl</h4><ul>
+<li><code>kubeadm</code>：引导群集的命令。</li>
+<li><code>kubelet</code>：在群集中的所有计算机上运行的组件，并执行诸如启动pod和容器之类的操作。</li>
+<li><code>kubectl</code>：用于与群集通信的命令行util。</li>
+</ul>
+<pre class="line-numbers language-shell"><code class="language-shell">cat <<eof> /etc/yum.repos.d/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+exclude=kube*
+EOF
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></eof></code></pre>
+<pre class="line-numbers language-shell"><code class="language-shell"># Set SELinux in permissive mode (effectively disabling it)
+setenforce 0
+sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+<pre class="line-numbers language-shell"><code class="language-shell">yum install -y kubelet kubeadm kubectl --disableexcludes=kubernetes
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<pre class="line-numbers language-shell"><code class="language-shell">systemctl enable --now kubelet
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<h4 id="初始化-Master"><a href="#初始化-Master" class="headerlink" title="初始化 Master"></a>初始化 Master</h4><p>初始化需要指定 –pod-network-cidr，如果 Pod 网络插件采用 Flannel，那么 –pod-network-cidr 的值需要和 Flannel yml 配置文件中的一致。</p>
+<pre class="line-numbers language-shell"><code class="language-shell">[root@iZrj9be8chbky2q6pegw28Z ~]# kubeadm init --apiserver-advertise-address 172.20.245.177 --pod-network-cidr 10.244.0.0/16 --ignore-preflight-errors=All             
+[init] Using Kubernetes version: v1.14.1
+[preflight] Running pre-flight checks
+[preflight] Pulling images required for setting up a Kubernetes cluster
+[preflight] This might take a minute or two, depending on the speed of your internet connection
+[preflight] You can also perform this action in beforehand using 'kubeadm config images pull'
+
+
+[kubelet-start] Writing kubelet environment file with flags to file "/var/lib/kubelet/kubeadm-flags.env"
+[kubelet-start] Writing kubelet configuration to file "/var/lib/kubelet/config.yaml"
+[kubelet-start] Activating the kubelet service
+[certs] Using certificateDir folder "/etc/kubernetes/pki"
+[certs] Generating "etcd/ca" certificate and key
+
+[certs] Generating "etcd/peer" certificate and key
+[certs] etcd/peer serving cert is signed for DNS names [izrj9be8chbky2q6pegw28z localhost] and IPs [172.20.245.177 127.0.0.1 ::1]
+[certs] Generating "apiserver-etcd-client" certificate and key
+[certs] Generating "etcd/server" certificate and key
+[certs] etcd/server serving cert is signed for DNS names [izrj9be8chbky2q6pegw28z localhost] and IPs [172.20.245.177 127.0.0.1 ::1]
+[certs] Generating "etcd/healthcheck-client" certificate and key
+[certs] Generating "front-proxy-ca" certificate and key
+[certs] Generating "front-proxy-client" certificate and key
+[certs] Generating "ca" certificate and key
+[certs] Generating "apiserver" certificate and key
+[certs] apiserver serving cert is signed for DNS names [izrj9be8chbky2q6pegw28z kubernetes kubernetes.default kubernetes.default.svc kubernetes.default.svc.cluster.local] and IPs [10.96.0.1 172.20.245.177]
+[certs] Generating "apiserver-kubelet-client" certificate and key
+[certs] Generating "sa" key and public key
+[kubeconfig] Using kubeconfig folder "/etc/kubernetes"
+[kubeconfig] Writing "admin.conf" kubeconfig file
+[kubeconfig] Writing "kubelet.conf" kubeconfig file
+[kubeconfig] Writing "controller-manager.conf" kubeconfig file
+[kubeconfig] Writing "scheduler.conf" kubeconfig file
+[control-plane] Using manifest folder "/etc/kubernetes/manifests"
+[control-plane] Creating static Pod manifest for "kube-apiserver"
+[control-plane] Creating static Pod manifest for "kube-controller-manager"
+[control-plane] Creating static Pod manifest for "kube-scheduler"
+[etcd] Creating static Pod manifest for local etcd in "/etc/kubernetes/manifests"
+[wait-control-plane] Waiting for the kubelet to boot up the control plane as static Pods from directory "/etc/kubernetes/manifests". This can take up to 4m0s
+[apiclient] All control plane components are healthy after 15.502031 seconds
+[upload-config] storing the configuration used in ConfigMap "kubeadm-config" in the "kube-system" Namespace
+[kubelet] Creating a ConfigMap "kubelet-config-1.14" in namespace kube-system with the configuration for the kubelets in the cluster
+[upload-certs] Skipping phase. Please see --experimental-upload-certs
+[mark-control-plane] Marking the node izrj9be8chbky2q6pegw28z as control-plane by adding the label "node-role.kubernetes.io/master=''"
+[mark-control-plane] Marking the node izrj9be8chbky2q6pegw28z as control-plane by adding the taints [node-role.kubernetes.io/master:NoSchedule]
+[bootstrap-token] Using token: p8qz5z.ctkrg6zbclwmyja9
+[bootstrap-token] Configuring bootstrap tokens, cluster-info ConfigMap, RBAC Roles
+[bootstrap-token] configured RBAC rules to allow Node Bootstrap tokens to post CSRs in order for nodes to get long term certificate credentials
+[bootstrap-token] configured RBAC rules to allow the csrapprover controller automatically approve CSRs from a Node Bootstrap Token
+[bootstrap-token] configured RBAC rules to allow certificate rotation for all node client certificates in the cluster
+[bootstrap-token] creating the "cluster-info" ConfigMap in the "kube-public" namespace
+[addons] Applied essential addon: CoreDNS
+[addons] Applied essential addon: kube-proxy
+
+Your Kubernetes control-plane has initialized successfully!
+
+To start using your cluster, you need to run the following as a regular user:
+
+  mkdir -p $HOME/.kube
+  sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+  sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+You should now deploy a pod network to the cluster.
+Run "kubectl apply -f [podnetwork].yaml" with one of the options listed at:
+  https://kubernetes.io/docs/concepts/cluster-administration/addons/
+
+Then you can join any number of worker nodes by running the following on each as root:
+
+kubeadm join 172.20.245.177:6443 --token p8qz5z.ctkrg6zbclwmyja9 \
+    --discovery-token-ca-cert-hash sha256:58613d36b9f6ad46f8455e134b626b52bd4992f65c6fbfeb97169905ac2ce92a 
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>init 之后查看 docker 镜像，会发现 init 拉取了 kubeadm 所需的镜像。因为 kubeadm 会将 Api Server，etcd 等以 Pod 的方式启动（静态），所有会看到所需的镜像。<br><img src="https://i.loli.net/2019/05/03/5ccc4f3af32b6.png" alt><br><img src="https://i.loli.net/2019/05/03/5ccc4f5279db4.png" alt></p>
+<pre class="line-numbers language-shell"><code class="language-shell">mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+<h4 id="获取组件状态信息"><a href="#获取组件状态信息" class="headerlink" title="获取组件状态信息"></a>获取组件状态信息</h4><pre class="line-numbers language-shell"><code class="language-shell">kubectl get cs
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p><img src="https://i.loli.net/2019/05/03/5ccc4f75bb8ca.png" alt></p>
+<h4 id="获取节点信息"><a href="#获取节点信息" class="headerlink" title="获取节点信息"></a>获取节点信息</h4><p>kubectl get nodes 获取节点信息<br><img src="https://i.loli.net/2019/05/03/5ccc4f904adcb.png" alt><br>查看 nodes 发现master NotReady，我们需要安装一下 flannel 网络插件</p>
+<h4 id="获取名称空间"><a href="#获取名称空间" class="headerlink" title="获取名称空间"></a>获取名称空间</h4><p>kubectl get ns 获取所有的名称空间<br><img src="https://i.loli.net/2019/05/03/5ccc4e22a134f.png" alt></p>
+<h4 id="查看指定名称空间"><a href="#查看指定名称空间" class="headerlink" title="查看指定名称空间"></a>查看指定名称空间</h4><p>kubectl get pods  -n kube-system 查看名称空间为 kube-system（系统级别，默认为 default） 的 pods<br><img src="https://i.loli.net/2019/05/03/5ccc50a63a054.png" alt></p>
+<h4 id="安装-Flannel"><a href="#安装-Flannel" class="headerlink" title="安装 Flannel"></a>安装 Flannel</h4><p><a href="https://github.com/coreos/flannel" target="_blank" rel="noopener">https://github.com/coreos/flannel</a></p>
+<pre class="line-numbers language-shell"><code class="language-shell">kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p><img src="https://i.loli.net/2019/05/03/5ccc509247878.png" alt></p>
+<p>安装之后我们就能看到 Master 从 NotReady 变成了 Ready<br><img src="https://i.loli.net/2019/05/03/5ccc50446c66e.png" alt></p>
+<h3 id="Nodes"><a href="#Nodes" class="headerlink" title="Nodes"></a>Nodes</h3><ol>
+<li>安装 Docker，启动服务</li>
+<li>安装kubeadm，kubelet和kubectl</li>
+<li><p>join。在 Node 上执行上面 init 之后得到的结果，让 Node 加入集群中<br> <img src="https://i.loli.net/2019/05/03/5ccc51c26ed20.png" alt><br> 获取所有 nodes 信息<br>   <img src="https://i.loli.net/2019/05/03/5ccc51fd2b484.png" alt> </p>
+<p> 最后我们将本次实验的 master 中的 docker 镜像下载，这样就能在本地使用 kubeadm 进行安装了，而不必在国外机器进行实验。<br>   <img src="https://i.loli.net/2019/05/03/5ccc555dba8be.png" alt></p>
+</li>
+</ol>
+<pre class="line-numbers language-shell"><code class="language-shell">  docker save -o k8s.gcr.io=kube-proxy:v1.14.1.tar.gz k8s.gcr.io/kube-proxy:v1.14.1   
+  docker save -o k8s.gcr.io=kube-apiserver:v1.14.1.tar.gz k8s.gcr.io/kube-apiserver:v1.14.1
+  docker save -o k8s.gcr.io=kube-apiserver:v1.14.1.tar.gz k8s.gcr.io/kube-apiserver:v1.14.1
+  docker save -o k8s.gcr.io=kube-controller-manager:v1.14.1.tar.gz k8s.gcr.io/kube-controller-manager:v1.14.1
+  docker save -o k8s.gcr.io=kube-scheduler:v1.14.1.tar.gz k8s.gcr.io/kube-scheduler:v1.14.1
+  docker save -o quay.io=coreos=flannel:v0.11.0-amd64.tar.gz quay.io/coreos/flannel:v0.11.0-amd64
+  docker save -o k8s.gcr.io=coredns:1.3.1.tar.gz k8s.gcr.io/coredns:1.3.1 
+  docker save -o k8s.gcr.io=etcd:3.3.10.tar.gz k8s.gcr.io/etcd:3.3.10  
+  docker save -o k8s.gcr.io=pause:3.1.tar.gz k8s.gcr.io/pause:3.1 
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2019/05/03/红米 Note 7 Pro 初体验/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2019/05/03/红米 Note 7 Pro 初体验/" itemprop="url">红米 Note 7 Pro 初体验</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-05-03T15:00:57+08:00">
+                2019-05-03
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/博客/" itemprop="url" rel="index">
+                    <span itemprop="name">博客</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <p>最近搬了家，有新办了一张上海联通的卡，办理了一年的宽带和 IPTV。顺便买了一个小的电视柜和电视📺。新地方还是不错的，离地铁近，也有很多吃的。</p>
+<p>因为以前的卡不能马上放弃使用，没办法，从上个月就开始在弄换套餐的事情了，现在换套餐真的是很不方便，而且还是异地。跑遍了营业厅，微博上@中国联通之类的都没有太好的进度，最后还是找到了之前工信部投诉处理的大连客服💁，不过4月还是没有办理下来，五一结束可能在处理下，可能全部弄完估计要六月了。那么现在手上就有了三张电话卡了，也就是三个号，两个是大连的（一个主号，一个没有用的附号）一个新办的归属地为上海的号码。附号已经被注销掉了，但是也还剩两张，且两张都有用到（一张宽带，无限流量，IPTV等。另一张正在降低套餐，但是所有绑定信息都在上面）后期的规划就是，还是维持辽宁主号不变，各种需要绑定的信息还是在上面，新号只需上网而已，这样对外也无需公布新号。后期不用了注销就行，对别人也就是无感的。</p>
+<p>所有我在某东上下手了 “红米 Note 7 Pro ”，在下手之前一直在纠结到底选不选 “三星 A60 元气版”，后来考虑到货源，OS UI 等方面，最终还是选择了 ”红米“。相比而言 ”三星 A60“ 有更高的性价比，这也就是为什么 ”三星 A60“ 发布会之后，红米不需要抢直接有货的原因，可能老雷也慌了。</p>
+<p><img src="https://i.loli.net/2019/05/03/5ccbe4f349ee8.jpg" alt></p>
+<p><img src="https://i.loli.net/2019/05/03/5ccbe50ba2428.jpeg" alt></p>
+<p>新手机到手之后，插入了两张卡。经过一天的使用，除了不熟悉操作之外，其他方面也还不错。安卓一直给我的印象就是很卡，现在使用下来发现也还好，电量也大。针对于这部手机用多久呢？我感觉用两年以上就是赚了，毕竟这么低的价格，性价比这么高。</p>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2019/05/03/安装 gopm 及 beego/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2019/05/03/安装 gopm 及 beego/" itemprop="url">安装 gopm 及 beego</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-05-03T14:15:57+08:00">
+                2019-05-03
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Go/" itemprop="url" rel="index">
+                    <span itemprop="name">Go</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <p>安装 gopm, <a href="https://www.jianshu.com/p/a7c3aeb0948d" target="_blank" rel="noopener">使用说明</a></p>
+<pre><code>go get -v -u github.com/gpmgo/gopm
+</code></pre><p>安装 beego 和 bee</p>
+<pre class="line-numbers language-shell"><code class="language-shell">192:~ rex$ gopm get -g -v github.com/astaxie/beego
+[GOPM] 04-19 23:52:03 [ INFO] App Version: 0.8.8.0307 Beta
+[GOPM] 04-19 23:52:03 [ INFO] Local repository path: /Users/rex/.gopm/repos
+[GOPM] 04-19 23:52:03 [ INFO] Indicated GOPATH: /Users/rex/go
+[GOPM] 04-19 23:52:03 [ INFO] /Users/rex/.gopm/repos/github.com/astaxie/beego
+[GOPM] 04-19 23:52:03 [DEBUG] Skipped installed package: github.com/astaxie/beego@branch:<utd>
+[GOPM] 04-19 23:52:03 [ INFO] Package copied to GOPATH: github.com/astaxie/beego
+[GOPM] 04-19 23:52:03 [ INFO] 0 package(s) downloaded, 0 failed
+192:~ rex$ 
+192:~ rex$ 
+192:~ rex$ 
+192:~ rex$ gopm get -g -v github.com/beego/bee
+[GOPM] 04-19 23:52:34 [ INFO] App Version: 0.8.8.0307 Beta
+[GOPM] 04-19 23:52:34 [ INFO] Local repository path: /Users/rex/.gopm/repos
+[GOPM] 04-19 23:52:34 [ INFO] Indicated GOPATH: /Users/rex/go
+[GOPM] 04-19 23:52:34 [ INFO] /Users/rex/.gopm/repos/github.com/beego/bee
+[GOPM] 04-19 23:52:34 [DEBUG] Skipped installed package: github.com/beego/bee@branch:<utd>
+[GOPM] 04-19 23:52:34 [ INFO] Package copied to GOPATH: github.com/beego/bee
+[GOPM] 04-19 23:52:34 [ INFO] 0 package(s) downloaded, 0 failed
+192:~ rex$ 
+192:~ rex$ 
+192:~ rex$ go get github.com/astaxie/beego
+192:~ rex$ go get github.com/beego/bee
+192:~ rex$ 
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></utd></utd></code></pre>
+<p>尝试下 bee 命令，若没有，则需要将 bee 加入环境变量。</p>
+<p>在 go 的 src 下面新建 rexyan 文件夹，并在终端中切换到该文件夹，执行以下命令创建一个 beego 的项目，名称为 blog。</p>
+<pre><code>bee new blog 
+</code></pre><p>进入 blog 目录，启动项目</p>
+<pre><code>bee run 
+</code></pre>
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
     
       
 
@@ -3953,1157 +4565,6 @@ cd /home/hadoop/app/spark-2.3.0-bin-2.6.0-cdh5.7.0/bin
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2019/02/24/1. Spark 环境安装/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2019/02/24/1. Spark 环境安装/" itemprop="url">1. Spark 环境安装</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-02-24T19:13:57+08:00">
-                2019-02-24
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Spark/" itemprop="url" rel="index">
-                    <span itemprop="name">Spark</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <p>安装 Spark 的环境。涉及安装 JDK，Scala，Maven，Python3。搭建 Hadoop，Spark等。</p>
-<h3 id="安装-JDK"><a href="#安装-JDK" class="headerlink" title="安装 JDK"></a>安装 JDK</h3><pre class="line-numbers language-shell"><code class="language-shell">tar -zxvf jdk-8u91-linux-x64.tar.gz -C ~/app/
-<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-<p>配置环境变量</p>
-<pre class="line-numbers language-shell"><code class="language-shell">vim ~/.bash_profile 
-
-# 写入
-export JAVA_HOME=/home/hadoop/app/jdk1.8.0_91
-export PATH=$JAVA_HOME/bin:$PATH
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<p>在任意目录输入  java -version 没问题，那么环境就搭建好了</p>
-<pre class="line-numbers language-shell"><code class="language-shell">[hadoop@hadoop000 app]$ java -version 
-java version "1.8.0_91"
-Java(TM) SE Runtime Environment (build 1.8.0_91-b14)
-Java HotSpot(TM) 64-Bit Server VM (build 25.91-b14, mixed mode)
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
-<h3 id="安装-Scala"><a href="#安装-Scala" class="headerlink" title="安装 Scala"></a>安装 Scala</h3><pre class="line-numbers language-shell"><code class="language-shell">tar -zxvf scala-2.11.8.tgz -C ~/app/
-<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-<pre class="line-numbers language-shell"><code class="language-shell">export SCALA_HOME=/home/hadoop/app/scala-2.11.8
-export PATH=$SCALA_HOME/bin:$PATH
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
-<p>在任意目录输入  scala  没问题，那么环境就搭建好了</p>
-<h3 id="搭建-Hadoop"><a href="#搭建-Hadoop" class="headerlink" title="搭建 Hadoop"></a>搭建 Hadoop</h3><pre><code>tar -zxvf hadoop-2.6.0-cdh5.7.0.tar.gz -C ~/app/
-</code></pre><p>配置环境变量</p>
-<pre class="line-numbers language-shell"><code class="language-shell">vim ~/.bash_profile 
-
-# 写入
-export  HADOOP_HOME=/home/hadoop/app/hadoop-2.6.0-cdh5.7.0
-export  PATH=$HADOOP_HOME/bin:$HADOOP_HOME/sbin:$PATH
-
-# 保存后执行
-source ~/.bash_profile
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<p>切换目录到</p>
-<pre><code>cd $HADOOP_HOME
-cd etc/hadoop/
-</code></pre><pre><code>vim hadoop-env.sh 
-
-# 注销掉原来的
-# export JAVA_HOME=${JAVA_HOME}
-
-# 根据实际情况新写入下面的部分
-export JAVA_HOME=/home/hadoop/app/jdk1.8.0_91
-</code></pre><pre><code> vim core-site.xml 
-
-# configuration 配置如下所示
-&lt;configuration&gt;
-&lt;property&gt;
-    &lt;name&gt;fs.default.name&lt;/name&gt;
-    &lt;value&gt;hdfs://hadoop000:8020&lt;/value&gt;
-&lt;/property&gt;
-&lt;/configuration&gt;
-</code></pre><pre><code>vim hdfs-site.xml 
-
-# 配置如下所示
-&lt;configuration&gt;
-&lt;property&gt;
-    &lt;name&gt;dfs.namenode.name.dir&lt;/name&gt;
-    &lt;value&gt;/home/hadoop/app/tmp/dfs/name&lt;/value&gt; # /home/hadoop/app/tmp 目录不存在需要新建
-&lt;/property&gt;
-
-&lt;property&gt;
-    &lt;name&gt;dfs.datanode.data.dir&lt;/name&gt;
-    &lt;value&gt;/home/hadoop/app/tmp/dfs/data&lt;/value&gt;
-&lt;/property&gt;
-
-&lt;property&gt;
-    &lt;name&gt;dfs.replication&lt;/name&gt;
-    &lt;value&gt;1&lt;/value&gt;
-&lt;/property&gt;
-&lt;/configuration&gt;
-</code></pre><pre><code>cp mapred-site.xml.template mapred-site.xml
-vim mapred-site.xml
-
-&lt;configuration&gt;
-&lt;property&gt;
-    &lt;name&gt;mapreduce.framework.name&lt;/name&gt;
-    &lt;value&gt;yarn&lt;/value&gt;
-&lt;/property&gt;
-&lt;/configuration&gt;              
-</code></pre><pre><code>vim yarn-site.xml 
-
-&lt;configuration&gt;
-
-&lt;!-- Site specific YARN configuration properties --&gt;
-&lt;property&gt;
-    &lt;name&gt;yarn.nodemanager.aux-services&lt;/name&gt;
-    &lt;value&gt;mapreduce_shuffle&lt;/value&gt;
-&lt;/property&gt;
-&lt;/configuration&gt;
-</code></pre><p>切换到 hadoop 安装环境目录下的 bin 下，进行 hdfs 的格式化</p>
-<pre class="line-numbers language-shell"><code class="language-shell">cd ~/app/hadoop-2.6.0-cdh5.7.0/bin/
-./hadoop namenode -format
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
-<p>如果出现 <code>common.Storage: Storage directory /home/hadoop/app/tmp/dfs/name has been successfully formatted.</code> 则表示格式化成功。切换到 <code>/home/hadoop/app/tmp</code> 目录就可以看到 dfs/name/current目录层级结构了。</p>
-<p>启动 hdfs</p>
-<pre class="line-numbers language-shell"><code class="language-shell">cd ~/app/hadoop-2.6.0-cdh5.7.0/sbin/
-./start-dfs.sh 
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
-<p>若能完全执行，则表示没问题，能启动。<br>在命令行中 输入 <code>jps</code> 验证，如果有 SecondaryNameNode  DataNode NameNode 就可以 ( 第一次启动的时候没有 NameNode 后来在 hosts 中加入 192.168.11.111 hadoop000 映射就有了 )</p>
-<pre class="line-numbers language-shell"><code class="language-shell">[hadoop@hadoop000 sbin]$ jps
-6240 SecondaryNameNode
-6371 Jps
-6073 DataNode
-5946 NameNode
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<p>新建测试 test 目录</p>
-<pre class="line-numbers language-shell"><code class="language-shell">hadoop fs -mkdir /test
-
-# 然后在使用下面命令查看是否有新建的 test 目录
-hadoop fs -ls /
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
-<p>传入文件测试</p>
-<pre class="line-numbers language-shell"><code class="language-shell"># 将文件 stop-yarn.cmd 传到 hdaoop hdfs 的根目录中去
-hadoop fs -put stop-yarn.cmd /
-
-# 查看是否有新传入的文件
-hadoop fs -ls /
-
-# 读取上传文件的内容
-hadoop fs -text /stop-yarn.cmd
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<p>此时hdfs 功能没问题，我们可以在浏览器中输入 <a href="http://192.168.11.111:50070" target="_blank" rel="noopener">http://192.168.11.111:50070</a>  192.168.11.111 是服务器的 ip。可以在 导航中 Utilities 下 Browse the file system 中查看到当前的文件。</p>
-<p>接下来启动 yarn</p>
-<pre class="line-numbers language-shell"><code class="language-shell">cd /home/hadoop/app/hadoop-2.6.0-cdh5.7.0/sbin
-./start-yarn.sh 
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
-<p>再次执行 jps 如果 ResourceManager 和 NodeManager 都有，那就没问题</p>
-<pre class="line-numbers language-shell"><code class="language-shell">[hadoop@hadoop000 sbin]$ jps
-7088 ResourceManager
-6240 SecondaryNameNode
-7379 NodeManager
-7524 Jps
-6073 DataNode
-5946 NameNode
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<p>使用浏览器打开 <a href="http://192.168.11.111:8088" target="_blank" rel="noopener">http://192.168.11.111:8088</a> 就可以看到有一个活跃的节点，那就说明整个 Hadoop 环境就搭建完成了。</p>
-<h3 id="搭建-Maven"><a href="#搭建-Maven" class="headerlink" title="搭建 Maven"></a>搭建 Maven</h3><pre class="line-numbers language-shell"><code class="language-shell">tar -zxvf apache-maven-3.3.9-bin.tar.gz -C ~/app/
-
-# 加入环境变量
-export MAVEN_HOME=/home/hadoop/app/apache-maven-3.3.9
-export PATH=$MAVEN_HOME/bin:$PATH
-
-# 保存后
-source ~/.bash_profile
-echo $MAVEN_HOME # 能输出就没问题
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<p>修改 maven 的配置文件，新建 ～/maven_repository 目录</p>
-<pre class="line-numbers language-shell"><code class="language-shell">mkdir ~/maven_repository
-cd /home/hadoop/app/apache-maven-3.3.9/conf
-vim settings.xml 
-
-# 将其中的 <localrepository>/path/to/local/repo</localrepository> 改为
-<localrepository>~/maven_repository</localrepository>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<p>在命令行中输入 <code>mvn</code> 若有东西输出则表示没问题</p>
-<h3 id="安装-Python3"><a href="#安装-Python3" class="headerlink" title="安装 Python3"></a>安装 Python3</h3><pre class="line-numbers language-shell"><code class="language-shell">tar -zxvf Python-3.6.8.tgz  # 直接解压到本地
-
-# 安装 Python 所需依赖包
-sudo yum -y install zlib-devel zip2-devel openssl-devel ncurses-devel sqlite-devel readline-devel tk-devel gdbm-devel db4-devel libpcap-devel xz-devel
-
-# 创建 Python3 安装路径
-mkdir ~/app/python3
-
-# 编译
-cd /home/hadoop/software/Python-3.6.8
-./configure --prefix=/home/hadoop/app/python3
-
-# 安装
-make && make install 
-
-# 加入环境变量
-vim ~/.bash_profile 
-
-# 写入
-export PATH=/home/hadoop/app/python3/bin:$PATH
-
-# 更新
-source ~/.bash_profile 
-
-# 验证， 输入 python3 能出来交互式命令行，那就没问题了
-[hadoop@hadoop000 bin]$ python3
-Python 3.6.8 (default, Feb 23 2019, 02:01:55) 
-[GCC 4.4.7 20120313 (Red Hat 4.4.7-17)] on linux
-Type "help", "copyright", "credits" or "license" for more information.
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<h3 id="安装-Spark"><a href="#安装-Spark" class="headerlink" title="安装 Spark"></a>安装 Spark</h3><pre class="line-numbers language-shell"><code class="language-shell">tar -zxvf spark-2.3.0.tgz 
-
-# 编译
-./dev/make-distribution.sh --name 2.6.0-cdh5.7.0 --tgz -Pyarn -Phadoop-2.6 -Phive -Phive-thriftserver -Dhdaoop.version=2.6.0-cdh5.7.0
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
-<p>编译的时候失败了三次，因为网络的问题。最后将 maven 的中心仓库地址改为阿里云才成功。</p>
-<pre class="line-numbers language-xml"><code class="language-xml"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>mirrors</span><span class="token punctuation">></span></span>
-        <span class="token comment" spellcheck="true">&lt;!-- 阿里云仓库 --></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>mirror</span><span class="token punctuation">></span></span>
-            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>id</span><span class="token punctuation">></span></span>alimaven<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>id</span><span class="token punctuation">></span></span>
-            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>mirrorOf</span><span class="token punctuation">></span></span>central<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>mirrorOf</span><span class="token punctuation">></span></span>
-            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>aliyun maven<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
-            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>url</span><span class="token punctuation">></span></span>http://maven.aliyun.com/nexus/content/repositories/central/<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>url</span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>mirror</span><span class="token punctuation">></span></span>
-
-        <span class="token comment" spellcheck="true">&lt;!-- 中央仓库1 --></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>mirror</span><span class="token punctuation">></span></span>
-            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>id</span><span class="token punctuation">></span></span>repo1<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>id</span><span class="token punctuation">></span></span>
-            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>mirrorOf</span><span class="token punctuation">></span></span>central<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>mirrorOf</span><span class="token punctuation">></span></span>
-            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>Human Readable Name for this Mirror.<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
-            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>url</span><span class="token punctuation">></span></span>http://repo1.maven.org/maven2/<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>url</span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>mirror</span><span class="token punctuation">></span></span>
-
-        <span class="token comment" spellcheck="true">&lt;!-- 中央仓库2 --></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>mirror</span><span class="token punctuation">></span></span>
-            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>id</span><span class="token punctuation">></span></span>repo2<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>id</span><span class="token punctuation">></span></span>
-            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>mirrorOf</span><span class="token punctuation">></span></span>central<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>mirrorOf</span><span class="token punctuation">></span></span>
-            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>Human Readable Name for this Mirror.<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
-            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>url</span><span class="token punctuation">></span></span>http://repo2.maven.org/maven2/<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>url</span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>mirror</span><span class="token punctuation">></span></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>mirrors</span><span class="token punctuation">></span></span> 
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<p>编译完成后会有一个 spark-2.3.0-bin-2.6.0-cdh5.7.0.tgz 的文件。spark-2.3.0 是版本，2.6.0-cdh5.7.0 是我们设置的名称。</p>
-<pre class="line-numbers language-shell"><code class="language-shell"># 解压刚才编译的文件
-tar -zxvf spark-2.3.0-bin-2.6.0-cdh5.7.0.tgz -C ~/app/
-
-# 测试
-cd /home/hadoop/app/spark-2.3.0-bin-2.6.0-cdh5.7.0/bin
-
-# 如果能启动成功那就没问题了。同时我们也可以在浏览器上进行查看
-http://192.168.11.111:4040/jobs/
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2019/02/18/Python 3des加密/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2019/02/18/Python 3des加密/" itemprop="url">Python 3des 加密</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-02-18T18:24:57+08:00">
-                2019-02-18
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Python/" itemprop="url" rel="index">
-                    <span itemprop="name">Python</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <p>对称加密算法是应用较早的加密算法，技术成熟。在对称加密算法中，数据发信方将明文（原始数据）和加密密钥（mi yue）一起经过特殊加密算法处理后，使其变成复杂的加密密文发送出去。收信方收到密文后，若想解读原文，则需要使用加密用过的密钥及相同算法的逆算法对密文进行解密，才能使其恢复成可读明文。在对称加密算法中，使用的密钥只有一个，发收信双方都使用这个密钥对数据进行加密和解密，这就要求解密方事先必须知道加密密钥。 基于“对称密钥”的加密算法主要有DES、3DES（TripleDES）、AES、RC2、RC4、RC5和Blowfish等。DES算法全称为Data Encryption Standard，即数据加密算法，它是IBM公司于1975年研究成功并公开发表的。DES算法的入口参数有三个：Key、Data、Mode。其中Key为8个字节共64位，是DES算法的工作密钥；Data也为8个字节64位，是要被加密或被解密的数据；Mode为DES的工作方式,有两种：加密或解密。 </p>
-<h3 id="安装-pyDes-包"><a href="#安装-pyDes-包" class="headerlink" title="安装 pyDes 包"></a>安装 pyDes 包</h3><pre class="line-numbers language-python"><code class="language-python">pip install pyDes
-<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-<h3 id="简单示例"><a href="#简单示例" class="headerlink" title="简单示例"></a>简单示例</h3><pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">import</span> pyDes
-<span class="token keyword">import</span> base64
-
-data <span class="token operator">=</span> <span class="token string">"Please encrypt my data"</span>
-k <span class="token operator">=</span> pyDes<span class="token punctuation">.</span>des<span class="token punctuation">(</span><span class="token string">"DESCRYPT"</span><span class="token punctuation">,</span> pyDes<span class="token punctuation">.</span>CBC<span class="token punctuation">,</span> <span class="token string">"00000000"</span><span class="token punctuation">,</span> pad<span class="token operator">=</span>None<span class="token punctuation">,</span> padmode<span class="token operator">=</span>pyDes<span class="token punctuation">.</span>PAD_PKCS5<span class="token punctuation">)</span>
-d <span class="token operator">=</span> k<span class="token punctuation">.</span>encrypt<span class="token punctuation">(</span>data<span class="token punctuation">)</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span>str<span class="token punctuation">(</span>base64<span class="token punctuation">.</span>b64encode<span class="token punctuation">(</span>d<span class="token punctuation">)</span><span class="token punctuation">,</span> encoding<span class="token operator">=</span><span class="token string">"utf-8"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<p>可以在<a href="https://tools.lami.la/jiami/des3" target="_blank" rel="noopener">网上</a>在线示例进行简单的校验<br><img src="https://ws1.sinaimg.cn/large/005I1iHwgy1g0af4ezttgj30xb0ahglu.jpg" alt></p>
-<h3 id="封装工具类"><a href="#封装工具类" class="headerlink" title="封装工具类"></a>封装工具类</h3><pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">import</span> pyDes
-<span class="token keyword">import</span> base64
-
-
-<span class="token keyword">class</span> <span class="token class-name">TripleDesUtils</span><span class="token punctuation">:</span>
-    des_mode <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token string">"CBC"</span><span class="token punctuation">:</span> pyDes<span class="token punctuation">.</span>CBC<span class="token punctuation">,</span> <span class="token string">"ECB"</span><span class="token punctuation">:</span> pyDes<span class="token punctuation">.</span>ECB<span class="token punctuation">}</span>
-    des_pad_mode <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token string">"PAD_PKCS5"</span><span class="token punctuation">:</span> pyDes<span class="token punctuation">.</span>PAD_PKCS5<span class="token punctuation">,</span> <span class="token string">"PAD_NORMAL"</span><span class="token punctuation">:</span> pyDes<span class="token punctuation">.</span>PAD_NORMAL<span class="token punctuation">}</span>
-
-    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> mode<span class="token punctuation">,</span> pad_mode<span class="token punctuation">,</span> key<span class="token punctuation">,</span> iv<span class="token punctuation">,</span> pad<span class="token operator">=</span>None<span class="token punctuation">,</span> trans_base64<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-        <span class="token triple-quoted-string string">"""
-        :param mode: des 加密模式，目前支持 CBC，ECB
-        :param pad_mode: 目前支持 PAD_PKCS5，PAD_NORMAL
-        :param trans_base64: 加密结果是否以 base64 格式输出
-        :param key: 密钥
-        :param iv: 偏移量
-        :param pad:
-        """</span>
-        self<span class="token punctuation">.</span>trans_base64 <span class="token operator">=</span> trans_base64
-        self<span class="token punctuation">.</span>k <span class="token operator">=</span> pyDes<span class="token punctuation">.</span>des<span class="token punctuation">(</span>key<span class="token punctuation">,</span> TripleDesUtils<span class="token punctuation">.</span>des_mode<span class="token punctuation">.</span>get<span class="token punctuation">(</span>mode<span class="token punctuation">)</span><span class="token punctuation">,</span> iv<span class="token punctuation">,</span> pad<span class="token punctuation">,</span> TripleDesUtils<span class="token punctuation">.</span>des_pad_mode<span class="token punctuation">.</span>get<span class="token punctuation">(</span>pad_mode<span class="token punctuation">)</span><span class="token punctuation">)</span>
-
-    <span class="token keyword">def</span> <span class="token function">encryption</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> data<span class="token punctuation">:</span> str<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> str<span class="token punctuation">:</span>
-        <span class="token triple-quoted-string string">"""
-        3des 加密
-        说明: 3DES数据块长度为64位，所以IV长度需要为8个字符（ECB模式不用IV），密钥长度为16或24个字符（8个字符以内则结果与DES相同
-        IV与密钥超过长度则截取，不足则在末尾填充'\0'补足
-        :param data: 待加密数据
-        :return:
-        """</span>
-        _encryption_result <span class="token operator">=</span> self<span class="token punctuation">.</span>k<span class="token punctuation">.</span>encrypt<span class="token punctuation">(</span>data<span class="token punctuation">)</span>
-        <span class="token keyword">if</span> self<span class="token punctuation">.</span>trans_base64<span class="token punctuation">:</span>
-            _encryption_result <span class="token operator">=</span> self<span class="token punctuation">.</span>_base64encode<span class="token punctuation">(</span>_encryption_result<span class="token punctuation">)</span>
-        <span class="token keyword">return</span> _encryption_result
-
-    <span class="token keyword">def</span> <span class="token function">decrypt</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> data<span class="token punctuation">:</span> str<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> str<span class="token punctuation">:</span>
-        <span class="token triple-quoted-string string">"""
-        3des 解密
-        :param data: 待解密数据
-        :return:
-        """</span>
-        <span class="token keyword">if</span> self<span class="token punctuation">.</span>trans_base64<span class="token punctuation">:</span>
-            data <span class="token operator">=</span> self<span class="token punctuation">.</span>_base64decode<span class="token punctuation">(</span>data<span class="token punctuation">)</span>
-        _decrypt_result <span class="token operator">=</span> self<span class="token punctuation">.</span>k<span class="token punctuation">.</span>decrypt<span class="token punctuation">(</span>data<span class="token punctuation">)</span>
-        <span class="token keyword">return</span> _decrypt_result
-
-    @staticmethod
-    <span class="token keyword">def</span> <span class="token function">_base64encode</span><span class="token punctuation">(</span>data<span class="token punctuation">)</span><span class="token punctuation">:</span>
-        <span class="token triple-quoted-string string">"""
-        base 64 encode
-        :param data: encode data
-        :return:
-        """</span>
-        <span class="token keyword">try</span><span class="token punctuation">:</span>
-            _b64encode_result <span class="token operator">=</span> base64<span class="token punctuation">.</span>b64encode<span class="token punctuation">(</span>data<span class="token punctuation">)</span>
-        <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
-            <span class="token keyword">raise</span> Exception<span class="token punctuation">(</span>f<span class="token string">"base64 encode error:{e}"</span><span class="token punctuation">)</span>
-        <span class="token keyword">return</span> _b64encode_result
-
-    @staticmethod
-    <span class="token keyword">def</span> <span class="token function">_base64decode</span><span class="token punctuation">(</span>data<span class="token punctuation">)</span><span class="token punctuation">:</span>
-        <span class="token triple-quoted-string string">"""
-        base 64 decode
-        :param data: decode data
-        :return:
-        """</span>
-        <span class="token keyword">try</span><span class="token punctuation">:</span>
-            _b64decode_result <span class="token operator">=</span> base64<span class="token punctuation">.</span>b64decode<span class="token punctuation">(</span>data<span class="token punctuation">)</span>
-        <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
-            <span class="token keyword">raise</span> Exception<span class="token punctuation">(</span>f<span class="token string">"base64 decode error:{e}"</span><span class="token punctuation">)</span>
-        <span class="token keyword">return</span> _b64decode_result
-
-
-<span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">"__main__"</span><span class="token punctuation">:</span>
-    test_data <span class="token operator">=</span> <span class="token string">"test_c"</span>
-    DesObj <span class="token operator">=</span> TripleDesUtils<span class="token punctuation">(</span>mode<span class="token operator">=</span><span class="token string">"CBC"</span><span class="token punctuation">,</span> pad_mode<span class="token operator">=</span><span class="token string">"PAD_PKCS5"</span><span class="token punctuation">,</span> key<span class="token operator">=</span><span class="token string">"DESCRYPT"</span><span class="token punctuation">,</span> iv<span class="token operator">=</span><span class="token string">"00000000"</span><span class="token punctuation">,</span> trans_base64<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
-    result <span class="token operator">=</span> DesObj<span class="token punctuation">.</span>encryption<span class="token punctuation">(</span>test_data<span class="token punctuation">)</span>
-    <span class="token keyword">print</span><span class="token punctuation">(</span>f<span class="token string">"加密结果: {result}"</span><span class="token punctuation">)</span>
-
-    result2 <span class="token operator">=</span> DesObj<span class="token punctuation">.</span>decrypt<span class="token punctuation">(</span>result<span class="token punctuation">)</span>
-    <span class="token keyword">print</span><span class="token punctuation">(</span>f<span class="token string">"解密结果: {result2}"</span><span class="token punctuation">)</span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2019/01/19/记一次 SQLAlchemy 连接 MySQL超时的处理/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2019/01/19/记一次 SQLAlchemy 连接 MySQL超时的处理/" itemprop="url">记一次 SQLAlchemy 连接 MySQL超时的处理</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-01-19T02:22:57+08:00">
-                2019-01-19
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/博客/" itemprop="url" rel="index">
-                    <span itemprop="name">博客</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="问题描述："><a href="#问题描述：" class="headerlink" title="问题描述："></a>问题描述：</h3><p>在公司有一个项目使用 MySQL，ORM 使用的 SQLAlchemy，但是一段时间后总后出现MySQL 2013，或者 2006 之类的错误，大致的意思的就是链接失效了，导致不能正确的连接MySQL，因为是线上环境，错误要很长时间才会出错，加上每次修改都需要上线，且测试环境不好复现，没办法，知道今天才把代码悄悄的拷回来研究。</p>
-<h3 id="使用-docker-启动-MySQL"><a href="#使用-docker-启动-MySQL" class="headerlink" title="使用 docker 启动 MySQL"></a>使用 docker 启动 MySQL</h3><pre class="line-numbers language-shell"><code class="language-shell">docker pull mysql 
-
-docker run -itd  --name mysql8 -p 3306:3306 MYSQL_ROOT_PASSWORD=123456  mysql:latest 
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
-<h3 id="Navicat-连接-MySQL"><a href="#Navicat-连接-MySQL" class="headerlink" title="Navicat 连接 MySQL"></a>Navicat 连接 MySQL</h3><p>因为拉取的是最新的 MySQL 镜像，即 MySQL8，所以默认不能使用 Navicat 连接，只需要修改即可。<br>进入docker 后，修改配置文件  /etc/my.cnf 下 在 [mysqld] 下新增 ( 因为我们要测试MySQL主动断开链接的情况，默认是 8 小时，是不能等8小时的 )</p>
-<pre class="line-numbers language-cnf"><code class="language-cnf">wait_timeout=20  
-interactive_timeout=20 
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
-<p>也可以不使用修改配置文件的方式来改变wait_timeout，interactive_timeout等，我们也可以在交互式命令行中使用下面命令</p>
-<pre><code>msyql&gt; set global wait_timeout=28800;
-msyql&gt; set global interactive_timeout=28800;
-</code></pre><p>查看设置的过期时间</p>
-<pre><code>show global variables like &#39;%timeout%&#39;; 
-</code></pre><p>设置允许远程连接，密码等</p>
-<pre><code>mysql -uroot -p
-grant all PRIVILEGES on *.* to root@&#39;%&#39; WITH GRANT OPTION;
-ALTER user &#39;root&#39;@&#39;%&#39; IDENTIFIED BY &#39;123456&#39; PASSWORD EXPIRE NEVER;
-ALTER user &#39;root&#39;@&#39;%&#39; IDENTIFIED WITH mysql_native_password BY &#39;123456&#39;;
-FLUSH PRIVILEGES;
-</code></pre><p>最后成功的代码如下，大致就是使用请求上下文，不使用pool，每次操作前都去获取一个链接，并且添加监听，使用 MySQL 的 ping 让其保持有效</p>
-<h3 id="app-加载时-session-配置"><a href="#app-加载时-session-配置" class="headerlink" title="app 加载时 session 配置"></a>app 加载时 session 配置</h3><pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">def</span> <span class="token function">checkout_listener</span><span class="token punctuation">(</span>dbapi_con<span class="token punctuation">,</span> con_record<span class="token punctuation">,</span> con_proxy<span class="token punctuation">)</span><span class="token punctuation">:</span>
-    <span class="token keyword">try</span><span class="token punctuation">:</span>
-        <span class="token keyword">try</span><span class="token punctuation">:</span>
-            dbapi_con<span class="token punctuation">.</span>ping<span class="token punctuation">(</span><span class="token boolean">False</span><span class="token punctuation">)</span>
-        <span class="token keyword">except</span> TypeError <span class="token keyword">as</span> e<span class="token punctuation">:</span>
-            dbapi_con<span class="token punctuation">.</span>ping<span class="token punctuation">(</span><span class="token punctuation">)</span>
-    <span class="token keyword">except</span> dbapi_con<span class="token punctuation">.</span>OperationalError <span class="token keyword">as</span> exc<span class="token punctuation">:</span>
-        <span class="token keyword">if</span> exc<span class="token punctuation">.</span>args<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span> <span class="token keyword">in</span> <span class="token punctuation">(</span><span class="token number">2006</span><span class="token punctuation">,</span> <span class="token number">2013</span><span class="token punctuation">,</span> <span class="token number">2014</span><span class="token punctuation">,</span> <span class="token number">2045</span><span class="token punctuation">,</span> <span class="token number">2055</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-            <span class="token keyword">raise</span> DisconnectionError<span class="token punctuation">(</span><span class="token punctuation">)</span>
-        <span class="token keyword">else</span><span class="token punctuation">:</span>
-            <span class="token keyword">raise</span>
-
-<span class="token keyword">with</span> app<span class="token punctuation">.</span>app_context<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-    engine <span class="token operator">=</span> create_engine<span class="token punctuation">(</span>app<span class="token punctuation">.</span>config<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'SQLALCHEMY_DATABASE_URI'</span><span class="token punctuation">)</span><span class="token punctuation">,</span> pool_pre_ping<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span> encoding<span class="token operator">=</span><span class="token string">'utf-8'</span><span class="token punctuation">,</span>poolclass<span class="token operator">=</span>NullPool<span class="token punctuation">,</span> convert_unicode<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span> echo<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
-    event<span class="token punctuation">.</span>listen<span class="token punctuation">(</span>engine<span class="token punctuation">,</span> <span class="token string">'checkout'</span><span class="token punctuation">,</span> checkout_listener<span class="token punctuation">)</span>
-
-session_factory <span class="token operator">=</span> sessionmaker<span class="token punctuation">(</span>bind<span class="token operator">=</span>engine<span class="token punctuation">)</span>
-
-@contextmanager
-<span class="token keyword">def</span> <span class="token function">session_scope</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-    session <span class="token operator">=</span> session_factory<span class="token punctuation">(</span><span class="token punctuation">)</span>
-    <span class="token keyword">try</span><span class="token punctuation">:</span>
-        <span class="token keyword">yield</span> session
-        session<span class="token punctuation">.</span>commit<span class="token punctuation">(</span><span class="token punctuation">)</span>
-    <span class="token keyword">except</span><span class="token punctuation">:</span>
-        session<span class="token punctuation">.</span>rollback<span class="token punctuation">(</span><span class="token punctuation">)</span>
-        <span class="token keyword">raise</span>
-    <span class="token keyword">finally</span><span class="token punctuation">:</span>
-        <span class="token keyword">pass</span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<h3 id="dbUtils"><a href="#dbUtils" class="headerlink" title="dbUtils"></a>dbUtils</h3><pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">from</span> tool <span class="token keyword">import</span> const
-<span class="token keyword">from</span> tool<span class="token punctuation">.</span>error <span class="token keyword">import</span> CustomFlaskErr
-<span class="token keyword">from</span> fishbase<span class="token punctuation">.</span>fish_logger <span class="token keyword">import</span> logger
-<span class="token keyword">from</span> fishbase<span class="token punctuation">.</span>fish_common <span class="token keyword">import</span> SingleTon
-<span class="token keyword">from</span> application <span class="token keyword">import</span> session_scope
-
-<span class="token keyword">class</span> <span class="token class-name">DBUtils</span><span class="token punctuation">(</span>SingleTon<span class="token punctuation">)</span><span class="token punctuation">:</span>
-    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> db<span class="token punctuation">)</span><span class="token punctuation">:</span>
-        <span class="token keyword">pass</span>
-
-    <span class="token keyword">def</span> <span class="token function">add</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> table_object<span class="token punctuation">,</span> <span class="token operator">*</span>data_list<span class="token punctuation">,</span> <span class="token operator">**</span>data<span class="token punctuation">)</span><span class="token punctuation">:</span>
-        <span class="token triple-quoted-string string">"""
-        新增数据
-        :param table_object: 表对象
-        :param data_list: list, 批量插入的数据
-        :param data: dict, 插入单条数据
-        :return:
-        """</span>
-        <span class="token keyword">with</span> session_scope<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> session<span class="token punctuation">:</span>
-            <span class="token keyword">try</span><span class="token punctuation">:</span>
-                <span class="token keyword">if</span> data_list<span class="token punctuation">:</span>  <span class="token comment" spellcheck="true"># 批量插入</span>
-                    table_object_list <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
-                    <span class="token keyword">for</span> x <span class="token keyword">in</span> data_list<span class="token punctuation">:</span>
-                        table_object_list<span class="token punctuation">.</span>append<span class="token punctuation">(</span>table_object<span class="token punctuation">(</span><span class="token operator">**</span>x<span class="token punctuation">)</span><span class="token punctuation">)</span>
-                    session<span class="token punctuation">.</span>add_all<span class="token punctuation">(</span>table_object_list<span class="token punctuation">)</span>
-                <span class="token keyword">elif</span> data<span class="token punctuation">:</span>  <span class="token comment" spellcheck="true"># 单条插入</span>
-                    obj <span class="token operator">=</span> table_object<span class="token punctuation">(</span><span class="token operator">**</span>data<span class="token punctuation">)</span>
-                    session<span class="token punctuation">.</span>add<span class="token punctuation">(</span>obj<span class="token punctuation">)</span>
-                    session<span class="token punctuation">.</span>commit<span class="token punctuation">(</span><span class="token punctuation">)</span>
-            <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
-                session<span class="token punctuation">.</span>rollback<span class="token punctuation">(</span><span class="token punctuation">)</span>
-                session<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span>
-                logger<span class="token punctuation">.</span>error<span class="token punctuation">(</span><span class="token string">"数据库插入错误: {0}"</span><span class="token punctuation">.</span>format<span class="token punctuation">(</span>str<span class="token punctuation">(</span>e<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
-                <span class="token keyword">raise</span> CustomFlaskErr<span class="token punctuation">(</span>const<span class="token punctuation">.</span>INSERT_DATA_TO_DB_ERROR<span class="token punctuation">.</span>format<span class="token punctuation">(</span><span class="token string">'插入'</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
-
-    <span class="token keyword">def</span> <span class="token function">delete</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> table_object<span class="token punctuation">,</span> <span class="token operator">**</span>filter_data<span class="token punctuation">)</span><span class="token punctuation">:</span>
-        <span class="token triple-quoted-string string">"""
-        删除数据
-        :param table_object: 表对象
-        :param filter_data: dict, 删除条件
-        :return:
-        """</span>
-        <span class="token keyword">with</span> session_scope<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> session<span class="token punctuation">:</span>
-            <span class="token keyword">try</span><span class="token punctuation">:</span>
-                session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>table_object<span class="token punctuation">)</span><span class="token punctuation">.</span>filter_by<span class="token punctuation">(</span><span class="token operator">**</span>filter_data<span class="token punctuation">)</span><span class="token punctuation">.</span>delete<span class="token punctuation">(</span><span class="token punctuation">)</span>
-                session<span class="token punctuation">.</span>commit<span class="token punctuation">(</span><span class="token punctuation">)</span>
-            <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
-                session<span class="token punctuation">.</span>rollback<span class="token punctuation">(</span><span class="token punctuation">)</span>
-                session<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span>
-                logger<span class="token punctuation">.</span>error<span class="token punctuation">(</span><span class="token string">"数据库删除错误: {0}"</span><span class="token punctuation">.</span>format<span class="token punctuation">(</span>str<span class="token punctuation">(</span>e<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
-                <span class="token keyword">raise</span> CustomFlaskErr<span class="token punctuation">(</span>const<span class="token punctuation">.</span>INSERT_DATA_TO_DB_ERROR<span class="token punctuation">.</span>format<span class="token punctuation">(</span><span class="token string">'删除'</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
-
-    <span class="token keyword">def</span> <span class="token function">modify</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> table_object<span class="token punctuation">,</span> filter_dict<span class="token punctuation">,</span> update_dict<span class="token punctuation">)</span><span class="token punctuation">:</span>
-        <span class="token triple-quoted-string string">"""
-        修改操作
-        :param table_object: 表对象
-        :param filter_dict: dict, 修改条件
-        :param update_dict: dict, 修改的值
-        :return:
-        """</span>
-        <span class="token keyword">with</span> session_scope<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> session<span class="token punctuation">:</span>
-            <span class="token keyword">try</span><span class="token punctuation">:</span>
-                logger<span class="token punctuation">.</span>info<span class="token punctuation">(</span><span class="token string">"开始更新数据库数据"</span><span class="token punctuation">)</span>
-                session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>table_object<span class="token punctuation">)</span><span class="token punctuation">.</span>filter_by<span class="token punctuation">(</span><span class="token operator">**</span>filter_dict<span class="token punctuation">)</span><span class="token punctuation">.</span>update<span class="token punctuation">(</span>update_dict<span class="token punctuation">,</span> synchronize_session<span class="token operator">=</span><span class="token string">'fetch'</span><span class="token punctuation">)</span>
-                logger<span class="token punctuation">.</span>info<span class="token punctuation">(</span><span class="token string">"update 结束"</span><span class="token punctuation">)</span>
-                session<span class="token punctuation">.</span>commit<span class="token punctuation">(</span><span class="token punctuation">)</span>
-                logger<span class="token punctuation">.</span>info<span class="token punctuation">(</span><span class="token string">"commit 结束"</span><span class="token punctuation">)</span>
-            <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
-                logger<span class="token punctuation">.</span>info<span class="token punctuation">(</span><span class="token string">"出现错误！"</span><span class="token punctuation">)</span>
-                session<span class="token punctuation">.</span>rollback<span class="token punctuation">(</span><span class="token punctuation">)</span>
-                logger<span class="token punctuation">.</span>error<span class="token punctuation">(</span><span class="token string">"数据库修改错误: {0}"</span><span class="token punctuation">.</span>format<span class="token punctuation">(</span>str<span class="token punctuation">(</span>e<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
-                session<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span>
-                <span class="token keyword">raise</span> CustomFlaskErr<span class="token punctuation">(</span>const<span class="token punctuation">.</span>INSERT_DATA_TO_DB_ERROR<span class="token punctuation">.</span>format<span class="token punctuation">(</span><span class="token string">'修改'</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
-
-
-
-    <span class="token keyword">def</span> <span class="token function">search</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> table_object<span class="token punctuation">,</span> result_range<span class="token operator">=</span><span class="token string">'all'</span><span class="token punctuation">,</span> start<span class="token operator">=</span>None<span class="token punctuation">,</span> end<span class="token operator">=</span>None<span class="token punctuation">,</span> <span class="token operator">**</span>filter_dict<span class="token punctuation">)</span><span class="token punctuation">:</span>
-        <span class="token triple-quoted-string string">"""
-        简单条件查询, 支持查询所有数据, 第一条, 最后一条和切片操作
-        :param table_object: 表对象
-        :param result_range: 结果范围
-        :param start: 开始截取位置
-        :param end: 结束位置
-        :param filter_dict: 过滤条件
-        :return:
-        """</span>
-        ret <span class="token operator">=</span> None
-        <span class="token keyword">with</span> session_scope<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> session<span class="token punctuation">:</span>
-            <span class="token keyword">try</span><span class="token punctuation">:</span>
-                <span class="token keyword">if</span> result_range <span class="token operator">==</span> <span class="token string">'all'</span><span class="token punctuation">:</span>
-                    ret <span class="token operator">=</span> session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>table_object<span class="token punctuation">)</span><span class="token punctuation">.</span>filter_by<span class="token punctuation">(</span><span class="token operator">**</span>filter_dict<span class="token punctuation">)</span><span class="token punctuation">.</span>all<span class="token punctuation">(</span><span class="token punctuation">)</span>
-                <span class="token keyword">elif</span> result_range <span class="token operator">==</span> <span class="token string">'first'</span><span class="token punctuation">:</span>
-                    ret <span class="token operator">=</span> session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>table_object<span class="token punctuation">)</span><span class="token punctuation">.</span>filter_by<span class="token punctuation">(</span><span class="token operator">**</span>filter_dict<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token punctuation">:</span><span class="token number">1</span><span class="token punctuation">]</span>
-                <span class="token keyword">elif</span> result_range <span class="token operator">==</span> <span class="token string">'last'</span><span class="token punctuation">:</span>
-                    ret <span class="token operator">=</span> session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>table_object<span class="token punctuation">)</span><span class="token punctuation">.</span>filter_by<span class="token punctuation">(</span><span class="token operator">**</span>filter_dict<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">:</span><span class="token punctuation">]</span>
-                <span class="token keyword">elif</span> start <span class="token operator">and</span> end<span class="token punctuation">:</span>
-                    ret <span class="token operator">=</span> session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>table_object<span class="token punctuation">)</span><span class="token punctuation">.</span>filter_by<span class="token punctuation">(</span><span class="token operator">**</span>filter_dict<span class="token punctuation">)</span><span class="token punctuation">.</span>all<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">[</span>start<span class="token punctuation">:</span>end<span class="token punctuation">]</span>
-                session<span class="token punctuation">.</span>commit<span class="token punctuation">(</span><span class="token punctuation">)</span>
-            <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
-                session<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span>
-                logger<span class="token punctuation">.</span>error<span class="token punctuation">(</span><span class="token string">"数据库查询错误: {0}"</span><span class="token punctuation">.</span>format<span class="token punctuation">(</span>str<span class="token punctuation">(</span>e<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
-            <span class="token keyword">return</span> ret
-
-    <span class="token keyword">def</span> <span class="token function">create_table</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> all_table<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">,</span> table_name<span class="token operator">=</span>None<span class="token punctuation">)</span><span class="token punctuation">:</span>
-        <span class="token triple-quoted-string string">"""
-        创建表
-        :param all_table:  创建所有表
-        :param table_name:  创建指定表
-        :return:
-        """</span>
-        <span class="token keyword">with</span> session_scope<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> session<span class="token punctuation">:</span>
-            <span class="token keyword">if</span> all_table<span class="token punctuation">:</span>
-                session<span class="token punctuation">.</span>create_all<span class="token punctuation">(</span><span class="token punctuation">)</span>
-            <span class="token keyword">elif</span> table_name<span class="token punctuation">:</span>
-                <span class="token keyword">pass</span>
-
-    <span class="token keyword">def</span> <span class="token function">delete_table</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> all_table<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">,</span> table_name<span class="token operator">=</span>None<span class="token punctuation">)</span><span class="token punctuation">:</span>
-        <span class="token triple-quoted-string string">"""
-        删除表
-        :param all_table: 删除所有的表
-        :param table_name:  删除指定表
-        :return:
-        """</span>
-        <span class="token keyword">with</span> session_scope<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> session<span class="token punctuation">:</span>
-            <span class="token keyword">if</span> all_table<span class="token punctuation">:</span>
-                session<span class="token punctuation">.</span>drop_all<span class="token punctuation">(</span><span class="token punctuation">)</span>
-            <span class="token keyword">elif</span> table_name<span class="token punctuation">:</span>
-                <span class="token keyword">pass</span>
-
-    <span class="token keyword">def</span> <span class="token function">like</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> table_object<span class="token punctuation">,</span> lick_obj<span class="token punctuation">,</span> result_range<span class="token operator">=</span><span class="token string">'all'</span><span class="token punctuation">,</span> start<span class="token operator">=</span>None<span class="token punctuation">,</span> end<span class="token operator">=</span>None<span class="token punctuation">)</span><span class="token punctuation">:</span>
-        <span class="token keyword">with</span> session_scope<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> session<span class="token punctuation">:</span>
-            ret <span class="token operator">=</span> None
-            <span class="token keyword">try</span><span class="token punctuation">:</span>
-                <span class="token keyword">if</span> result_range <span class="token operator">==</span> <span class="token string">'all'</span><span class="token punctuation">:</span>
-                    ret <span class="token operator">=</span> session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>table_object<span class="token punctuation">)</span><span class="token punctuation">.</span>filter<span class="token punctuation">(</span>lick_obj<span class="token punctuation">)</span><span class="token punctuation">.</span>all<span class="token punctuation">(</span><span class="token punctuation">)</span>
-                <span class="token keyword">elif</span> result_range <span class="token operator">==</span> <span class="token string">'first'</span><span class="token punctuation">:</span>
-                    ret <span class="token operator">=</span> session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>table_object<span class="token punctuation">)</span><span class="token punctuation">.</span>filter_by<span class="token punctuation">(</span>lick_obj<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token punctuation">:</span><span class="token number">1</span><span class="token punctuation">]</span>
-                <span class="token keyword">elif</span> result_range <span class="token operator">==</span> <span class="token string">'last'</span><span class="token punctuation">:</span>
-                    ret <span class="token operator">=</span> session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>table_object<span class="token punctuation">)</span><span class="token punctuation">.</span>filter_by<span class="token punctuation">(</span>lick_obj<span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">:</span><span class="token punctuation">]</span>
-                <span class="token keyword">elif</span> start <span class="token operator">and</span> end<span class="token punctuation">:</span>
-                    ret <span class="token operator">=</span> session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>table_object<span class="token punctuation">)</span><span class="token punctuation">.</span>filter_by<span class="token punctuation">(</span>lick_obj<span class="token punctuation">)</span><span class="token punctuation">.</span>all<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">[</span>start<span class="token punctuation">:</span>end<span class="token punctuation">]</span>
-            <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
-                logger<span class="token punctuation">.</span>error<span class="token punctuation">(</span><span class="token string">"数据库查询错误: {0}"</span><span class="token punctuation">.</span>format<span class="token punctuation">(</span>str<span class="token punctuation">(</span>e<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
-                session<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span>
-            <span class="token keyword">return</span> ret
-
-    <span class="token keyword">def</span> <span class="token function">object_search</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> table_object<span class="token punctuation">,</span> filter_object<span class="token punctuation">)</span><span class="token punctuation">:</span>
-        <span class="token keyword">with</span> session_scope<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> session<span class="token punctuation">:</span>
-            ret <span class="token operator">=</span> None
-            <span class="token keyword">try</span><span class="token punctuation">:</span>
-                ret <span class="token operator">=</span> session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>table_object<span class="token punctuation">)</span><span class="token punctuation">.</span>filter<span class="token punctuation">(</span>filter_object<span class="token punctuation">)</span>
-            <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
-                logger<span class="token punctuation">.</span>error<span class="token punctuation">(</span><span class="token string">"数据库查询错误: {0}"</span><span class="token punctuation">.</span>format<span class="token punctuation">(</span>str<span class="token punctuation">(</span>e<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
-                session<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span>
-            <span class="token keyword">return</span> ret
-
-    <span class="token comment" spellcheck="true"># TODO 待完善like, and, or, 排序, 分组等</span>
-
-<span class="token comment" spellcheck="true"># if __name__ == '__main__':</span>
-    <span class="token keyword">pass</span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<h3 id="BaseModel"><a href="#BaseModel" class="headerlink" title="BaseModel"></a>BaseModel</h3><p>20191209 更新，上述 dbUtils 在使用中存在缺陷。改进后如下：</p>
-<p>application -&gt; model -&gt; baseModel</p>
-<pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">import</span> datetime
-
-<span class="token keyword">from</span> application <span class="token keyword">import</span> session_scope
-
-
-<span class="token keyword">class</span> <span class="token class-name">BaseModel</span><span class="token punctuation">:</span>
-    DB_ERROR <span class="token operator">=</span> <span class="token string">"DB Error: {error}"</span>
-
-    <span class="token triple-quoted-string string">"""
-    ********************* 通用查询方法 *********************
-    """</span>
-
-    @classmethod
-    <span class="token keyword">def</span> <span class="token function">row_to_dict</span><span class="token punctuation">(</span>cls<span class="token punctuation">,</span> row<span class="token punctuation">)</span><span class="token punctuation">:</span>
-        <span class="token triple-quoted-string string">"""
-        数据转换为字典
-        :param row:
-        :return:
-        """</span>
-        <span class="token keyword">if</span> row <span class="token keyword">is</span> None<span class="token punctuation">:</span>
-            <span class="token keyword">return</span> None
-        d <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token punctuation">}</span>
-        <span class="token keyword">for</span> column <span class="token keyword">in</span> row<span class="token punctuation">.</span>__table__<span class="token punctuation">.</span>columns<span class="token punctuation">:</span>
-            <span class="token comment" spellcheck="true"># 时间类型格式化</span>
-            <span class="token keyword">if</span> column<span class="token punctuation">.</span>type<span class="token punctuation">.</span>python_type <span class="token operator">==</span> datetime<span class="token punctuation">.</span>datetime<span class="token punctuation">:</span>
-                column_value <span class="token operator">=</span> getattr<span class="token punctuation">(</span>row<span class="token punctuation">,</span> column<span class="token punctuation">.</span>name<span class="token punctuation">)</span>
-                <span class="token keyword">if</span> column_value<span class="token punctuation">:</span>
-                    d<span class="token punctuation">[</span>column<span class="token punctuation">.</span>name<span class="token punctuation">]</span> <span class="token operator">=</span> column_value<span class="token punctuation">.</span>strftime<span class="token punctuation">(</span><span class="token string">"%Y-%m-%d %H:%M:%S"</span><span class="token punctuation">)</span>
-            <span class="token keyword">else</span><span class="token punctuation">:</span>
-                d<span class="token punctuation">[</span>column<span class="token punctuation">.</span>name<span class="token punctuation">]</span> <span class="token operator">=</span> getattr<span class="token punctuation">(</span>row<span class="token punctuation">,</span> column<span class="token punctuation">.</span>name<span class="token punctuation">)</span>
-        <span class="token keyword">return</span> d
-
-    @classmethod
-    <span class="token keyword">def</span> <span class="token function">get_condition_data_count</span><span class="token punctuation">(</span>cls<span class="token punctuation">,</span> condition<span class="token punctuation">)</span><span class="token punctuation">:</span>
-        <span class="token triple-quoted-string string">"""
-        获取符合条件的数据的条数
-        :param condition:
-        :return:
-        """</span>
-        <span class="token keyword">with</span> session_scope<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> session<span class="token punctuation">:</span>
-            <span class="token keyword">try</span><span class="token punctuation">:</span>
-                rows <span class="token operator">=</span> session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>cls<span class="token punctuation">)</span><span class="token punctuation">.</span>filter_by<span class="token punctuation">(</span><span class="token operator">**</span>condition<span class="token punctuation">)</span><span class="token punctuation">.</span>count<span class="token punctuation">(</span><span class="token punctuation">)</span>
-            <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
-                <span class="token keyword">raise</span> Exception<span class="token punctuation">(</span>BaseModel<span class="token punctuation">.</span>DB_ERROR<span class="token punctuation">.</span>format<span class="token punctuation">(</span>error<span class="token operator">=</span>e<span class="token punctuation">)</span><span class="token punctuation">)</span>
-            <span class="token keyword">return</span> rows
-
-    @classmethod
-    <span class="token keyword">def</span> <span class="token function">get_all_data</span><span class="token punctuation">(</span>cls<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> list<span class="token punctuation">:</span>
-        <span class="token triple-quoted-string string">"""
-        获取所有数据
-        :return:
-        """</span>
-        <span class="token keyword">with</span> session_scope<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> session<span class="token punctuation">:</span>
-            <span class="token keyword">try</span><span class="token punctuation">:</span>
-                rows <span class="token operator">=</span> session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>cls<span class="token punctuation">)</span><span class="token punctuation">.</span>all<span class="token punctuation">(</span><span class="token punctuation">)</span>
-            <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
-                <span class="token keyword">raise</span> Exception<span class="token punctuation">(</span>BaseModel<span class="token punctuation">.</span>DB_ERROR<span class="token punctuation">.</span>format<span class="token punctuation">(</span>error<span class="token operator">=</span>e<span class="token punctuation">)</span><span class="token punctuation">)</span>
-            <span class="token keyword">return</span> <span class="token punctuation">[</span>BaseModel<span class="token punctuation">.</span>row_to_dict<span class="token punctuation">(</span>row<span class="token punctuation">)</span> <span class="token keyword">for</span> row <span class="token keyword">in</span> rows<span class="token punctuation">]</span>
-
-    @classmethod
-    <span class="token keyword">def</span> <span class="token function">get_data_by_id</span><span class="token punctuation">(</span>cls<span class="token punctuation">,</span> idd<span class="token punctuation">:</span> int<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> list<span class="token punctuation">:</span>
-        <span class="token triple-quoted-string string">"""
-        根据 ID 查询数据
-        :param idd:
-        :return:
-        """</span>
-        <span class="token keyword">with</span> session_scope<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> session<span class="token punctuation">:</span>
-            <span class="token keyword">try</span><span class="token punctuation">:</span>
-                rows <span class="token operator">=</span> session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>cls<span class="token punctuation">)</span><span class="token punctuation">.</span>filter_by<span class="token punctuation">(</span><span class="token operator">**</span><span class="token punctuation">{</span><span class="token string">"id"</span><span class="token punctuation">:</span> idd<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span>all<span class="token punctuation">(</span><span class="token punctuation">)</span>
-            <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
-                <span class="token keyword">raise</span> Exception<span class="token punctuation">(</span>BaseModel<span class="token punctuation">.</span>DB_ERROR<span class="token punctuation">.</span>format<span class="token punctuation">(</span>error<span class="token operator">=</span>e<span class="token punctuation">)</span><span class="token punctuation">)</span>
-            <span class="token keyword">return</span> <span class="token punctuation">[</span>BaseModel<span class="token punctuation">.</span>row_to_dict<span class="token punctuation">(</span>row<span class="token punctuation">)</span> <span class="token keyword">for</span> row <span class="token keyword">in</span> rows<span class="token punctuation">]</span>
-
-    @classmethod
-    <span class="token keyword">def</span> <span class="token function">get_data_by_field</span><span class="token punctuation">(</span>cls<span class="token punctuation">,</span> field_name<span class="token punctuation">:</span> str<span class="token punctuation">,</span> field_value<span class="token punctuation">:</span> str <span class="token operator">or</span> int<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> list<span class="token punctuation">:</span>
-        <span class="token triple-quoted-string string">"""
-        根据某字段查询数据
-        :param field_name:
-        :param field_value:
-        :return:
-        """</span>
-        <span class="token keyword">with</span> session_scope<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> session<span class="token punctuation">:</span>
-            <span class="token keyword">try</span><span class="token punctuation">:</span>
-                rows <span class="token operator">=</span> session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>cls<span class="token punctuation">)</span><span class="token punctuation">.</span>filter_by<span class="token punctuation">(</span><span class="token operator">**</span><span class="token punctuation">{</span>field_name<span class="token punctuation">:</span> field_value<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span>all<span class="token punctuation">(</span><span class="token punctuation">)</span>
-            <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
-                <span class="token keyword">raise</span> Exception<span class="token punctuation">(</span>BaseModel<span class="token punctuation">.</span>DB_ERROR<span class="token punctuation">.</span>format<span class="token punctuation">(</span>error<span class="token operator">=</span>e<span class="token punctuation">)</span><span class="token punctuation">)</span>
-            <span class="token keyword">return</span> <span class="token punctuation">[</span>BaseModel<span class="token punctuation">.</span>row_to_dict<span class="token punctuation">(</span>row<span class="token punctuation">)</span> <span class="token keyword">for</span> row <span class="token keyword">in</span> rows<span class="token punctuation">]</span>
-
-    @classmethod
-    <span class="token keyword">def</span> <span class="token function">get_data_by_multiple_condition</span><span class="token punctuation">(</span>cls<span class="token punctuation">,</span> condition<span class="token punctuation">)</span><span class="token punctuation">:</span>
-        <span class="token triple-quoted-string string">"""
-        自定义多条件查询
-        :param condition:
-        :return:
-        """</span>
-        <span class="token keyword">with</span> session_scope<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> session<span class="token punctuation">:</span>
-            <span class="token keyword">try</span><span class="token punctuation">:</span>
-                rows <span class="token operator">=</span> session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>cls<span class="token punctuation">)</span><span class="token punctuation">.</span>filter_by<span class="token punctuation">(</span><span class="token operator">**</span>condition<span class="token punctuation">)</span><span class="token punctuation">.</span>all<span class="token punctuation">(</span><span class="token punctuation">)</span>
-            <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
-                <span class="token keyword">raise</span> Exception<span class="token punctuation">(</span>BaseModel<span class="token punctuation">.</span>DB_ERROR<span class="token punctuation">.</span>format<span class="token punctuation">(</span>error<span class="token operator">=</span>e<span class="token punctuation">)</span><span class="token punctuation">)</span>
-            <span class="token keyword">return</span> <span class="token punctuation">[</span>BaseModel<span class="token punctuation">.</span>row_to_dict<span class="token punctuation">(</span>row<span class="token punctuation">)</span> <span class="token keyword">for</span> row <span class="token keyword">in</span> rows<span class="token punctuation">]</span>
-
-    <span class="token triple-quoted-string string">"""
-    ********************* 通用新增方法 *********************
-    """</span>
-
-    @classmethod
-    <span class="token keyword">def</span> <span class="token function">add_data</span><span class="token punctuation">(</span>cls<span class="token punctuation">,</span> data<span class="token punctuation">:</span> dict<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> int<span class="token punctuation">:</span>
-        <span class="token triple-quoted-string string">"""
-        新增数据，返回新增 ID
-        :param data:
-        :return:
-        """</span>
-        <span class="token keyword">with</span> session_scope<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> session<span class="token punctuation">:</span>
-            <span class="token keyword">try</span><span class="token punctuation">:</span>
-                runtime_object <span class="token operator">=</span> cls<span class="token punctuation">(</span><span class="token operator">**</span>data<span class="token punctuation">)</span>
-                session<span class="token punctuation">.</span>add<span class="token punctuation">(</span>runtime_object<span class="token punctuation">)</span>
-                <span class="token comment" spellcheck="true"># flush 后才能获取到本次新增的 id</span>
-                session<span class="token punctuation">.</span>flush<span class="token punctuation">(</span><span class="token punctuation">)</span>
-            <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
-                <span class="token keyword">raise</span> Exception<span class="token punctuation">(</span>BaseModel<span class="token punctuation">.</span>DB_ERROR<span class="token punctuation">.</span>format<span class="token punctuation">(</span>error<span class="token operator">=</span>e<span class="token punctuation">)</span><span class="token punctuation">)</span>
-            <span class="token keyword">return</span> runtime_object<span class="token punctuation">.</span>__getattribute__<span class="token punctuation">(</span><span class="token string">"id"</span><span class="token punctuation">)</span>
-
-    @classmethod
-    <span class="token keyword">def</span> <span class="token function">add_multiple_data</span><span class="token punctuation">(</span>cls<span class="token punctuation">,</span> data_list<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token punctuation">[</span>int<span class="token punctuation">]</span><span class="token punctuation">:</span>
-        <span class="token triple-quoted-string string">"""
-        新增多组数据
-        :param data_list:
-        :return:
-        """</span>
-        <span class="token keyword">with</span> session_scope<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> session<span class="token punctuation">:</span>
-            <span class="token keyword">try</span><span class="token punctuation">:</span>
-                instance_list <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
-                <span class="token keyword">for</span> data <span class="token keyword">in</span> data_list<span class="token punctuation">:</span>
-                    runtime_object <span class="token operator">=</span> cls<span class="token punctuation">(</span><span class="token operator">**</span>data<span class="token punctuation">)</span>
-                    instance_list<span class="token punctuation">.</span>append<span class="token punctuation">(</span>runtime_object<span class="token punctuation">)</span>
-
-                session<span class="token punctuation">.</span>add_all<span class="token punctuation">(</span>instance_list<span class="token punctuation">)</span>
-                <span class="token comment" spellcheck="true"># flush 后才能获取到本次新增的 id</span>
-                session<span class="token punctuation">.</span>flush<span class="token punctuation">(</span><span class="token punctuation">)</span>
-            <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
-                <span class="token keyword">raise</span> Exception<span class="token punctuation">(</span>BaseModel<span class="token punctuation">.</span>DB_ERROR<span class="token punctuation">.</span>format<span class="token punctuation">(</span>error<span class="token operator">=</span>e<span class="token punctuation">)</span><span class="token punctuation">)</span>
-            <span class="token keyword">return</span> <span class="token punctuation">[</span>x<span class="token punctuation">.</span>__getattribute__<span class="token punctuation">(</span><span class="token string">"id"</span><span class="token punctuation">)</span> <span class="token keyword">for</span> x <span class="token keyword">in</span> instance_list<span class="token punctuation">]</span>
-
-    <span class="token triple-quoted-string string">"""
-    ********************* 通用新增方法 *********************
-    """</span>
-
-    @classmethod
-    <span class="token keyword">def</span> <span class="token function">update_data</span><span class="token punctuation">(</span>cls<span class="token punctuation">,</span> condition<span class="token punctuation">:</span> dict<span class="token punctuation">,</span> data<span class="token punctuation">:</span> dict<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> int<span class="token punctuation">:</span>
-        <span class="token triple-quoted-string string">"""
-        更新数据，返回影响条数
-        :param condition:
-        :param data:
-        :return:
-        """</span>
-
-        <span class="token keyword">with</span> session_scope<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> session<span class="token punctuation">:</span>
-            <span class="token keyword">try</span><span class="token punctuation">:</span>
-                <span class="token keyword">return</span> session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>cls<span class="token punctuation">)</span><span class="token punctuation">.</span>filter_by<span class="token punctuation">(</span><span class="token operator">**</span>condition<span class="token punctuation">)</span><span class="token punctuation">.</span>update<span class="token punctuation">(</span>data<span class="token punctuation">)</span>
-            <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
-                <span class="token keyword">raise</span> Exception<span class="token punctuation">(</span>BaseModel<span class="token punctuation">.</span>DB_ERROR<span class="token punctuation">.</span>format<span class="token punctuation">(</span>error<span class="token operator">=</span>e<span class="token punctuation">)</span><span class="token punctuation">)</span>
-
-    <span class="token triple-quoted-string string">"""
-    ********************* 通用删除方法 *********************
-    """</span>
-
-    @classmethod
-    <span class="token keyword">def</span> <span class="token function">delete_data_by_id</span><span class="token punctuation">(</span>cls<span class="token punctuation">,</span> idd<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> int<span class="token punctuation">:</span>
-        <span class="token triple-quoted-string string">"""
-        根据 id 删除数据
-        :param idd:
-        :return:
-        """</span>
-        <span class="token keyword">with</span> session_scope<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> session<span class="token punctuation">:</span>
-            <span class="token keyword">try</span><span class="token punctuation">:</span>
-                <span class="token keyword">return</span> session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>cls<span class="token punctuation">)</span><span class="token punctuation">.</span>filter_by<span class="token punctuation">(</span><span class="token operator">**</span><span class="token punctuation">{</span><span class="token string">"id"</span><span class="token punctuation">:</span> idd<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span>delete<span class="token punctuation">(</span><span class="token punctuation">)</span>
-            <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
-                <span class="token keyword">raise</span> Exception<span class="token punctuation">(</span>BaseModel<span class="token punctuation">.</span>DB_ERROR<span class="token punctuation">.</span>format<span class="token punctuation">(</span>error<span class="token operator">=</span>e<span class="token punctuation">)</span><span class="token punctuation">)</span>
-
-    @classmethod
-    <span class="token keyword">def</span> <span class="token function">delete_data</span><span class="token punctuation">(</span>cls<span class="token punctuation">,</span> condition<span class="token punctuation">:</span> dict<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> int<span class="token punctuation">:</span>
-        <span class="token triple-quoted-string string">"""
-        删除数据
-        :param condition:
-        :return:
-        """</span>
-        <span class="token keyword">with</span> session_scope<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> session<span class="token punctuation">:</span>
-            <span class="token keyword">try</span><span class="token punctuation">:</span>
-                <span class="token keyword">return</span> session<span class="token punctuation">.</span>query<span class="token punctuation">(</span>cls<span class="token punctuation">)</span><span class="token punctuation">.</span>filter_by<span class="token punctuation">(</span><span class="token operator">**</span>condition<span class="token punctuation">)</span><span class="token punctuation">.</span>delete<span class="token punctuation">(</span><span class="token punctuation">)</span>
-            <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
-                <span class="token keyword">raise</span> Exception<span class="token punctuation">(</span>BaseModel<span class="token punctuation">.</span>DB_ERROR<span class="token punctuation">.</span>format<span class="token punctuation">(</span>error<span class="token operator">=</span>e<span class="token punctuation">)</span><span class="token punctuation">)</span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<p>其余 model 只需要继承 BaseModel 就有了这些公共的方法，如果这些常用的方法不满足需求，那么就可以在自己 model 中进行操作。</p>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
   </section>
 
   
@@ -5154,7 +4615,7 @@ session_factory <span class="token operator">=</span> sessionmaker<span class="t
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">283</span>
+                  <span class="site-state-item-count">286</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>
@@ -5176,7 +4637,7 @@ session_factory <span class="token operator">=</span> sessionmaker<span class="t
               
               <div class="site-state-item site-state-tags">
                 <a href="/tags/index.html">
-                  <span class="site-state-item-count">136</span>
+                  <span class="site-state-item-count">139</span>
                   <span class="site-state-item-name">标签</span>
                 </a>
               </div>
