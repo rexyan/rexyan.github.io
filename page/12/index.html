@@ -348,6 +348,406 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/07/11/数据库迁移主键重复问题/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2018/07/11/数据库迁移主键重复问题/" itemprop="url">数据库迁移主键重复问题</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-07-11T17:59:57+08:00">
+                2018-07-11
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/奇淫技巧/" itemprop="url" rel="index">
+                    <span itemprop="name">奇淫技巧</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="场景"><a href="#场景" class="headerlink" title="场景"></a>场景</h3><p>项目迁移，将数据库从腾讯云迁移到阿里云，阿里云上的数据库已经有了数据，现在要做的就是将腾讯云上的旧数据迁移到阿里云上。遇到的问题是主键重复的问题，因为新数据库上已经有了数据，而老数据库上导出的数据也含有主键的信息。</p>
+<h3 id="导出数据"><a href="#导出数据" class="headerlink" title="导出数据"></a>导出数据</h3><pre><code>mysqldump -u&quot;用户名&quot; -p&quot;密码&quot; -h&quot;服务器地址&quot; --databases 数据库名称 --set-gtid-purged=off --tables 表名 --no-create-info --log-error=/tmp/sql/mysqldump_error_log.err  | sed -e &quot;s/([0-9]*,/(NULL,/gi&quot; &gt; /tmp/sql/face_feature_1_n.sql
+</code></pre><p>上述命令的意思是将导出指定数据库下的某张表的信息，并且将主键（第一列）设置为NULL。保存为 face_feature_1_n.sql 文件</p>
+<h3 id="参数解释"><a href="#参数解释" class="headerlink" title="参数解释"></a>参数解释</h3><ol>
+<li>–set-gtid-purged=off 是因为在导入的时候遇到错误，ERROR 1840 (HY000) at line 24: GTID_PURGED can only be set when GTID_EXECUTED is empty.所以在导出的时候设置set-gtid-purged=off</li>
+<li>sed 意为流编辑器（Stream Editor），在Shell脚本和Makefile中作为过滤器使用非常普遍，更多sed命令，参考 <a href="https://www.cnblogs.com/linux-wangkun/p/5745584.html" target="_blank" rel="noopener">https://www.cnblogs.com/linux-wangkun/p/5745584.html</a></li>
+</ol>
+<h3 id="导入数据"><a href="#导入数据" class="headerlink" title="导入数据"></a>导入数据</h3><pre><code>mysql -h&quot;服务器地址&quot; -u&quot;用户名&quot; -p&quot;密码&quot; --default-character-set=utf8 数据库 &lt; face_feature_1_n.sql
+</code></pre><p>将face_feature_1_n.sql中的数据，导入到指定的数据库（因为face_feature_1_n.sql中的主键是为NULL，所有在插入的时候，会赋予新的值，从而达到主键不重复的问题）</p>
+<h3 id="带来的影响"><a href="#带来的影响" class="headerlink" title="带来的影响"></a>带来的影响</h3><p>其实这种方法也是投机取巧。恰好主键是表的第一列，但这样也可以满足我们的大部分需求了</p>
+<h3 id="其他方法"><a href="#其他方法" class="headerlink" title="其他方法"></a>其他方法</h3><p>因为我们这里的业务是将数据从腾讯迁移到阿里，涉及到数据库的连通性等等问题。之前也考虑过直接写一个python脚本，将原来的数据存储为dataframe，然后再导入新数据库，但是因为公司DBA那边不行，所以只能老老实实的写mysql的东西。为了解决我们以上的场景方案，不考虑跨服务器的话，我们还可以使用以下方法</p>
+<pre><code>INSERT newly_created_table_name (all, columns, except, the, auto_increment, column)
+       SELECT all, columns, except, the, auto_increment, column
+         FROM renamed_table_name
+</code></pre><p>那就是在查询的时候，直接不查询id那一列，并直接将查询的结果插入到新的数据表中，显然这明显不符合我们的场景，所以就放弃了。</p>
+<h3 id="mysqldump其他参数"><a href="#mysqldump其他参数" class="headerlink" title="mysqldump其他参数"></a>mysqldump其他参数</h3><pre><code>--all-databases  , -A
+导出全部数据库。
+mysqldump  -uroot -p --all-databases
+--all-tablespaces  , -Y
+导出全部表空间。
+mysqldump  -uroot -p --all-databases --all-tablespaces
+--no-tablespaces  , -y
+不导出任何表空间信息。
+mysqldump  -uroot -p --all-databases --no-tablespaces
+--add-drop-database
+每个数据库创建之前添加drop数据库语句。
+mysqldump  -uroot -p --all-databases --add-drop-database
+--add-drop-table
+每个数据表创建之前添加drop数据表语句。(默认为打开状态，使用--skip-add-drop-table取消选项)
+mysqldump  -uroot -p --all-databases  (默认添加drop语句)
+mysqldump  -uroot -p --all-databases –skip-add-drop-table  (取消drop语句)
+--add-locks
+在每个表导出之前增加LOCK TABLES并且之后UNLOCK  TABLE。(默认为打开状态，使用--skip-add-locks取消选项)
+mysqldump  -uroot -p --all-databases  (默认添加LOCK语句)
+mysqldump  -uroot -p --all-databases –skip-add-locks   (取消LOCK语句)
+--allow-keywords
+允许创建是关键词的列名字。这由表名前缀于每个列名做到。
+mysqldump  -uroot -p --all-databases --allow-keywords
+--apply-slave-statements
+在&#39;CHANGE MASTER&#39;前添加&#39;STOP SLAVE&#39;，并且在导出的最后添加&#39;START SLAVE&#39;。
+mysqldump  -uroot -p --all-databases --apply-slave-statements
+--character-sets-dir
+字符集文件的目录
+mysqldump  -uroot -p --all-databases  --character-sets-dir=/usr/local/mysql/share/mysql/charsets
+--comments
+附加注释信息。默认为打开，可以用--skip-comments取消
+mysqldump  -uroot -p --all-databases  (默认记录注释)
+mysqldump  -uroot -p --all-databases --skip-comments   (取消注释)
+--compatible
+导出的数据将和其它数据库或旧版本的MySQL 相兼容。值可以为ansi、mysql323、mysql40、postgresql、oracle、mssql、db2、maxdb、no_key_options、no_tables_options、no_field_options等，
+要使用几个值，用逗号将它们隔开。它并不保证能完全兼容，而是尽量兼容。
+mysqldump  -uroot -p --all-databases --compatible=ansi
+--compact
+导出更少的输出信息(用于调试)。去掉注释和头尾等结构。可以使用选项：--skip-add-drop-table  --skip-add-locks --skip-comments --skip-disable-keys
+mysqldump  -uroot -p --all-databases --compact
+--complete-insert,  -c
+使用完整的insert语句(包含列名称)。这么做能提高插入效率，但是可能会受到max_allowed_packet参数的影响而导致插入失败。
+mysqldump  -uroot -p --all-databases --complete-insert
+--compress, -C
+在客户端和服务器之间启用压缩传递所有信息
+mysqldump  -uroot -p --all-databases --compress
+--create-options,  -a
+在CREATE TABLE语句中包括所有MySQL特性选项。(默认为打开状态)
+mysqldump  -uroot -p --all-databases
+--databases,  -B
+导出几个数据库。参数后面所有名字参量都被看作数据库名。
+mysqldump  -uroot -p --databases test mysql
+--debug
+输出debug信息，用于调试。默认值为：d:t,/tmp/mysqldump.trace
+mysqldump  -uroot -p --all-databases --debug
+mysqldump  -uroot -p --all-databases --debug=” d:t,/tmp/debug.trace”
+--debug-check
+检查内存和打开文件使用说明并退出。
+mysqldump  -uroot -p --all-databases --debug-check
+--debug-info
+输出调试信息并退出
+mysqldump  -uroot -p --all-databases --debug-info
+--default-character-set
+设置默认字符集，默认值为utf8
+mysqldump  -uroot -p --all-databases --default-character-set=utf8
+--delayed-insert
+采用延时插入方式（INSERT DELAYED）导出数据
+mysqldump  -uroot -p --all-databases --delayed-insert
+--delete-master-logs
+master备份后删除日志. 这个参数将自动激活--master-data。
+mysqldump  -uroot -p --all-databases --delete-master-logs
+--disable-keys
+对于每个表，用/*!40000 ALTER TABLE tbl_name DISABLE KEYS */;和/*!40000 ALTER TABLE tbl_name ENABLE KEYS */;语句引用INSERT语句。这样可以更快地导入dump出来的文件，因为它是在插入所有行后创建索引的。该选项只适合MyISAM表，默认为打开状态。
+mysqldump  -uroot -p --all-databases 
+--dump-slave
+该选项将主的binlog位置和文件名追加到导出数据的文件中(show slave status)。设置为1时，将会以CHANGE MASTER命令输出到数据文件；设置为2时，会在change前加上注释。该选项将会打开--lock-all-tables，除非--single-transaction被指定。该选项会自动关闭--lock-tables选项。默认值为0。
+mysqldump  -uroot -p --all-databases --dump-slave=1
+mysqldump  -uroot -p --all-databases --dump-slave=2
+
+--master-data
+该选项将当前服务器的binlog的位置和文件名追加到输出文件中(show master status)。如果为1，将会输出CHANGE MASTER 命令；如果为2，输出的CHANGE  MASTER命令前添加注释信息。该选项将打开--lock-all-tables 选项，除非--single-transaction也被指定（在这种情况下，全局读锁在开始导出时获得很短的时间；其他内容参考下面的--single-transaction选项）。该选项自动关闭--lock-tables选项。
+mysqldump  -uroot -p --host=localhost --all-databases --master-data=1;
+mysqldump  -uroot -p --host=localhost --all-databases --master-data=2;
+--events, -E
+导出事件。
+mysqldump  -uroot -p --all-databases --events
+--extended-insert,  -e
+使用具有多个VALUES列的INSERT语法。这样使导出文件更小，并加速导入时的速度。默认为打开状态，使用--skip-extended-insert取消选项。
+mysqldump  -uroot -p --all-databases
+mysqldump  -uroot -p --all-databases--skip-extended-insert   (取消选项)
+--fields-terminated-by
+导出文件中忽略给定字段。与--tab选项一起使用，不能用于--databases和--all-databases选项
+mysqldump  -uroot -p test test --tab=”/home/mysql” --fields-terminated-by=”#”
+--fields-enclosed-by
+输出文件中的各个字段用给定字符包裹。与--tab选项一起使用，不能用于--databases和--all-databases选项
+mysqldump  -uroot -p test test --tab=”/home/mysql” --fields-enclosed-by=”#”
+--fields-optionally-enclosed-by
+输出文件中的各个字段用给定字符选择性包裹。与--tab选项一起使用，不能用于--databases和--all-databases选项
+mysqldump  -uroot -p test test --tab=”/home/mysql”  --fields-enclosed-by=”#” --fields-optionally-enclosed-by  =”#”
+--fields-escaped-by
+输出文件中的各个字段忽略给定字符。与--tab选项一起使用，不能用于--databases和--all-databases选项
+mysqldump  -uroot -p mysql user --tab=”/home/mysql” --fields-escaped-by=”#”
+--flush-logs
+开始导出之前刷新日志。
+请注意：假如一次导出多个数据库(使用选项--databases或者--all-databases)，将会逐个数据库刷新日志。除使用--lock-all-tables或者--master-data外。在这种情况下，日志将会被刷新一次，相应的所以表同时被锁定。因此，如果打算同时导出和刷新日志应该使用--lock-all-tables 或者--master-data 和--flush-logs。
+mysqldump  -uroot -p --all-databases --flush-logs
+--flush-privileges
+在导出mysql数据库之后，发出一条FLUSH  PRIVILEGES 语句。为了正确恢复，该选项应该用于导出mysql数据库和依赖mysql数据库数据的任何时候。
+mysqldump  -uroot -p --all-databases --flush-privileges
+--force
+在导出过程中忽略出现的SQL错误。
+mysqldump  -uroot -p --all-databases --force
+--help
+显示帮助信息并退出。
+mysqldump  --help
+--hex-blob
+使用十六进制格式导出二进制字符串字段。如果有二进制数据就必须使用该选项。影响到的字段类型有BINARY、VARBINARY、BLOB。
+mysqldump  -uroot -p --all-databases --hex-blob
+--host, -h
+需要导出的主机信息
+mysqldump  -uroot -p --host=localhost --all-databases
+--ignore-table
+不导出指定表。指定忽略多个表时，需要重复多次，每次一个表。每个表必须同时指定数据库和表名。例如：--ignore-table=database.table1 --ignore-table=database.table2 ……
+mysqldump  -uroot -p --host=localhost --all-databases --ignore-table=mysql.user
+--include-master-host-port
+在--dump-slave产生的&#39;CHANGE  MASTER TO..&#39;语句中增加&#39;MASTER_HOST=&lt;host&gt;，MASTER_PORT=&lt;port&gt;&#39;  
+mysqldump  -uroot -p --host=localhost --all-databases --include-master-host-port
+--insert-ignore
+在插入行时使用INSERT IGNORE语句.
+mysqldump  -uroot -p --host=localhost --all-databases --insert-ignore
+--lines-terminated-by
+输出文件的每行用给定字符串划分。与--tab选项一起使用，不能用于--databases和--all-databases选项。
+mysqldump  -uroot -p --host=localhost test test --tab=”/tmp/mysql”  --lines-terminated-by=”##”
+--lock-all-tables,  -x
+提交请求锁定所有数据库中的所有表，以保证数据的一致性。这是一个全局读锁，并且自动关闭--single-transaction 和--lock-tables 选项。
+mysqldump  -uroot -p --host=localhost --all-databases --lock-all-tables
+--lock-tables,  -l
+开始导出前，锁定所有表。用READ  LOCAL锁定表以允许MyISAM表并行插入。对于支持事务的表例如InnoDB和BDB，--single-transaction是一个更好的选择，因为它根本不需要锁定表。
+请注意当导出多个数据库时，--lock-tables分别为每个数据库锁定表。因此，该选项不能保证导出文件中的表在数据库之间的逻辑一致性。不同数据库表的导出状态可以完全不同。
+mysqldump  -uroot -p --host=localhost --all-databases --lock-tables
+--log-error
+附加警告和错误信息到给定文件
+mysqldump  -uroot -p --host=localhost --all-databases  --log-error=/tmp/mysqldump_error_log.err
+--max_allowed_packet
+服务器发送和接受的最大包长度。
+mysqldump  -uroot -p --host=localhost --all-databases --max_allowed_packet=10240
+--net_buffer_length
+TCP/IP和socket连接的缓存大小。
+mysqldump  -uroot -p --host=localhost --all-databases --net_buffer_length=1024
+--no-autocommit
+使用autocommit/commit 语句包裹表。
+mysqldump  -uroot -p --host=localhost --all-databases --no-autocommit
+--no-create-db,  -n
+只导出数据，而不添加CREATE DATABASE 语句。
+mysqldump  -uroot -p --host=localhost --all-databases --no-create-db
+--no-create-info,  -t
+只导出数据，而不添加CREATE TABLE 语句。
+mysqldump  -uroot -p --host=localhost --all-databases --no-create-info
+--no-data, -d
+不导出任何数据，只导出数据库表结构。
+mysqldump  -uroot -p --host=localhost --all-databases --no-data
+--no-set-names,  -N
+等同于--skip-set-charset
+mysqldump  -uroot -p --host=localhost --all-databases --no-set-names
+--opt
+等同于--add-drop-table,  --add-locks, --create-options, --quick, --extended-insert, --lock-tables,  --set-charset, --disable-keys 该选项默认开启,  可以用--skip-opt禁用.
+mysqldump  -uroot -p --host=localhost --all-databases --opt
+--order-by-primary
+如果存在主键，或者第一个唯一键，对每个表的记录进行排序。在导出MyISAM表到InnoDB表时有效，但会使得导出工作花费很长时间。 
+mysqldump  -uroot -p --host=localhost --all-databases --order-by-primary
+--password, -p
+连接数据库密码
+--pipe(windows系统可用)
+使用命名管道连接mysql
+mysqldump  -uroot -p --host=localhost --all-databases --pipe
+--port, -P
+连接数据库端口号
+--protocol
+使用的连接协议，包括：tcp, socket, pipe, memory.
+mysqldump  -uroot -p --host=localhost --all-databases --protocol=tcp
+--quick, -q
+不缓冲查询，直接导出到标准输出。默认为打开状态，使用--skip-quick取消该选项。
+mysqldump  -uroot -p --host=localhost --all-databases 
+mysqldump  -uroot -p --host=localhost --all-databases --skip-quick
+--quote-names,-Q
+使用（`）引起表和列名。默认为打开状态，使用--skip-quote-names取消该选项。
+mysqldump  -uroot -p --host=localhost --all-databases
+mysqldump  -uroot -p --host=localhost --all-databases --skip-quote-names
+--replace
+使用REPLACE INTO 取代INSERT INTO.
+mysqldump  -uroot -p --host=localhost --all-databases --replace
+--result-file,  -r
+直接输出到指定文件中。该选项应该用在使用回车换行对（\\r\\n）换行的系统上（例如：DOS，Windows）。该选项确保只有一行被使用。
+mysqldump  -uroot -p --host=localhost --all-databases --result-file=/tmp/mysqldump_result_file.txt
+--routines, -R
+导出存储过程以及自定义函数。
+mysqldump  -uroot -p --host=localhost --all-databases --routines
+--set-charset
+添加&#39;SET NAMES  default_character_set&#39;到输出文件。默认为打开状态，使用--skip-set-charset关闭选项。
+mysqldump  -uroot -p --host=localhost --all-databases 
+mysqldump  -uroot -p --host=localhost --all-databases --skip-set-charset
+--single-transaction
+该选项在导出数据之前提交一个BEGIN SQL语句，BEGIN 不会阻塞任何应用程序且能保证导出时数据库的一致性状态。它只适用于多版本存储引擎，仅InnoDB。本选项和--lock-tables 选项是互斥的，因为LOCK  TABLES 会使任何挂起的事务隐含提交。要想导出大表的话，应结合使用--quick 选项。
+mysqldump  -uroot -p --host=localhost --all-databases --single-transaction
+--dump-date
+将导出时间添加到输出文件中。默认为打开状态，使用--skip-dump-date关闭选项。
+mysqldump  -uroot -p --host=localhost --all-databases
+mysqldump  -uroot -p --host=localhost --all-databases --skip-dump-date
+--skip-opt
+禁用–opt选项.
+mysqldump  -uroot -p --host=localhost --all-databases --skip-opt
+--socket,-S
+指定连接mysql的socket文件位置，默认路径/tmp/mysql.sock
+mysqldump  -uroot -p --host=localhost --all-databases --socket=/tmp/mysqld.sock
+--tab,-T
+为每个表在给定路径创建tab分割的文本文件。注意：仅仅用于mysqldump和mysqld服务器运行在相同机器上。注意使用--tab不能指定--databases参数
+mysqldump  -uroot -p --host=localhost test test --tab=&quot;/home/mysql&quot;
+--tables
+覆盖--databases (-B)参数，指定需要导出的表名，在后面的版本会使用table取代tables。
+mysqldump  -uroot -p --host=localhost --databases test --tables test
+--triggers
+导出触发器。该选项默认启用，用--skip-triggers禁用它。
+mysqldump  -uroot -p --host=localhost --all-databases --triggers
+--tz-utc
+在导出顶部设置时区TIME_ZONE=&#39;+00:00&#39; ，以保证在不同时区导出的TIMESTAMP 数据或者数据被移动其他时区时的正确性。
+mysqldump  -uroot -p --host=localhost --all-databases --tz-utc
+--user, -u
+指定连接的用户名。
+--verbose, --v
+输出多种平台信息。
+--version, -V
+输出mysqldump版本信息并退出
+--where, -w
+只转储给定的WHERE条件选择的记录。请注意如果条件包含命令解释符专用空格或字符，一定要将条件引用起来。
+mysqldump  -uroot -p --host=localhost --all-databases --where=” user=’root’”
+--xml, -X
+导出XML格式.
+mysqldump  -uroot -p --host=localhost --all-databases --xml
+--plugin_dir
+客户端插件的目录，用于兼容不同的插件版本。
+mysqldump  -uroot -p --host=localhost --all-databases --plugin_dir=”/usr/local/lib/plugin”
+--default_auth
+客户端插件默认使用权限。
+mysqldump  -uroot -p --host=localhost --all-databases --default-auth=”/usr/local/lib/plugin/&lt;PLUGIN&gt;”
+</code></pre>
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/07/10/Conda 常用命令/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -2273,247 +2673,6 @@ Vue.component(&#39;child&#39;, {
   
   
   <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/05/20/Vue 4【简单的全局组件和局部组件】 - 副本/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2018/05/20/Vue 4【简单的全局组件和局部组件】 - 副本/" itemprop="url">Vue 4【简单的全局组件和局部组件】</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-05-20T16:57:57+08:00">
-                2018-05-20
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Vue/" itemprop="url" rel="index">
-                    <span itemprop="name">Vue</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="全局组件"><a href="#全局组件" class="headerlink" title="全局组件"></a>全局组件</h3><pre><code>&lt;html&gt;
-&lt;head&gt;
-    &lt;meta charset=&quot;UTF-8&quot;&gt;
-    &lt;meta name=&quot;viewport&quot;
-          content=&quot;width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0&quot;&gt;
-    &lt;meta http-equiv=&quot;X-UA-Compatible&quot; content=&quot;ie=edge&quot;&gt;
-    &lt;title&gt;Document&lt;/title&gt;
-
-    &lt;!--引入vue.js--&gt;
-    &lt;script src=&quot;./vue.js&quot;&gt;&lt;/script&gt;
-
-&lt;/head&gt;
-&lt;body&gt;
-    &lt;div id=&quot;app&quot;&gt;  
-        请输入要显示的列表: &lt;input type=&quot;text&quot; v-model=&quot;inputValue&quot;&gt;&lt;/input&gt;   &lt;!--  使用v-model进行数据的双向绑定 --&gt;
-        &lt;button v-on:click=&quot;submitBtn&quot;&gt;确认&lt;/button&gt;                           &lt;!--  使用v-on:click定义一个onclick点击事件 --&gt;
-        &lt;ul&gt;
-            &lt;!--   &lt;li v-for=&quot;item in list_data&quot;&gt;{{ item }}&lt;/li&gt;  之前是使用v-for循环出数据，现在我们用组件的方式实现 --&gt;
-            &lt;todo-item v-bind:content=&quot;item&quot; v-for=&quot;item in list_data&quot;&gt;  &lt;/todo-item&gt;  
-            &lt;!-- todo-item是我们定义的组件，下面定义的名称是TodoItem，我们要使用-将驼峰分开。内容是组件中定义的template，循环的次数受
-            list_data的影响。使用v-bind将list_data每个item的数据通过content传递到组件内 --&gt;
-        &lt;/ul&gt;
-    &lt;/div&gt;
-
-    &lt;script type=&quot;text/javascript&quot;&gt;
-        //  全局组件
-        Vue.component(&quot;TodoItem&quot;, {
-            props:[&#39;content&#39;],                     //使用props来接受组件外传来的参数，其中content就是传来的
-            template:&quot;&lt;li&gt; {{ content }} &lt;/li&gt;&quot;    //显示传来的内容
-        })
-
-        var app = new Vue({    // 实例化一个Vue
-            el: &quot;#app&quot;,        // 使用el绑定
-            data :{
-                &quot;list_data&quot;: [&quot;1111&quot;, &#39;2222&#39;, &#39;3333&#39;],   // 初始赋值
-                &quot;inputValue&quot; : &quot;&quot;
-            },
-            methods:{
-                submitBtn: function(){         // 定义一个onclick点击方法
-                    // alert(this.inputValue)  // 取到文本框中绑定的值
-                    this.list_data.push(this.inputValue)  // 将文本框中输入值放入到循环显示的列表中
-                    this.inputValue = &quot;&quot;                  // 将文本框清空
-                }
-            }
-        })
-    &lt;/script&gt;
-&lt;/body&gt;
-&lt;/html&gt;
-</code></pre><h3 id="局部组件"><a href="#局部组件" class="headerlink" title="局部组件"></a>局部组件</h3><pre><code>&lt;html&gt;
-&lt;head&gt;
-    &lt;meta charset=&quot;UTF-8&quot;&gt;
-    &lt;meta name=&quot;viewport&quot;
-          content=&quot;width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0&quot;&gt;
-    &lt;meta http-equiv=&quot;X-UA-Compatible&quot; content=&quot;ie=edge&quot;&gt;
-    &lt;title&gt;Document&lt;/title&gt;
-
-    &lt;!--引入vue.js--&gt;
-    &lt;script src=&quot;./vue.js&quot;&gt;&lt;/script&gt;
-
-&lt;/head&gt;
-&lt;body&gt;
-    &lt;div id=&quot;app&quot;&gt;  
-        请输入要显示的列表: &lt;input type=&quot;text&quot; v-model=&quot;inputValue&quot;&gt;&lt;/input&gt;   &lt;!--  使用v-model进行数据的双向绑定 --&gt;
-        &lt;button v-on:click=&quot;submitBtn&quot;&gt;确认&lt;/button&gt;                           &lt;!--  使用v-on:click定义一个onclick点击事件 --&gt;
-        &lt;ul&gt;
-            &lt;!--   &lt;li v-for=&quot;item in list_data&quot;&gt;{{ item }}&lt;/li&gt;  之前是使用v-for循环出数据，现在我们用组件的方式实现 --&gt;
-            &lt;todo-item v-bind:content=&quot;item&quot; v-for=&quot;item in list_data&quot;&gt;  &lt;/todo-item&gt;  
-            &lt;!-- todo-item是我们定义的组件，下面定义的名称是TodoItem，我们要使用-将驼峰分开。内容是组件中定义的template，循环的次数受
-            list_data的影响。使用v-bind将list_data每个item的数据通过content传递到组件内 --&gt;
-        &lt;/ul&gt;
-    &lt;/div&gt;
-
-    &lt;script type=&quot;text/javascript&quot;&gt;
-
-        // 局部组件
-        var TodoItem = {
-            props:[&#39;content&#39;],                     //使用props来接受组件外传来的参数，其中content就是传来的
-            template:&quot;&lt;li&gt; {{ content }} &lt;/li&gt;&quot;    //显示传来的内容
-        }
-
-        var app = new Vue({    // 实例化一个Vue
-            el: &quot;#app&quot;,        // 使用el绑定
-            data :{
-                &quot;list_data&quot;: [&quot;1111&quot;, &#39;2222&#39;, &#39;3333&#39;],   // 初始赋值
-                &quot;inputValue&quot; : &quot;&quot;
-            },
-            methods:{
-                submitBtn: function(){         // 定义一个onclick点击方法
-                    // alert(this.inputValue)  // 取到文本框中绑定的值
-                    this.list_data.push(this.inputValue)  // 将文本框中输入值放入到循环显示的列表中
-                    this.inputValue = &quot;&quot;                  // 将文本框清空
-                }
-            },
-            components:{                       // 注册局部组件
-                TodoItem:TodoItem
-            }
-        })
-    &lt;/script&gt;
-&lt;/body&gt;
-&lt;/html&gt;
-</code></pre>
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/05/20/Vue 5【子父组件之间的传值】 - 副本/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -2705,6 +2864,247 @@ Vue.component(&#39;child&#39;, {
 
                 realDeleteItem:function(index){
                     this.list_data.splice(index, 1)
+                }
+            },
+            components:{                       // 注册局部组件
+                TodoItem:TodoItem
+            }
+        })
+    &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/05/20/Vue 4【简单的全局组件和局部组件】 - 副本/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2018/05/20/Vue 4【简单的全局组件和局部组件】 - 副本/" itemprop="url">Vue 4【简单的全局组件和局部组件】</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-05-20T16:57:57+08:00">
+                2018-05-20
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Vue/" itemprop="url" rel="index">
+                    <span itemprop="name">Vue</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="全局组件"><a href="#全局组件" class="headerlink" title="全局组件"></a>全局组件</h3><pre><code>&lt;html&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;meta name=&quot;viewport&quot;
+          content=&quot;width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0&quot;&gt;
+    &lt;meta http-equiv=&quot;X-UA-Compatible&quot; content=&quot;ie=edge&quot;&gt;
+    &lt;title&gt;Document&lt;/title&gt;
+
+    &lt;!--引入vue.js--&gt;
+    &lt;script src=&quot;./vue.js&quot;&gt;&lt;/script&gt;
+
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;div id=&quot;app&quot;&gt;  
+        请输入要显示的列表: &lt;input type=&quot;text&quot; v-model=&quot;inputValue&quot;&gt;&lt;/input&gt;   &lt;!--  使用v-model进行数据的双向绑定 --&gt;
+        &lt;button v-on:click=&quot;submitBtn&quot;&gt;确认&lt;/button&gt;                           &lt;!--  使用v-on:click定义一个onclick点击事件 --&gt;
+        &lt;ul&gt;
+            &lt;!--   &lt;li v-for=&quot;item in list_data&quot;&gt;{{ item }}&lt;/li&gt;  之前是使用v-for循环出数据，现在我们用组件的方式实现 --&gt;
+            &lt;todo-item v-bind:content=&quot;item&quot; v-for=&quot;item in list_data&quot;&gt;  &lt;/todo-item&gt;  
+            &lt;!-- todo-item是我们定义的组件，下面定义的名称是TodoItem，我们要使用-将驼峰分开。内容是组件中定义的template，循环的次数受
+            list_data的影响。使用v-bind将list_data每个item的数据通过content传递到组件内 --&gt;
+        &lt;/ul&gt;
+    &lt;/div&gt;
+
+    &lt;script type=&quot;text/javascript&quot;&gt;
+        //  全局组件
+        Vue.component(&quot;TodoItem&quot;, {
+            props:[&#39;content&#39;],                     //使用props来接受组件外传来的参数，其中content就是传来的
+            template:&quot;&lt;li&gt; {{ content }} &lt;/li&gt;&quot;    //显示传来的内容
+        })
+
+        var app = new Vue({    // 实例化一个Vue
+            el: &quot;#app&quot;,        // 使用el绑定
+            data :{
+                &quot;list_data&quot;: [&quot;1111&quot;, &#39;2222&#39;, &#39;3333&#39;],   // 初始赋值
+                &quot;inputValue&quot; : &quot;&quot;
+            },
+            methods:{
+                submitBtn: function(){         // 定义一个onclick点击方法
+                    // alert(this.inputValue)  // 取到文本框中绑定的值
+                    this.list_data.push(this.inputValue)  // 将文本框中输入值放入到循环显示的列表中
+                    this.inputValue = &quot;&quot;                  // 将文本框清空
+                }
+            }
+        })
+    &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre><h3 id="局部组件"><a href="#局部组件" class="headerlink" title="局部组件"></a>局部组件</h3><pre><code>&lt;html&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;meta name=&quot;viewport&quot;
+          content=&quot;width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0&quot;&gt;
+    &lt;meta http-equiv=&quot;X-UA-Compatible&quot; content=&quot;ie=edge&quot;&gt;
+    &lt;title&gt;Document&lt;/title&gt;
+
+    &lt;!--引入vue.js--&gt;
+    &lt;script src=&quot;./vue.js&quot;&gt;&lt;/script&gt;
+
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;div id=&quot;app&quot;&gt;  
+        请输入要显示的列表: &lt;input type=&quot;text&quot; v-model=&quot;inputValue&quot;&gt;&lt;/input&gt;   &lt;!--  使用v-model进行数据的双向绑定 --&gt;
+        &lt;button v-on:click=&quot;submitBtn&quot;&gt;确认&lt;/button&gt;                           &lt;!--  使用v-on:click定义一个onclick点击事件 --&gt;
+        &lt;ul&gt;
+            &lt;!--   &lt;li v-for=&quot;item in list_data&quot;&gt;{{ item }}&lt;/li&gt;  之前是使用v-for循环出数据，现在我们用组件的方式实现 --&gt;
+            &lt;todo-item v-bind:content=&quot;item&quot; v-for=&quot;item in list_data&quot;&gt;  &lt;/todo-item&gt;  
+            &lt;!-- todo-item是我们定义的组件，下面定义的名称是TodoItem，我们要使用-将驼峰分开。内容是组件中定义的template，循环的次数受
+            list_data的影响。使用v-bind将list_data每个item的数据通过content传递到组件内 --&gt;
+        &lt;/ul&gt;
+    &lt;/div&gt;
+
+    &lt;script type=&quot;text/javascript&quot;&gt;
+
+        // 局部组件
+        var TodoItem = {
+            props:[&#39;content&#39;],                     //使用props来接受组件外传来的参数，其中content就是传来的
+            template:&quot;&lt;li&gt; {{ content }} &lt;/li&gt;&quot;    //显示传来的内容
+        }
+
+        var app = new Vue({    // 实例化一个Vue
+            el: &quot;#app&quot;,        // 使用el绑定
+            data :{
+                &quot;list_data&quot;: [&quot;1111&quot;, &#39;2222&#39;, &#39;3333&#39;],   // 初始赋值
+                &quot;inputValue&quot; : &quot;&quot;
+            },
+            methods:{
+                submitBtn: function(){         // 定义一个onclick点击方法
+                    // alert(this.inputValue)  // 取到文本框中绑定的值
+                    this.list_data.push(this.inputValue)  // 将文本框中输入值放入到循环显示的列表中
+                    this.inputValue = &quot;&quot;                  // 将文本框清空
                 }
             },
             components:{                       // 注册局部组件
@@ -4841,148 +5241,6 @@ if __name__==&#39;__main__&#39;:
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/04/27/Python Fire/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2018/04/27/Python Fire/" itemprop="url">Python Fire</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-04-27T17:16:57+08:00">
-                2018-04-27
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/技术/" itemprop="url" rel="index">
-                    <span itemprop="name">技术</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <p>Fire 是比较好用的工作，谷歌开源，具体使用方法可见 <a href="https://blog.csdn.net/u010099080/article/details/70332074" target="_blank" rel="noopener">链接</a></p>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
   </section>
 
   
@@ -5033,7 +5291,7 @@ if __name__==&#39;__main__&#39;:
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">289</span>
+                  <span class="site-state-item-count">290</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>
@@ -5044,7 +5302,7 @@ if __name__==&#39;__main__&#39;:
               
               <div class="site-state-item site-state-categories">
                 <a href="/categories/index.html">
-                  <span class="site-state-item-count">28</span>
+                  <span class="site-state-item-count">30</span>
                   <span class="site-state-item-name">分类</span>
                 </a>
               </div>
@@ -5055,7 +5313,7 @@ if __name__==&#39;__main__&#39;:
               
               <div class="site-state-item site-state-tags">
                 <a href="/tags/index.html">
-                  <span class="site-state-item-count">142</span>
+                  <span class="site-state-item-count">143</span>
                   <span class="site-state-item-name">标签</span>
                 </a>
               </div>
