@@ -348,6 +348,228 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/04/27/Python Jieba分词/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2018/04/27/Python Jieba分词/" itemprop="url">Python Jieba分词</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-04-27T17:18:57+08:00">
+                2018-04-27
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/技术/" itemprop="url" rel="index">
+                    <span itemprop="name">技术</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="安装"><a href="#安装" class="headerlink" title="安装"></a>安装</h3><p>代码对 Python 2/3 均兼容<br>全自动安装：easy_install jieba 或者 pip install jieba / pip3 install jieba<br>半自动安装：先下载 <a href="http://pypi.python.org/pypi/jieba/" target="_blank" rel="noopener">http://pypi.python.org/pypi/jieba/</a> ，解压后运行 python setup.py install<br>手动安装：将 jieba 目录放置于当前目录或者 site-packages 目录<br>通过 import jieba 来引用</p>
+<h3 id="完整代码"><a href="#完整代码" class="headerlink" title="完整代码"></a>完整代码</h3><pre><code># -*- coding:utf-8 -*-  
+# __author__ = &quot;Rex&quot;     
+# Version:1.0.0
+
+import sys
+import os
+if __name__ == &#39;__main__&#39;:
+    sys.path.insert(0, os.path.abspath(os.curdir))
+import settings
+import jieba
+import jieba.analyse
+import pandas as pd
+import xlrd
+from collections import Counter
+import re
+
+DOC_PATH = os.path.join(settings.DATA_FILE_PATH, &quot;MCD_FENCI.xlsx&quot;)
+USERDICT = os.path.join(settings.DATA_FILE_PATH, &quot;userdict.txt&quot;)
+STOP_WORDS = os.path.join(settings.DATA_FILE_PATH, &quot;stopwords.txt&quot;)
+RESULT_FILE = os.path.join(settings.DATA_FILE_PATH, &quot;FENCI.xlsx&quot;)
+
+jieba.load_userdict(USERDICT) # 可自定义词语，避免拆错，例如麦咖啡、香骨鸡腿
+jieba.analyse.set_stop_words(STOP_WORDS) # 停止词，取自 # https://github.com/dongxiexidian/Chinese/blob/master/stopwords.dat
+
+# sheet和列的映射
+SHEET_COLUMN_MAP = {
+                        &#39;Overall__1&#39;:&#39;Overall Comment&#39;, 
+                        &#39;Friendliness__2&#39;:&#39;Friendliness issue - &quot;Other&quot;&#39;, 
+                        &#39;Fast__3&#39;:&#39;Fast issue - &quot;Other&quot;&#39;, 
+                        &#39;Quality__4&#39;:[&#39;Quality item - &quot;Other&quot;&#39;, &#39;Quality issue Other&#39;], 
+                        &#39;Cleanliness__5&#39;:&#39;Cleanliness issue - &quot;Other&quot;&#39;, 
+                        &#39;Accuracy__6&#39;:&#39;Accuracy issue - &quot;Other&quot;&#39;,
+                        &#39;EOTF__7&#39;:&#39;EOTF issue - &quot;Other&quot;&#39;, 
+                    }
+
+class FENCI(object):
+    def __init__(self):
+        self.book = xlrd.open_workbook(DOC_PATH)
+        self.sheets = self.book.sheets()
+        self.seg_list = []
+
+    def fenci(self):
+        # 获取每个sheet，获取对应列，进行分词
+        for sheet in self.sheets:
+            column_name = SHEET_COLUMN_MAP.get(sheet.name)
+            if isinstance(column_name, list):
+                for col_name in column_name:
+                    current_df_series = pd.read_excel(DOC_PATH, sheet.name, encoding=&#39;utf-8&#39;).dropna()[col_name]
+                    self.append_list(current_df_series)
+            else:
+                current_df_series = pd.read_excel(DOC_PATH, sheet.name, encoding=&#39;utf-8&#39;).dropna()[column_name]
+                self.append_list(current_df_series)
+
+        re = Counter(filter(self.not_empty, self.seg_list))
+        result_df = pd.DataFrame([re]).T
+        result_df.columns=[&#39;count&#39;]
+        result_df.sort_values(&#39;count&#39;, inplace=True ,ascending=False)
+        result_df.to_excel(RESULT_FILE, encoding=&#39;utf-8&#39;)
+
+    def not_empty(self, s):
+        # 去除标点，空格
+        s=  re.sub(&quot;[\s+\.\!\/_,$%^*(+\&quot;\&#39;]+|[+——！，。？、~@#￥%……&amp;*（）]+&quot;.decode(&quot;utf8&quot;), &quot;&quot;.decode(&quot;utf8&quot;),s)
+        return s and s.strip()
+
+    def append_list(self, series):
+        # 使用jieba.analyse.extract_tags的方式，能去掉不少 “了”，“的”之类的词语，提取关键
+        for se in series:
+            self.seg_list.extend(list(jieba.analyse.extract_tags(se)))  
+
+if __name__==&#39;__main__&#39;:
+    obj = FENCI()
+    obj.fenci()
+
+
+
+
+</code></pre><h3 id="自定义词典"><a href="#自定义词典" class="headerlink" title="自定义词典"></a>自定义词典</h3><p>例如：香骨鸡腿，如果不加入自定义词典的话，那么就会拆为 香骨和鸡腿，放在一起再拆的话结果就是香骨鸡腿</p>
+<pre><code>jieba.load_userdict(USERDICT) # 可自定义词语，避免拆错，例如麦咖啡、香骨鸡腿
+</code></pre><h3 id="停止词"><a href="#停止词" class="headerlink" title="停止词"></a>停止词</h3><p>在这个里面的词语不会被拆分出来，也就是不会出现</p>
+<pre><code>jieba.analyse.set_stop_words(STOP_WORDS) # 停止词，取自 # https://github.com/dongxiexidian/Chinese/blob/master/stopwords.dat
+</code></pre>
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/04/27/Python Fire/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -3836,190 +4058,6 @@ server {
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/03/18/Nginx8/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2018/03/18/Nginx8/" itemprop="url">Nginx8－Nginx状态、文本替换、Last-Modify模块</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-03-18T15:19:57+08:00">
-                2018-03-18
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Nginx/" itemprop="url" rel="index">
-                    <span itemprop="name">Nginx</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="模块分类"><a href="#模块分类" class="headerlink" title="模块分类"></a>模块分类</h3><ol>
-<li>Nginx官方模块</li>
-<li>第三方模块</li>
-</ol>
-<h3 id="查看已经有的模块"><a href="#查看已经有的模块" class="headerlink" title="查看已经有的模块"></a>查看已经有的模块</h3><p>使用nginx  -V  可以看见nginx已经编译安装进去的模块（以 –with开头的）</p>
-<p><img src="/2018/03/18/Nginx8/images/Nginx8-1.png" alt></p>
-<h3 id="Nginx状态模块"><a href="#Nginx状态模块" class="headerlink" title="Nginx状态模块"></a>Nginx状态模块</h3><p>模块名： –with-http_stub_status_module</p>
-<pre><code>语法：stub_status;
-默认：没有进行配置
-位置：可以在server下、location下
-作用：得到Nginx目前的状态
-</code></pre><p>例如，在default.conf中配置如下<br><img src="/2018/03/18/Nginx8/images/Nginx8-2.png" alt></p>
-<p>测试配置是否正确，且重加载服务<br><img src="/2018/03/18/Nginx8/images/Nginx8-3.png" alt></p>
-<p>测试<br><img src="/2018/03/18/Nginx8/images/Nginx8-4.png" alt></p>
-<pre><code>第一行2表示活跃的连接数
-第二行9  9 12 表示   握手数、连接数、总请求数目。一般情况下 握手数等于连接数，代表数目包没有丢失
-第三行表示当前有0个在读、1个在写、1个在等
-</code></pre><h3 id="HTTP内容替换模块"><a href="#HTTP内容替换模块" class="headerlink" title="HTTP内容替换模块"></a>HTTP内容替换模块</h3><p>模块名称： –with-http_stub_module</p>
-<ol>
-<li><p>sub_filter</p>
-<pre><code>语法：sub_filter + 要替换的文本 + 替换的文本
-默认：默认没有被配置
-位置：可以在server下、localtion下
-作用：替换html内容
-</code></pre></li>
-<li><p>sub_filter_once</p>
-<pre><code>语法：sub_filter_once + on | off
-默认：默认是on
-位置：可以在http下 server下 location下
-作用：替换html内容、控制替换一次还是全部
-</code></pre></li>
-</ol>
-<p>演示：将rex  全部替换为rexyan<br>替换前：<br><img src="/2018/03/18/Nginx8/images/Nginx8-5.png" alt></p>
-<p>配置：<br><img src="/2018/03/18/Nginx8/images/Nginx8-6.png" alt></p>
-<p>替换后：<br><img src="/2018/03/18/Nginx8/images/Nginx8-7.png" alt></p>
-<ol start="3">
-<li>sub_filter_last_modified<pre><code>语法：sub_filter_last_modified + on | off
-默认：默认是off
-位置：可以在http下 server下 location下
-作用：判断文件是否有更新，或者有修改。返回的就是浏览器中 Last-Modified
-</code></pre>配置：<br>如果不配置sub_filter_last_modified on;那么每次请求都是200，配置之后，有了304状态（表示有缓存）</li>
-</ol>
-<p><img src="/2018/03/18/Nginx8/images/Nginx8-8.png" alt><br><img src="/2018/03/18/Nginx8/images/Nginx8-9.png" alt></p>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
   </section>
 
   
@@ -4070,7 +4108,7 @@ server {
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">290</span>
+                  <span class="site-state-item-count">291</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>
