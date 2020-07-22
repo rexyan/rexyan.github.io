@@ -349,6 +349,213 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2017/12/04/MySQL事务/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2017/12/04/MySQL事务/" itemprop="url">MySQl事务</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-12-04T12:28:52+08:00">
+                2017-12-04
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/技术/" itemprop="url" rel="index">
+                    <span itemprop="name">技术</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="介绍"><a href="#介绍" class="headerlink" title="介绍"></a>介绍</h3><ol>
+<li>在 MySQL 中只有使用了 Innodb 数据库引擎的数据库或表才支持事务。</li>
+<li>事务处理可以用来维护数据库的完整性，保证成批的 SQL 语句要么全部执行，要么全部不执行</li>
+<li><p>事务用来管理 insert,update,delete 语句</p>
+<p>一般来说，事务是必须满足4个条件（ACID）： Atomicity（原子性）、Consistency（稳定性）、Isolation（隔离性）、Durability（可靠性）</p>
+</li>
+</ol>
+<h3 id="默认情况"><a href="#默认情况" class="headerlink" title="默认情况"></a>默认情况</h3><p>　在 MySQL 命令行的默认设置下，事务都是自动提交的，即执行 SQL 语句后就会马上执行 COMMIT 操作。因此要显式地开启一个事务务须使用命令 BEGIN 或 START TRANSACTION，或者执行命令 SET AUTOCOMMIT=0，用来禁止使用当前会话的自动提交。</p>
+<h3 id="事务控制"><a href="#事务控制" class="headerlink" title="事务控制"></a>事务控制</h3><ol>
+<li>BEGIN或START TRANSACTION；显式地开启一个事务；</li>
+<li>COMMIT；也可以使用COMMIT WORK，不过二者是等价的。COMMIT会提交事务，并使已对数据库进行的所有修改称为永久性的；</li>
+<li>ROLLBACK；有可以使用ROLLBACK WORK，不过二者是等价的。回滚会结束用户的事务，并撤销正在进行的所有未提交的修改；</li>
+<li>SAVEPOINT identifier；SAVEPOINT允许在事务中创建一个保存点，一个事务中可以有多个SAVEPOINT；</li>
+<li>RELEASE SAVEPOINT identifier；删除一个事务的保存点，当没有指定的保存点时，执行该语句会抛出一个异常；</li>
+<li>ROLLBACK TO identifier；把事务回滚到标记点；</li>
+<li>SET TRANSACTION；用来设置事务的隔离级别。InnoDB存储引擎提供事务的隔离级别有READ UNCOMMITTED、READ COMMITTED、REPEATABLE READ和SERIALIZABLE。</li>
+</ol>
+<h3 id="MySQL事务处理"><a href="#MySQL事务处理" class="headerlink" title="MySQL事务处理"></a>MySQL事务处理</h3><p>1、用 BEGIN, ROLLBACK, COMMIT来实现<br>　　BEGIN 开始一个事务<br>　　ROLLBACK 事务回滚<br>　　COMMIT 事务确认<br>2、直接用 SET 来改变 MySQL 的自动提交模式:<br>　　SET AUTOCOMMIT=0 禁止自动提交<br>　　SET AUTOCOMMIT=1 开启自动提交</p>
+<h3 id="测试"><a href="#测试" class="headerlink" title="测试"></a>测试</h3><p><img src="/2017/12/04/MySQL事务/1.png" alt></p>
+<h3 id="在Java中使用"><a href="#在Java中使用" class="headerlink" title="在Java中使用"></a>在Java中使用</h3><pre><code>package com.rexyan.mysql;
+
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.SQLException;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.commons.dbutils.DbUtils;
+import org.apache.commons.dbutils.QueryRunner;
+
+import com.rexyan.utils.DataSourceUtils;
+
+public class MySQL extends HttpServlet {
+    public void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        Connection connection = null;
+        try {
+            QueryRunner queryRunner = new QueryRunner(); 
+            connection = DataSourceUtils.getConnection();
+            //开启事务
+            connection.setAutoCommit(false);
+            String sql = &quot;delete from user where id=?&quot;;
+            queryRunner.update(connection, sql, 6);
+        } catch (SQLException e) {
+            // 回滚
+            try {
+                connection.rollback();
+            } catch (SQLException e1) {
+                e1.printStackTrace();
+            }
+        }finally {
+            // 提交
+            try {
+                connection.commit();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }    
+    }
+
+    public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        doGet(request, response);
+    }
+}
+</code></pre>
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://yanrs.me/2017/11/16/JSTL/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -3937,208 +4144,6 @@ public class C3P0Test {
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2017/10/29/JDBC1/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content="">
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2017/10/29/JDBC1/" itemprop="url">JDBC1</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-10-29T08:52:57+08:00">
-                2017-10-29
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category" >
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Java/" itemprop="url" rel="index">
-                    <span itemprop="name">Java</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="JDBC中的主要类（接口）"><a href="#JDBC中的主要类（接口）" class="headerlink" title="JDBC中的主要类（接口）"></a>JDBC中的主要类（接口）</h3><p>　　在JDBC中常用的类有：</p>
-<ul>
-<li>DriverManager；</li>
-<li>Connection；</li>
-<li>Statement；</li>
-<li>ResultSet；</li>
-</ul>
-<h4 id="DriverManager"><a href="#DriverManager" class="headerlink" title="DriverManager"></a>DriverManager</h4><p>　其实我们今后只需要会用DriverManager的getConnection()方法即可：</p>
-<pre><code>1.Class.forName(“com.mysql.jdbc.Driver”);//注册驱动
-2.String url = “jdbc:mysql://localhost:3306/web08”;
-3.String username = “root”;
-4.String password = “root”;
-5.Connection con = DriverManager.getConnection(url, username, password);
-</code></pre><p>　注意，上面代码可能出现的两种异常：<br>　　1.ClassNotFoundException：这个异常是在第1句上出现的，出现这个异常有两个可能：<br>　　　你没有给出mysql的jar包；<br>　　　你把类名称打错了，查看类名是不是com.mysql.jdbc.Driver。</p>
-<p>　　2.SQLException：这个异常出现在第5句，出现这个异常就是三个参数的问题，往往username和passw　　　　ord一般不是出错，所以需要认真查看url是否打错。</p>
-<p>　对于DriverManager.registerDriver()方法了解即可，因为我们今后注册驱动只会Class.forName()，而不会使用这个方法。</p>
-<h4 id="Connection"><a href="#Connection" class="headerlink" title="Connection"></a>Connection</h4><p>　Connection最为重要的方法就是获取Statement：<br>　　Statement stmt = con.createStatement(); </p>
-<p>　后面在学习ResultSet方法时，还要学习一下下面的方法：<br>　　Statement stmt = con.createStatement(int,int);</p>
-<h4 id="Statement"><a href="#Statement" class="headerlink" title="Statement"></a>Statement</h4><p>　Statement最为重要的方法是：<br>　　1. int executeUpdate(String sql)：<br>　　　执行更新操作，即执行insert、update、delete语句，其实这个方法也可以执行create table、alter table，以及drop table等语句，但我们很少会使用JDBC来执行这些语句；<br>　　<br>　　2. ResultSet executeQuery(String sql)：<br>　　　执行查询操作，执行查询操作会返回ResultSet，即结果集。</p>
-<p>　　3. boolean execute()<br>　　　Statement还有一个boolean execute()方法，这个方法可以用来执行增、删、改、查所有SQL语句。该方法返回的是boolean类型，表示SQL语句是否执行成功。</p>
-<p>　　如果使用execute()方法执行的是更新语句，那么还要调用int getUpdateCount()来获取insert、update、delete语句所影响的行数。<br>　　如果使用execute()方法执行的是查询语句，那么还要调用ResultSet getResultSet()来获取select语句的查询结果。</p>
-<h4 id="ResultSet之获取列数据"><a href="#ResultSet之获取列数据" class="headerlink" title="ResultSet之获取列数据"></a>ResultSet之获取列数据</h4><p>　可以通过next()方法使ResultSet的游标向下移动，当游标移动到你需要的行时，就需要来获取该行的数据了，ResultSet提供了一系列的获取列数据的方法：<br>　　String getString(int columnIndex)：获取指定列的String类型数据；<br>　　int getInt(int columnIndex)：获取指定列的int类型数据；<br>　　double getDouble(int columnIndex)：获取指定列的double类型数据；<br>　　boolean getBoolean(int columnIndex)：获取指定列的boolean类型数据；<br>　　Object getObject(int columnIndex)：获取指定列的Object类型的数据。</p>
-<p>　上面方法中，参数columnIndex表示列的索引，列索引从1开始，而不是0，这第一点与数组不同。如果你清楚当前列的数据类型，那么可以使用getInt()之类的方法来获取，如果你不清楚列的类型，那么你应该使用getObject()方法来获取。ResultSet还提供了一套通过列名称来获取列数据的方法：<br>　　String getString(String columnName)：获取名称为columnName的列的String数据；<br>　　int getInt(String columnName)：获取名称为columnName的列的int数据；<br>　　double getDouble(String columnName)：获取名称为columnName的列的double数据；<br>　　boolean getBoolean(String columnName)：获取名称为columnName的列的boolean数据；<br>　　Object getObject(String columnName)：获取名称为columnName的列的Object数据；</p>
-<h3 id="实例"><a href="#实例" class="headerlink" title="实例"></a>实例</h3><pre><code>public class jdbc1 {
-    /**
-     * 最基本的JDBC实现
-     * @throws ClassNotFoundException 
-     * @throws SQLException 
-     */
-    @Test
-    public void jdbc_test() throws ClassNotFoundException, SQLException{
-        //1,获取驱动，不使用DriverManager.registerDriver(newcom.mysql.jdbc.Driver());的原因是DriverManager中产生两个一样的驱动，并会对具体的驱动类产生依赖。具体来说就是：1，装载Driver类时注册一次驱动（有关类装载，请参考http://www.yanwushu.com/post/54.html），执行此代码时，又注册一次。2，由于实例化了com.mysql.jdbc.Driver.class，导致必须import该类，从而具体驱动产生了依赖。不方便扩展代码。
-        Class.forName(&quot;com.mysql.jdbc.Driver&quot;);
-        //2，获取连接
-        Connection conn = DriverManager.getConnection(&quot;jdbc:mysql://localhost:3306/java&quot;, &quot;root&quot;, &quot;root&quot;);
-        //3,获取执行SQL语句的对象
-        Statement stat = conn.createStatement();
-        //4，编写sql语句
-        String sql = &quot;select * from user&quot;;
-        //5，执行sql语句
-        ResultSet result = stat.executeQuery(sql); //执行查询的时候使用executeQuery
-        //stat.executeUpdate(sql) 执行增、删、改的时候使用
-        while(result.next()){
-            /**
-             * 处理的结果集常用的方法有
-             * result.getObject(int col);
-             * result.getInt(int col);
-             * result.getString(int col);
-             * result.next()
-             */
-            System.out.println(result.getString(2));
-        }
-        //6,释放连接，从后往前关闭
-        if (result!=null){result.close();}
-        if (stat!=null){stat.close();}
-        if (conn!=null){conn.close();}
-
-    }
-}
-</code></pre><h4 id="存在问题"><a href="#存在问题" class="headerlink" title="存在问题"></a>存在问题</h4><p>　以上实例存在SQL注入攻击的危险。</p>
-<p> 　在需要用户输入的地方，用户输入的是SQL语句的片段，最终用户输入的SQL片段与我们DAO中写的SQL语句合成一个完整的SQL语句！例如用户在登录时输入的用户名和密码都是为SQL语句的片段！</p>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
   </section>
 
   
@@ -4189,7 +4194,7 @@ public class C3P0Test {
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">291</span>
+                  <span class="site-state-item-count">292</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>
@@ -4211,7 +4216,7 @@ public class C3P0Test {
               
               <div class="site-state-item site-state-tags">
                 <a href="/tags/index.html">
-                  <span class="site-state-item-count">143</span>
+                  <span class="site-state-item-count">144</span>
                   <span class="site-state-item-name">标签</span>
                 </a>
               </div>

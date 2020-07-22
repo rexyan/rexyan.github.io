@@ -348,6 +348,304 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/03/06/Celery/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2018/03/06/Celery/" itemprop="url">Celery</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-03-06T15:52:57+08:00">
+                2018-03-06
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Python/" itemprop="url" rel="index">
+                    <span itemprop="name">Python</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="Celery"><a href="#Celery" class="headerlink" title="Celery"></a>Celery</h3><h4 id="需求描述"><a href="#需求描述" class="headerlink" title="需求描述"></a>需求描述</h4><p>在程序的运行过程中，我们经常会碰到一些耗时耗资源的操作，为了避免它们阻塞主程序的运行，我们经常会采用多线程或异步任务。比如，在 Web 开发中，对新用户的注册，我们通常会给他发一封激活邮件，而发邮件是个 IO 阻塞式任务，如果直接把它放到应用当中，就需要等邮件发出去之后才能进行下一步操作，此时用户只能等待再等待。更好的方式是在业务逻辑中触发一个发邮件的异步任务，而主程序可以继续往下运行。</p>
+<h4 id="Celery简介"><a href="#Celery简介" class="headerlink" title="Celery简介"></a>Celery简介</h4><p>Celery 是一个强大的分布式任务队列，它可以让任务的执行完全脱离主程序，甚至可以被分配到其他主机上运行。我们通常使用它来实现异步任务（async task）和定时任务（crontab）。它的架构组成如下图：</p>
+<h4 id="Celery常见模块"><a href="#Celery常见模块" class="headerlink" title="Celery常见模块"></a>Celery常见模块</h4><ol>
+<li><p>任务模块 Task，包含异步任务和定时任务。其中，异步任务通常在业务逻辑中被触发并发往任务队列，而定时任务由 Celery Beat 进程周期性地将任务发往任务队列。</p>
+</li>
+<li><p>消息中间件 Broker，即为任务调度队列，接收任务生产者发来的消息（即任务），将任务存入队列。Celery 本身不提供队列服务，官方推荐使用 RabbitMQ 和 Redis 等。</p>
+</li>
+<li><p>任务执行单元 Worker，是执行任务的处理单元，它实时监控消息队列，获取队列中调度的任务，并执行它。</p>
+</li>
+<li><p>任务结果存储 Backend 用于存储任务的执行结果，以供查询。同消息中间件一样，存储也可使用 RabbitMQ, Redis 和 MongoDB 等。</p>
+</li>
+</ol>
+<h3 id="快速入门"><a href="#快速入门" class="headerlink" title="快速入门"></a>快速入门</h3><h4 id="安装Celery"><a href="#安装Celery" class="headerlink" title="安装Celery"></a>安装Celery</h4><p>为了简单起见，对于 Broker 和 Backend，这里都使用 redis。在运行下面的例子之前，请确保 redis 已正确安装，并开启 redis 服务，当然，celery 也是要安装的。可以使用下面的命令来安装 celery 及相关依赖</p>
+<pre><code>pip install celery==3.1.25   # 我是windows系统，高版本好像有问题
+</code></pre><h4 id="创建Celery实例"><a href="#创建Celery实例" class="headerlink" title="创建Celery实例"></a>创建Celery实例</h4><p>将下面的代码保存为文件 tasks.py</p>
+<pre><code># -*- coding: utf-8 -*-
+import time
+from celery import Celery
+broker = &#39;redis://127.0.0.1:6379&#39;
+backend = &#39;redis://127.0.0.1:6379/0&#39;
+app = Celery(&#39;my_task&#39;, broker=broker, backend=backend)
+@app.task
+def add(x, y):
+    time.sleep(5)     # 模拟耗时操作
+    return x + y
+</code></pre><p>上面的代码做了几件事：</p>
+<ul>
+<li>创建了一个 Celery 实例 app，名称为 my_task；</li>
+<li>指定消息中间件用 redis，URL 为 redis://127.0.0.1:6379；</li>
+<li>指定存储用 redis，URL 为 redis://127.0.0.1:6379/0；</li>
+<li>创建了一个 Celery 任务 add，当函数被 @app.task 装饰后，就成为可被 Celery 调度的任务；</li>
+</ul>
+<h4 id="启动-Celery-Worker"><a href="#启动-Celery-Worker" class="headerlink" title="启动 Celery Worker"></a>启动 Celery Worker</h4><p>在当前目录，使用如下方式启动 Celery Worker</p>
+<pre><code>celery worker -A tasks --loglevel=info
+</code></pre><ul>
+<li>参数 -A 指定了 Celery 实例的位置，本例是在 tasks.py 中，Celery 会自动在该文件中寻找 Celery 对象实例，当然，我们也可以自己指定，在本例，使用 -A tasks.app；</li>
+<li>参数 –loglevel 指定了日志级别，默认为 warning，也可以使用 -l info 来表示；</li>
+</ul>
+<h4 id="调用任务"><a href="#调用任务" class="headerlink" title="调用任务"></a>调用任务</h4><p>现在，我们可以在应用程序中使用 delay() 或 apply_async() 方法来调用任务。<br>在当前目录打开 Python 控制台，输入以下代码</p>
+<pre><code>&gt;&gt;&gt; from tasks import add
+&gt;&gt;&gt; add.delay(2, 8)
+&lt;AsyncResult: 2272ddce-8be5-493f-b5ff-35a0d9fe600f&gt;
+</code></pre><p>在上面，我们从 tasks.py 文件中导入了 add 任务对象，然后使用 delay() 方法将任务发送到消息中间件（Broker），Celery Worker 进程监控到该任务后，就会进行执行。我们将窗口切换到 Worker 的启动窗口，会看到多了两条日志：</p>
+<pre><code>[2016-12-10 12:00:50,376: INFO/MainProcess] Received task: tasks.add[2272ddce-8be5-493f-b5ff-35a0d9fe600f]
+[2016-12-10 12:00:55,385: INFO/PoolWorker-4] Task tasks.add[2272ddce-8be5-493f-b5ff-35a0d9fe600f] succeeded in 5.00642602402s: 10
+</code></pre><p>这说明任务已经被调度并执行成功。<br>另外，我们如果想获取执行后的结果，可以这样做：</p>
+<pre><code>&gt;&gt;&gt; result = add.delay(2, 6)
+&gt;&gt;&gt; result.ready()   # 使用 ready() 判断任务是否执行完毕
+False
+&gt;&gt;&gt; result.ready()
+False
+&gt;&gt;&gt; result.ready()
+True
+&gt;&gt;&gt; result.get()     # 使用 get() 获取任务结果，如果使用get(),则不是异步了，因为需要等执行完成后才能返回到结果
+8
+</code></pre><p>在上面，我们是在 Python 的环境中调用任务。事实上，我们通常在应用程序中调用任务。比如，将下面的代码保存为 client.py</p>
+<pre><code># -*- coding: utf-8 -*-
+from tasks import add
+# 异步任务
+add.delay(2, 8)
+print &#39;hello world&#39;
+</code></pre><p>运行命令 $ python client.py，可以看到，虽然任务函数 add 需要等待 5 秒才返回执行结果，但由于它是一个异步任务，不会阻塞当前的主程序，因此主程序会往下执行 print 语句，打印出结果。</p>
+<h3 id="异步任务"><a href="#异步任务" class="headerlink" title="异步任务"></a>异步任务</h3><p>在上面的例子中，我们直接把 Broker 和 Backend 的配置写在了程序当中，更好的做法是将配置项统一写入到一个配置文件中，通常我们将该文件命名为 celeryconfig.py。Celery 的配置比较多，可以在官方文档查询每个配置项的含义。下面，我们再看一个例子。项目结构如下：</p>
+<pre><code>celery_demo                    # 项目根目录
+    ├── celery_app             # 存放 celery 相关文件
+    │   ├── __init__.py
+    │   ├── celeryconfig.py    # 配置文件
+    │   ├── task1.py           # 任务文件 1
+    │   └── task2.py           # 任务文件 2
+    └── client.py              # 应用程序
+</code></pre><p><strong>init</strong>.py 代码如下：</p>
+<pre><code># -*- coding: utf-8 -*-
+from celery import Celery
+app = Celery(&#39;demo&#39;)                                # 创建 Celery 实例
+app.config_from_object(&#39;celery_app.celeryconfig&#39;)   # 通过 Celery 实例加载配置模块
+</code></pre><p>celeryconfig.py 代码如下：</p>
+<pre><code>BROKER_URL = &#39;redis://127.0.0.1:6379&#39;               # 指定 Broker
+CELERY_RESULT_BACKEND = &#39;redis://127.0.0.1:6379/0&#39;  # 指定 Backend
+CELERY_TIMEZONE=&#39;Asia/Shanghai&#39;                     # 指定时区，默认是 UTC
+# CELERY_TIMEZONE=&#39;UTC&#39;                             
+CELERY_IMPORTS = (                                  # 指定导入的任务模块
+    &#39;celery_app.task1&#39;,
+    &#39;celery_app.task2&#39;
+)
+</code></pre><p>task1.py 代码如下：</p>
+<pre><code>import time
+from celery_app import app
+@app.task
+def add(x, y):
+    time.sleep(2)
+    return x + y
+</code></pre><p>task2.py 代码如下：</p>
+<pre><code>import time
+from celery_app import app
+@app.task
+def multiply(x, y):
+    time.sleep(2)
+    return x * y
+</code></pre><p>client.py 代码如下：</p>
+<pre><code># -*- coding: utf-8 -*-
+from celery_app import task1
+from celery_app import task2
+task1.add.apply_async(args=[2, 8])        # 也可用 task1.add.delay(2, 8)
+task2.multiply.apply_async(args=[3, 7])   # 也可用 task2.multiply.delay(3, 7)
+print &#39;hello world&#39;
+</code></pre><p>现在，让我们启动 Celery Worker 进程，在项目的根目录下执行下面命令：</p>
+<pre><code>celery_demo $ celery -A celery_app worker --loglevel=info
+</code></pre><p>接着，运行 $ python client.py，它会发送两个异步任务到 Broker，在 Worker 的窗口我们可以看到如下输出：</p>
+<pre><code>[2016-12-10 13:51:58,939: INFO/MainProcess] Received task: celery_app.task1.add[9ccffad0-aca4-4875-84ce-0ccfce5a83aa]
+[2016-12-10 13:51:58,941: INFO/MainProcess] Received task: celery_app.task2.multiply[64b1f889-c892-4333-bd1d-ac667e677a8a]
+[2016-12-10 13:52:00,948: INFO/PoolWorker-3] Task celery_app.task1.add[9ccffad0-aca4-4875-84ce-0ccfce5a83aa] succeeded in 2.00600231002s: 10
+[2016-12-10 13:52:00,949: INFO/PoolWorker-4] Task celery_app.task2.multiply[64b1f889-c892-4333-bd1d-ac667e677a8a] succeeded in 2.00601326401s: 21
+</code></pre><p>delay 和 apply_async:<br>在前面的例子中，我们使用 delay() 或 apply_async() 方法来调用任务。事实上，delay 方法封装了 apply_async，如下：</p>
+<pre><code>def delay(self, *partial_args, **partial_kwargs):
+    &quot;&quot;&quot;Shortcut to :meth:`apply_async` using star arguments.&quot;&quot;&quot;
+    return self.apply_async(partial_args, partial_kwargs)
+</code></pre><p>也就是说，delay 是使用 apply_async 的快捷方式。apply_async 支持更多的参数，它的一般形式如下：</p>
+<pre><code>apply_async(args=(), kwargs={}, route_name=None, **options)
+</code></pre><p>apply_async 常用的参数如下：</p>
+<ul>
+<li>countdown：指定多少秒后执行任务<pre><code>task1.apply_async(args=(2, 3), countdown=5)    # 5 秒后执行任务
+</code></pre></li>
+<li>eta (estimated time of arrival)：指定任务被调度的具体时间，参数类型是 datetime<pre><code>from datetime import datetime, timedelta
+# 当前 UTC 时间再加 10 秒后执行任务
+task1.multiply.apply_async(args=[3, 7], eta=datetime.utcnow() + timedelta(seconds=10))
+</code></pre></li>
+<li>expires：任务过期时间，参数类型可以是 int，也可以是 datetime<br><code>`</code><br>task1.multiply.apply_async(args=[3, 7], expires=10)    # 10 秒后过期</li>
+</ul>
+<pre><code>
+### 定时任务
+Celery 除了可以执行异步任务，也支持执行周期性任务（Periodic Tasks），或者说定时任务。Celery Beat 进程通过读取配置文件的内容，周期性地将定时任务发往任务队列。
+
+让我们看看例子，项目结构如下：
+</code></pre><p>celery_demo                    # 项目根目录<br>    ├── celery_app             # 存放 celery 相关文件<br>        ├── <strong>init</strong>.py<br>        ├── celeryconfig.py    # 配置文件<br>        ├── task1.py           # 任务文件<br>        └── task2.py           # 任务文件</p>
+<pre><code>__init__.py 代码如下：
+</code></pre><h1 id="coding-utf-8"><a href="#coding-utf-8" class="headerlink" title="-- coding: utf-8 --"></a>-<em>- coding: utf-8 -</em>-</h1><p>from celery import Celery<br>app = Celery(‘demo’)<br>app.config_from_object(‘celery_app.celeryconfig’)</p>
+<pre><code>celeryconfig.py 代码如下：
+</code></pre><h1 id="coding-utf-8-1"><a href="#coding-utf-8-1" class="headerlink" title="-- coding: utf-8 --"></a>-<em>- coding: utf-8 -</em>-</h1><p>from datetime import timedelta<br>from celery.schedules import crontab</p>
+<h1 id="Broker-and-Backend"><a href="#Broker-and-Backend" class="headerlink" title="Broker and Backend"></a>Broker and Backend</h1><p>BROKER_URL = ‘redis://127.0.0.1:6379’<br>CELERY_RESULT_BACKEND = ‘redis://127.0.0.1:6379/0’</p>
+<h1 id="Timezone"><a href="#Timezone" class="headerlink" title="Timezone"></a>Timezone</h1><p>CELERY_TIMEZONE=’Asia/Shanghai’    # 指定时区，不指定默认为 ‘UTC’</p>
+<h1 id="CELERY-TIMEZONE-’UTC’"><a href="#CELERY-TIMEZONE-’UTC’" class="headerlink" title="CELERY_TIMEZONE=’UTC’"></a>CELERY_TIMEZONE=’UTC’</h1><h1 id="import"><a href="#import" class="headerlink" title="import"></a>import</h1><p>CELERY_IMPORTS = (<br>    ‘celery_app.task1’,<br>    ‘celery_app.task2’<br>)</p>
+<h1 id="定时任务"><a href="#定时任务" class="headerlink" title="定时任务"></a>定时任务</h1><p>CELERYBEAT_SCHEDULE = {<br>    ‘add-every-30-seconds’: {<br>         ‘task’: ‘celery_app.task1.add’,<br>         ‘schedule’: timedelta(seconds=30),       # 每 30 秒执行一次<br>         ‘args’: (5, 8)                           # 任务函数参数<br>    },<br>    ‘multiply-at-some-time’: {<br>        ‘task’: ‘celery_app.task2.multiply’,<br>        ‘schedule’: crontab(hour=9, minute=50),   # 每天早上 9 点 50 分执行一次<br>        ‘args’: (3, 7)                            # 任务函数参数<br>    }<br>}</p>
+<pre><code>task1.py 代码如下：
+</code></pre><p>import time<br>from celery_app import app<br>@app.task<br>def add(x, y):<br>    time.sleep(2)<br>    return x + y</p>
+<pre><code>
+task2.py 代码如下：
+</code></pre><p>import time<br>from celery_app import app<br>@app.task<br>def multiply(x, y):<br>    time.sleep(2)<br>    return x * y</p>
+<pre><code>
+现在，让我们启动 Celery Worker 进程，在项目的根目录下执行下面命令：
+</code></pre><p>celery_demo $ celery -A celery_app worker –loglevel=info</p>
+<pre><code>接着，启动 Celery Beat 进程，定时将任务发送到 Broker，在项目根目录下执行下面命令：
+</code></pre><p>celery_demo $ celery beat -A celery_app<br>celery beat v4.0.1 (latentcall) is starting.<br>LocalTime -&gt; 2016-12-11 09:48:16<br>Configuration -&gt;<br>    . broker -&gt; redis://127.0.0.1:6379//<br>    . loader -&gt; celery.loaders.app.AppLoader<br>    . scheduler -&gt; celery.beat.PersistentScheduler<br>    . db -&gt; celerybeat-schedule<br>    . logfile -&gt; [stderr]@%WARNING<br>    . maxinterval -&gt; 5.00 minutes (300s)</p>
+<pre><code>之后，在 Worker 窗口我们可以看到，任务 task1 每 30 秒执行一次，而 task2 每天早上 9 点 50 分执行一次。
+在上面，我们用两个命令启动了 Worker 进程和 Beat 进程，我们也可以将它们放在一个命令中：
+
+</code></pre><p>$ celery -B -A celery_app worker –loglevel=info   # windows中不支持<br><code>`</code></p>
+<h3 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h3><p><a href="http://funhacks.net/2016/12/13/celery/" target="_blank" rel="noopener">http://funhacks.net/2016/12/13/celery/</a></p>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/03/06/Hibernate2 /">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -609,6 +907,347 @@ public static void sqlquery_test() {
 }
 </code></pre><p>}<br><code>`</code></p>
 
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/02/28/pandas to_csv乱码/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2018/02/28/pandas to_csv乱码/" itemprop="url">Pandas to_csv乱码</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-02-28T14:52:57+08:00">
+                2018-02-28
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/奇淫技巧/" itemprop="url" rel="index">
+                    <span itemprop="name">奇淫技巧</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="to-csv乱码"><a href="#to-csv乱码" class="headerlink" title="to_csv乱码"></a>to_csv乱码</h3><p>self.new_df.to_csv(‘aaaa.csv’,  encoding=’utf_8’)之后还是乱码，将utf_8改为utf_8_sig即可</p>
+<pre><code>self.new_df.to_csv(&#39;aaaa.csv&#39;,  encoding=&#39;utf_8_sig&#39;)
+</code></pre><h3 id="read-csv指定分隔符"><a href="#read-csv指定分隔符" class="headerlink" title="read_csv指定分隔符"></a>read_csv指定分隔符</h3><pre><code>self.df = pd.read_csv(FILE_PATH, sep=&quot;|,&quot;, encoding = &quot;utf-8&quot;)
+</code></pre><h3 id="迭代dataframe"><a href="#迭代dataframe" class="headerlink" title="迭代dataframe"></a>迭代dataframe</h3><pre><code>for index, col in self.df.iterrows():
+    print &quot;当期处理数据条数:&quot;, index
+    current_col_comment = col[&#39;列名&#39;]
+</code></pre>
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/02/28/Python argparse简单使用/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2018/02/28/Python argparse简单使用/" itemprop="url">Python argparse接收参数使用</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-02-28T14:52:57+08:00">
+                2018-02-28
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/奇淫技巧/" itemprop="url" rel="index">
+                    <span itemprop="name">奇淫技巧</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="必选参数"><a href="#必选参数" class="headerlink" title="必选参数"></a>必选参数</h3><pre><code># -*- coding:utf-8 -*-
+import argparse
+if __name__ == &#39;__main__&#39;:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(&#39;integer&#39;, type=int, help=&#39;display an integer&#39;)
+    args = parser.parse_args()
+    print args
+    print args.integer
+
+# 调用及输出: 
+(public) D:\dev\project\test\mongo&gt;python arg_test.py 3
+Namespace(integer=3)
+3
+
+(public) D:\dev\project\test\mongo&gt;python arg_test.py
+usage: arg_test.py [-h] integer
+arg_test.py: error: too few arguments
+
+(public) D:\dev\project\test\mongo&gt;python arg_test.py &quot;1&quot;
+Namespace(integer=1)
+1
+</code></pre><h3 id="可选参数"><a href="#可选参数" class="headerlink" title="可选参数"></a>可选参数</h3><pre><code># -*- coding:utf-8 -*-
+import argparse
+
+if __name__ == &quot;__main__&quot;:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(&quot;--arg1&quot;, help=&quot;arg1 number&quot;, type=int)
+    parser.add_argument(&quot;--arg2&quot;, help=&quot;arg2 number&quot;, type=int)
+
+    args = parser.parse_args()
+    if args.arg1:
+        print u&quot;参数1&quot;, args.arg1
+
+    if args.arg2:
+        print u&quot;参数2&quot;, args.arg2
+
+# 调用及输出:
+(public) D:\dev\project\test\mongo&gt;python arg_test.py --arg1 1
+参数1 1
+
+(public) D:\dev\project\test\mongo&gt;python arg_test.py --arg2 2
+参数2 2
+
+(public) D:\dev\project\test\mongo&gt;python arg_test.py --arg1 1 --arg2 2
+参数1 1
+参数2 2
+
+(public) D:\dev\project\test\mongo&gt;python arg_test.py 1
+usage: arg_test.py [-h] [--arg1 ARG1] [--arg2 ARG2]
+arg_test.py: error: unrecognized arguments: 1
+
+(public) D:\dev\project\test\mongo&gt;python arg_test.py
+
+</code></pre>
           
         
       
@@ -951,347 +1590,6 @@ day = time.tm_mday
 <li>转小写 ctrl + shift + y</li>
 </ol>
 
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/02/28/Python argparse简单使用/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2018/02/28/Python argparse简单使用/" itemprop="url">Python argparse接收参数使用</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-02-28T14:52:57+08:00">
-                2018-02-28
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/奇淫技巧/" itemprop="url" rel="index">
-                    <span itemprop="name">奇淫技巧</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="必选参数"><a href="#必选参数" class="headerlink" title="必选参数"></a>必选参数</h3><pre><code># -*- coding:utf-8 -*-
-import argparse
-if __name__ == &#39;__main__&#39;:
-    parser = argparse.ArgumentParser()
-    parser.add_argument(&#39;integer&#39;, type=int, help=&#39;display an integer&#39;)
-    args = parser.parse_args()
-    print args
-    print args.integer
-
-# 调用及输出: 
-(public) D:\dev\project\test\mongo&gt;python arg_test.py 3
-Namespace(integer=3)
-3
-
-(public) D:\dev\project\test\mongo&gt;python arg_test.py
-usage: arg_test.py [-h] integer
-arg_test.py: error: too few arguments
-
-(public) D:\dev\project\test\mongo&gt;python arg_test.py &quot;1&quot;
-Namespace(integer=1)
-1
-</code></pre><h3 id="可选参数"><a href="#可选参数" class="headerlink" title="可选参数"></a>可选参数</h3><pre><code># -*- coding:utf-8 -*-
-import argparse
-
-if __name__ == &quot;__main__&quot;:
-    parser = argparse.ArgumentParser()
-    parser.add_argument(&quot;--arg1&quot;, help=&quot;arg1 number&quot;, type=int)
-    parser.add_argument(&quot;--arg2&quot;, help=&quot;arg2 number&quot;, type=int)
-
-    args = parser.parse_args()
-    if args.arg1:
-        print u&quot;参数1&quot;, args.arg1
-
-    if args.arg2:
-        print u&quot;参数2&quot;, args.arg2
-
-# 调用及输出:
-(public) D:\dev\project\test\mongo&gt;python arg_test.py --arg1 1
-参数1 1
-
-(public) D:\dev\project\test\mongo&gt;python arg_test.py --arg2 2
-参数2 2
-
-(public) D:\dev\project\test\mongo&gt;python arg_test.py --arg1 1 --arg2 2
-参数1 1
-参数2 2
-
-(public) D:\dev\project\test\mongo&gt;python arg_test.py 1
-usage: arg_test.py [-h] [--arg1 ARG1] [--arg2 ARG2]
-arg_test.py: error: unrecognized arguments: 1
-
-(public) D:\dev\project\test\mongo&gt;python arg_test.py
-
-</code></pre>
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/02/28/pandas to_csv乱码/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2018/02/28/pandas to_csv乱码/" itemprop="url">Pandas to_csv乱码</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-02-28T14:52:57+08:00">
-                2018-02-28
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/奇淫技巧/" itemprop="url" rel="index">
-                    <span itemprop="name">奇淫技巧</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="to-csv乱码"><a href="#to-csv乱码" class="headerlink" title="to_csv乱码"></a>to_csv乱码</h3><p>self.new_df.to_csv(‘aaaa.csv’,  encoding=’utf_8’)之后还是乱码，将utf_8改为utf_8_sig即可</p>
-<pre><code>self.new_df.to_csv(&#39;aaaa.csv&#39;,  encoding=&#39;utf_8_sig&#39;)
-</code></pre><h3 id="read-csv指定分隔符"><a href="#read-csv指定分隔符" class="headerlink" title="read_csv指定分隔符"></a>read_csv指定分隔符</h3><pre><code>self.df = pd.read_csv(FILE_PATH, sep=&quot;|,&quot;, encoding = &quot;utf-8&quot;)
-</code></pre><h3 id="迭代dataframe"><a href="#迭代dataframe" class="headerlink" title="迭代dataframe"></a>迭代dataframe</h3><pre><code>for index, col in self.df.iterrows():
-    print &quot;当期处理数据条数:&quot;, index
-    current_col_comment = col[&#39;列名&#39;]
-</code></pre>
           
         
       
@@ -2278,7 +2576,7 @@ public class  HibernateUtils {
   
   
   <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/01/12/Pycharm快捷键/">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/01/12/collections 常用工具/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="name" content="Rex">
@@ -2297,7 +2595,379 @@ public class  HibernateUtils {
         
           <h1 class="post-title" itemprop="name headline">
                 
-                <a class="post-title-link" href="/2018/01/12/Pycharm快捷键/" itemprop="url">Pycharm快捷键</a></h1>
+                <a class="post-title-link" href="/2018/01/12/collections 常用工具/" itemprop="url">Collections 常用工具</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-01-12T23:14:57+08:00">
+                2018-01-12
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Python/" itemprop="url" rel="index">
+                    <span itemprop="name">Python</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          <p>简单介绍defaultdict、setdefault、namedtuple、deque、Counter、OrderedDict的使用<br></p>
+          <!--noindex-->
+          <div class="post-button text-center">
+            <a class="btn" href="/2018/01/12/collections 常用工具/#more" rel="contents">
+              阅读全文 &raquo;
+            </a>
+          </div>
+          <!--/noindex-->
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/01/12/搭建sftp 并使用Python上传文件/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2018/01/12/搭建sftp 并使用Python上传文件/" itemprop="url">搭建sftp，并使用Python上传文件</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-01-12T23:14:57+08:00">
+                2018-01-12
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/技术/" itemprop="url" rel="index">
+                    <span itemprop="name">技术</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="查看openssh的版本"><a href="#查看openssh的版本" class="headerlink" title="查看openssh的版本"></a>查看openssh的版本</h3><pre><code>ssh -V   
+</code></pre><p>使用ssh -V 命令来查看openssh的版本，版本必须大于4.8p1，低于的这个版本需要升级。</p>
+<h3 id="创建sftp组"><a href="#创建sftp组" class="headerlink" title="创建sftp组"></a>创建sftp组</h3><pre><code>groupadd sftp  
+</code></pre><p>创建sftp组</p>
+<h3 id="创建sftp用户"><a href="#创建sftp用户" class="headerlink" title="创建sftp用户"></a>创建sftp用户</h3><pre><code>useradd -g sftp -s /bin/false mysftp  
+passwd mysftp  
+</code></pre><p>创建一个sftp用户，用户名为mysftp，密码为mysftp<br>修改用户密码和修改Linux用户密码是一样的。</p>
+<h3 id="修改sftp组用户的家目录，指定文件上传文件夹"><a href="#修改sftp组用户的家目录，指定文件上传文件夹" class="headerlink" title="修改sftp组用户的家目录，指定文件上传文件夹"></a>修改sftp组用户的家目录，指定文件上传文件夹</h3><pre><code>mkdir -p /data/sftp/mysftp  
+usermod -d /data/sftp/mysftp mysftp  
+</code></pre><p>sftp组的用户的home目录统一指定到/data/sftp下，按用户名区分，这里先新建一个mysftp目录，然后指定mysftp的home为/data/sftp/mysftp</p>
+<h3 id="配置sshd-config"><a href="#配置sshd-config" class="headerlink" title="配置sshd_config"></a>配置sshd_config</h3><p>配置sshd_config,文本编辑器打开 /etc/ssh/sshd_config vi /etc/ssh/sshd_config找到如下这行，用#符号注释掉，大致在文件末尾处。</p>
+<pre><code>#Subsystem      sftp    /usr/libexec/openssh/sftp-server  
+</code></pre><p>在文件最后面添加如下几行内容，然后保存。</p>
+<pre><code>Subsystem       sftp    internal-sftp    
+Match Group sftp    
+ChrootDirectory /data/sftp/%u    
+ForceCommand    internal-sftp    
+AllowTcpForwarding no    
+X11Forwarding no  
+</code></pre><h3 id="设置权限"><a href="#设置权限" class="headerlink" title="设置权限"></a>设置权限</h3><pre><code>chown root:sftp /data/sftp/mysftp  
+chmod 755 /data/sftp/mysftp 
+
+mkdir /data/sftp/mysftp/upload  
+chown mysftp:sftp /data/sftp/mysftp/upload  
+chmod 755 /data/sftp/mysftp/upload  
+</code></pre><h3 id="selinux设置"><a href="#selinux设置" class="headerlink" title="selinux设置"></a>selinux设置</h3><p>修改/etc/selinux/config,文本编辑器打开/etc/selinux/config</p>
+<pre><code>vi /etc/selinux/config  
+</code></pre><p>将文件中的SELINUX=enforcing 修改为 SELINUX=disabled ，然后保存。在输入命令</p>
+<h3 id="重启sshd"><a href="#重启sshd" class="headerlink" title="重启sshd"></a>重启sshd</h3><pre><code>service sshd restart  
+</code></pre><h3 id="使用Python代码上传"><a href="#使用Python代码上传" class="headerlink" title="使用Python代码上传"></a>使用Python代码上传</h3><pre><code># !/usr/bin/python
+# coding=utf-8
+import datetime
+import paramiko
+import os
+import sys
+import settings
+
+if __name__ == &#39;__main__&#39;:
+    sys.path.insert(0, os.path.abspath(os.curdir))
+
+
+class SFTP(object):
+    def __init__(self):
+        self.host = settings.SFTP_HOST
+        self.port = settings.SFTP_PORT
+        self.username = settings.SFTP_USERNAME
+        self.password = settings.SFTP_PASSWORD
+        sf = None
+        try:
+            sf = paramiko.Transport((self.host, self.port))
+            sf.connect(username=self.username, password=self.password)
+        except Exception, e:
+            print &quot;Server Connect Error&quot;
+        self.sf = sf
+
+    def sftp_upload(self, local_path, remote_path, local_csv_name):
+        if self.sf:
+            try:
+                sftp = paramiko.SFTPClient.from_transport(self.sf)
+                # 判断文件是否存在，不存在则创建
+                local_csv_file_path = os.path.join(local_path, local_csv_name + &#39;.csv&#39;)
+                if not os.path.exists(local_csv_file_path):
+                    open(local_csv_file_path, &#39;a&#39;)
+                sftp.put(local_csv_file_path, os.path.join(remote_path, local_csv_name + &#39;.csv&#39;))
+                # 状态标识文件,有done则表示文件上传完成
+                local_done_file_path = os.path.join(local_path, local_csv_name + &#39;.done&#39;)
+                if not os.path.exists(local_done_file_path):
+                    open(local_done_file_path, &#39;a&#39;)
+                sftp.put(local_done_file_path, os.path.join(remote_path, local_csv_name + &#39;.done&#39;))
+            except Exception, e:
+                print &#39;upload exception:&#39;, e
+            finally:
+                self.sf.close()
+
+if __name__ == &#39;__main__&#39;:
+    yesterday = datetime.datetime.today() - datetime.timedelta(days=1)
+    local_path = os.path.join(settings.DATA_FILE_PATH, &#39;LppzData&#39;)
+    remote_path = &#39;/upload/&#39;
+    local_path = os.path.join(settings.DATA_FILE_PATH, &#39;LppzData&#39;)
+    # 测试文件
+    # local_csv_name = &quot;test1&quot;
+    local_csv_name = &#39;LppzData_&#39; + yesterday.strftime(&#39;%Y%m%d&#39;)
+    obj = SFTP()
+    obj.sftp_upload(local_path, remote_path, local_csv_name)
+</code></pre><h3 id="问题"><a href="#问题" class="headerlink" title="问题"></a>问题</h3><p>fatal: bad ownership or modes for chroot directory “/data/sftp/wmt_sftp”<br>在工作中出现几次登录不上的情况，查看/var/log/securt下的日志发现出现上面的错误。这是因为文件夹的权限不对导致登录不上。</p>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/01/12/linux 上传下载文件/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2018/01/12/linux 上传下载文件/" itemprop="url">Linux 上传和下载文件</a></h1>
         
 
         <div class="post-meta">
@@ -2371,8 +3041,11 @@ public class  HibernateUtils {
       
         
           
-            <p>Pycharm 使用的快捷键</p>
-<p>1，快速复制一行 ctrl + d<br>2，快速删除一行 ctrl + x<br>3，将一行往下/上移动  shift + alt + 方向<br>4，显示当前类下的所有方法 ctrl + F12<br>5，格式化代码 ctrl + alt + l<br>6，ctrl + shift + u 转大小写</p>
+            <p> sudo apt install lrzsz</p>
+<p> 下载一个文件<br> sz filename</p>
+<p> 下载多个文件<br> sz filename1 filename2 </p>
+<p> 下载dir目录下的所有文件，不包含dir下的文件夹<br> sz dir/*</p>
+<p>rz用法：<br>输入rz回车后，会出现文件选择对话框，选择需要上传文件，一次可以指定多个文件，上传到服务器的路径为当前执行rz命令的目录。</p>
 
           
         
@@ -2720,7 +3393,7 @@ k8s
   
   
   <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/01/12/collections 常用工具/">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/01/12/Pycharm快捷键/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="name" content="Rex">
@@ -2739,153 +3412,7 @@ k8s
         
           <h1 class="post-title" itemprop="name headline">
                 
-                <a class="post-title-link" href="/2018/01/12/collections 常用工具/" itemprop="url">Collections 常用工具</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-01-12T23:14:57+08:00">
-                2018-01-12
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Python/" itemprop="url" rel="index">
-                    <span itemprop="name">Python</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          <p>简单介绍defaultdict、setdefault、namedtuple、deque、Counter、OrderedDict的使用<br></p>
-          <!--noindex-->
-          <div class="post-button text-center">
-            <a class="btn" href="/2018/01/12/collections 常用工具/#more" rel="contents">
-              阅读全文 &raquo;
-            </a>
-          </div>
-          <!--/noindex-->
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/01/12/linux 上传下载文件/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2018/01/12/linux 上传下载文件/" itemprop="url">Linux 上传和下载文件</a></h1>
+                <a class="post-title-link" href="/2018/01/12/Pycharm快捷键/" itemprop="url">Pycharm快捷键</a></h1>
         
 
         <div class="post-meta">
@@ -2959,237 +3486,8 @@ k8s
       
         
           
-            <p> sudo apt install lrzsz</p>
-<p> 下载一个文件<br> sz filename</p>
-<p> 下载多个文件<br> sz filename1 filename2 </p>
-<p> 下载dir目录下的所有文件，不包含dir下的文件夹<br> sz dir/*</p>
-<p>rz用法：<br>输入rz回车后，会出现文件选择对话框，选择需要上传文件，一次可以指定多个文件，上传到服务器的路径为当前执行rz命令的目录。</p>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/01/12/搭建sftp 并使用Python上传文件/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2018/01/12/搭建sftp 并使用Python上传文件/" itemprop="url">搭建sftp，并使用Python上传文件</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-01-12T23:14:57+08:00">
-                2018-01-12
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/技术/" itemprop="url" rel="index">
-                    <span itemprop="name">技术</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="查看openssh的版本"><a href="#查看openssh的版本" class="headerlink" title="查看openssh的版本"></a>查看openssh的版本</h3><pre><code>ssh -V   
-</code></pre><p>使用ssh -V 命令来查看openssh的版本，版本必须大于4.8p1，低于的这个版本需要升级。</p>
-<h3 id="创建sftp组"><a href="#创建sftp组" class="headerlink" title="创建sftp组"></a>创建sftp组</h3><pre><code>groupadd sftp  
-</code></pre><p>创建sftp组</p>
-<h3 id="创建sftp用户"><a href="#创建sftp用户" class="headerlink" title="创建sftp用户"></a>创建sftp用户</h3><pre><code>useradd -g sftp -s /bin/false mysftp  
-passwd mysftp  
-</code></pre><p>创建一个sftp用户，用户名为mysftp，密码为mysftp<br>修改用户密码和修改Linux用户密码是一样的。</p>
-<h3 id="修改sftp组用户的家目录，指定文件上传文件夹"><a href="#修改sftp组用户的家目录，指定文件上传文件夹" class="headerlink" title="修改sftp组用户的家目录，指定文件上传文件夹"></a>修改sftp组用户的家目录，指定文件上传文件夹</h3><pre><code>mkdir -p /data/sftp/mysftp  
-usermod -d /data/sftp/mysftp mysftp  
-</code></pre><p>sftp组的用户的home目录统一指定到/data/sftp下，按用户名区分，这里先新建一个mysftp目录，然后指定mysftp的home为/data/sftp/mysftp</p>
-<h3 id="配置sshd-config"><a href="#配置sshd-config" class="headerlink" title="配置sshd_config"></a>配置sshd_config</h3><p>配置sshd_config,文本编辑器打开 /etc/ssh/sshd_config vi /etc/ssh/sshd_config找到如下这行，用#符号注释掉，大致在文件末尾处。</p>
-<pre><code>#Subsystem      sftp    /usr/libexec/openssh/sftp-server  
-</code></pre><p>在文件最后面添加如下几行内容，然后保存。</p>
-<pre><code>Subsystem       sftp    internal-sftp    
-Match Group sftp    
-ChrootDirectory /data/sftp/%u    
-ForceCommand    internal-sftp    
-AllowTcpForwarding no    
-X11Forwarding no  
-</code></pre><h3 id="设置权限"><a href="#设置权限" class="headerlink" title="设置权限"></a>设置权限</h3><pre><code>chown root:sftp /data/sftp/mysftp  
-chmod 755 /data/sftp/mysftp 
-
-mkdir /data/sftp/mysftp/upload  
-chown mysftp:sftp /data/sftp/mysftp/upload  
-chmod 755 /data/sftp/mysftp/upload  
-</code></pre><h3 id="selinux设置"><a href="#selinux设置" class="headerlink" title="selinux设置"></a>selinux设置</h3><p>修改/etc/selinux/config,文本编辑器打开/etc/selinux/config</p>
-<pre><code>vi /etc/selinux/config  
-</code></pre><p>将文件中的SELINUX=enforcing 修改为 SELINUX=disabled ，然后保存。在输入命令</p>
-<h3 id="重启sshd"><a href="#重启sshd" class="headerlink" title="重启sshd"></a>重启sshd</h3><pre><code>service sshd restart  
-</code></pre><h3 id="使用Python代码上传"><a href="#使用Python代码上传" class="headerlink" title="使用Python代码上传"></a>使用Python代码上传</h3><pre><code># !/usr/bin/python
-# coding=utf-8
-import datetime
-import paramiko
-import os
-import sys
-import settings
-
-if __name__ == &#39;__main__&#39;:
-    sys.path.insert(0, os.path.abspath(os.curdir))
-
-
-class SFTP(object):
-    def __init__(self):
-        self.host = settings.SFTP_HOST
-        self.port = settings.SFTP_PORT
-        self.username = settings.SFTP_USERNAME
-        self.password = settings.SFTP_PASSWORD
-        sf = None
-        try:
-            sf = paramiko.Transport((self.host, self.port))
-            sf.connect(username=self.username, password=self.password)
-        except Exception, e:
-            print &quot;Server Connect Error&quot;
-        self.sf = sf
-
-    def sftp_upload(self, local_path, remote_path, local_csv_name):
-        if self.sf:
-            try:
-                sftp = paramiko.SFTPClient.from_transport(self.sf)
-                # 判断文件是否存在，不存在则创建
-                local_csv_file_path = os.path.join(local_path, local_csv_name + &#39;.csv&#39;)
-                if not os.path.exists(local_csv_file_path):
-                    open(local_csv_file_path, &#39;a&#39;)
-                sftp.put(local_csv_file_path, os.path.join(remote_path, local_csv_name + &#39;.csv&#39;))
-                # 状态标识文件,有done则表示文件上传完成
-                local_done_file_path = os.path.join(local_path, local_csv_name + &#39;.done&#39;)
-                if not os.path.exists(local_done_file_path):
-                    open(local_done_file_path, &#39;a&#39;)
-                sftp.put(local_done_file_path, os.path.join(remote_path, local_csv_name + &#39;.done&#39;))
-            except Exception, e:
-                print &#39;upload exception:&#39;, e
-            finally:
-                self.sf.close()
-
-if __name__ == &#39;__main__&#39;:
-    yesterday = datetime.datetime.today() - datetime.timedelta(days=1)
-    local_path = os.path.join(settings.DATA_FILE_PATH, &#39;LppzData&#39;)
-    remote_path = &#39;/upload/&#39;
-    local_path = os.path.join(settings.DATA_FILE_PATH, &#39;LppzData&#39;)
-    # 测试文件
-    # local_csv_name = &quot;test1&quot;
-    local_csv_name = &#39;LppzData_&#39; + yesterday.strftime(&#39;%Y%m%d&#39;)
-    obj = SFTP()
-    obj.sftp_upload(local_path, remote_path, local_csv_name)
-</code></pre><h3 id="问题"><a href="#问题" class="headerlink" title="问题"></a>问题</h3><p>fatal: bad ownership or modes for chroot directory “/data/sftp/wmt_sftp”<br>在工作中出现几次登录不上的情况，查看/var/log/securt下的日志发现出现上面的错误。这是因为文件夹的权限不对导致登录不上。</p>
+            <p>Pycharm 使用的快捷键</p>
+<p>1，快速复制一行 ctrl + d<br>2，快速删除一行 ctrl + x<br>3，将一行往下/上移动  shift + alt + 方向<br>4，显示当前类下的所有方法 ctrl + F12<br>5，格式化代码 ctrl + alt + l<br>6，ctrl + shift + u 转大小写</p>
 
           
         
@@ -3755,213 +4053,6 @@ redis&gt; lpush high_task_queue low004
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2017/12/04/MySQL事务/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2017/12/04/MySQL事务/" itemprop="url">MySQl事务</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-12-04T12:28:52+08:00">
-                2017-12-04
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/技术/" itemprop="url" rel="index">
-                    <span itemprop="name">技术</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="介绍"><a href="#介绍" class="headerlink" title="介绍"></a>介绍</h3><ol>
-<li>在 MySQL 中只有使用了 Innodb 数据库引擎的数据库或表才支持事务。</li>
-<li>事务处理可以用来维护数据库的完整性，保证成批的 SQL 语句要么全部执行，要么全部不执行</li>
-<li><p>事务用来管理 insert,update,delete 语句</p>
-<p>一般来说，事务是必须满足4个条件（ACID）： Atomicity（原子性）、Consistency（稳定性）、Isolation（隔离性）、Durability（可靠性）</p>
-</li>
-</ol>
-<h3 id="默认情况"><a href="#默认情况" class="headerlink" title="默认情况"></a>默认情况</h3><p>　在 MySQL 命令行的默认设置下，事务都是自动提交的，即执行 SQL 语句后就会马上执行 COMMIT 操作。因此要显式地开启一个事务务须使用命令 BEGIN 或 START TRANSACTION，或者执行命令 SET AUTOCOMMIT=0，用来禁止使用当前会话的自动提交。</p>
-<h3 id="事务控制"><a href="#事务控制" class="headerlink" title="事务控制"></a>事务控制</h3><ol>
-<li>BEGIN或START TRANSACTION；显式地开启一个事务；</li>
-<li>COMMIT；也可以使用COMMIT WORK，不过二者是等价的。COMMIT会提交事务，并使已对数据库进行的所有修改称为永久性的；</li>
-<li>ROLLBACK；有可以使用ROLLBACK WORK，不过二者是等价的。回滚会结束用户的事务，并撤销正在进行的所有未提交的修改；</li>
-<li>SAVEPOINT identifier；SAVEPOINT允许在事务中创建一个保存点，一个事务中可以有多个SAVEPOINT；</li>
-<li>RELEASE SAVEPOINT identifier；删除一个事务的保存点，当没有指定的保存点时，执行该语句会抛出一个异常；</li>
-<li>ROLLBACK TO identifier；把事务回滚到标记点；</li>
-<li>SET TRANSACTION；用来设置事务的隔离级别。InnoDB存储引擎提供事务的隔离级别有READ UNCOMMITTED、READ COMMITTED、REPEATABLE READ和SERIALIZABLE。</li>
-</ol>
-<h3 id="MySQL事务处理"><a href="#MySQL事务处理" class="headerlink" title="MySQL事务处理"></a>MySQL事务处理</h3><p>1、用 BEGIN, ROLLBACK, COMMIT来实现<br>　　BEGIN 开始一个事务<br>　　ROLLBACK 事务回滚<br>　　COMMIT 事务确认<br>2、直接用 SET 来改变 MySQL 的自动提交模式:<br>　　SET AUTOCOMMIT=0 禁止自动提交<br>　　SET AUTOCOMMIT=1 开启自动提交</p>
-<h3 id="测试"><a href="#测试" class="headerlink" title="测试"></a>测试</h3><p><img src="/2017/12/04/MySQL事务/1.png" alt></p>
-<h3 id="在Java中使用"><a href="#在Java中使用" class="headerlink" title="在Java中使用"></a>在Java中使用</h3><pre><code>package com.rexyan.mysql;
-
-import java.io.IOException;
-import java.sql.Connection;
-import java.sql.SQLException;
-
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import org.apache.commons.dbutils.DbUtils;
-import org.apache.commons.dbutils.QueryRunner;
-
-import com.rexyan.utils.DataSourceUtils;
-
-public class MySQL extends HttpServlet {
-    public void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        Connection connection = null;
-        try {
-            QueryRunner queryRunner = new QueryRunner(); 
-            connection = DataSourceUtils.getConnection();
-            //开启事务
-            connection.setAutoCommit(false);
-            String sql = &quot;delete from user where id=?&quot;;
-            queryRunner.update(connection, sql, 6);
-        } catch (SQLException e) {
-            // 回滚
-            try {
-                connection.rollback();
-            } catch (SQLException e1) {
-                e1.printStackTrace();
-            }
-        }finally {
-            // 提交
-            try {
-                connection.commit();
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
-        }    
-    }
-
-    public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        doGet(request, response);
-    }
-}
-</code></pre>
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
   </section>
 
   
@@ -4012,7 +4103,7 @@ public class MySQL extends HttpServlet {
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">291</span>
+                  <span class="site-state-item-count">292</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>
@@ -4034,7 +4125,7 @@ public class MySQL extends HttpServlet {
               
               <div class="site-state-item site-state-tags">
                 <a href="/tags/index.html">
-                  <span class="site-state-item-count">143</span>
+                  <span class="site-state-item-count">144</span>
                   <span class="site-state-item-name">标签</span>
                 </a>
               </div>
