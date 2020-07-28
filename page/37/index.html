@@ -348,6 +348,475 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2017/10/29/JDBC3/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2017/10/29/JDBC3/" itemprop="url">JDBC3</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-10-29T11:49:57+08:00">
+                2017-10-29
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Java/" itemprop="url" rel="index">
+                    <span itemprop="name">Java</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="工具类"><a href="#工具类" class="headerlink" title="工具类"></a>工具类</h3><p>　　如果每次操作都需要写代码来建立数据的连接的释放连接的话，那么开发的速度和效率会很低。这时我们应该考虑将数据的连接和释放进行封装。这样就不必每次都编写连接和释放的代码了，只需调用已经编写好的即可。</p>
+<h3 id="普通的抽取"><a href="#普通的抽取" class="headerlink" title="普通的抽取"></a>普通的抽取</h3><pre><code>public class ToolsV1 {
+    /**
+     * 公共连接数据库
+     * @return Connection
+     */
+    public static Connection Conn(){
+        Connection conn = null;
+        try {
+            // 1,注册驱动
+            Class.forName(&quot;com.mysql.jdbc.Driver&quot;);
+            // 2,获取Connection连接 
+            conn = DriverManager.getConnection(&quot;jdbc:mysql://localhost:3306/java&quot;, &quot;root&quot;, &quot;root&quot;);    
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        //3,返回获取到的连接
+        return conn;
+    }
+
+    /**
+     * 公共释放数据库连接
+     */
+    public static void release(Connection conn, PreparedStatement prep, ResultSet re){
+        try {
+            if (re!=null){re.close();}
+            if (prep!=null){prep.close();}
+            if (conn!=null){conn.close();}
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+</code></pre><h3 id="使用配置文件"><a href="#使用配置文件" class="headerlink" title="使用配置文件"></a>使用配置文件</h3><h4 id="使用ResourceBundle"><a href="#使用ResourceBundle" class="headerlink" title="使用ResourceBundle"></a>使用ResourceBundle</h4><h5 id="编写配置文件"><a href="#编写配置文件" class="headerlink" title="编写配置文件"></a>编写配置文件</h5><p>　在src下新建db.propertie文件，【注意文件后缀要为.propertie的文件】。内容如下：</p>
+<blockquote>
+<p>driver=com.mysql.jdbc.Driver<br>url=jdbc:mysql://localhost:3306/java?useUnicode=true&amp;characterEncoding=utf8<br>username=root<br>password=root</p>
+</blockquote>
+<h5 id="具体实现"><a href="#具体实现" class="headerlink" title="具体实现"></a>具体实现</h5><p>　具体实现如下：</p>
+<pre><code>public class ToolsV2 {
+    /**
+     * 公共连接数据库
+     * @return Connection
+     */
+
+     private static String driver = null;
+    private static String url = null;
+    private static String username = null;
+    private static String password = null;
+
+    //静态代码块加载配置文件
+    static{
+        //载入配置文件
+        ResourceBundle bund = ResourceBundle.getBundle(&quot;db&quot;);
+        driver = bund.getString(&quot;driver&quot;);
+        url = bund.getString(&quot;url&quot;);
+        username = bund.getString(&quot;username&quot;);
+        password = bund.getString(&quot;password&quot;);
+    }
+
+    public static Connection Conn(){
+        Connection conn = null;
+
+        try {
+            // 注册驱动
+            Class.forName(driver);
+            // 获取Connection连接 
+            conn = DriverManager.getConnection(url, username, password);    
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        //返回获取到的连接
+        return conn;
+    }
+
+    /**
+     * 公共释放数据库连接
+     */
+    public static void release(Connection conn, PreparedStatement prep, ResultSet re){
+        try {
+            if (re!=null){re.close();}
+            if (prep!=null){prep.close();}
+            if (conn!=null){conn.close();}
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+</code></pre><h4 id="使用Properties文件流"><a href="#使用Properties文件流" class="headerlink" title="使用Properties文件流"></a>使用Properties文件流</h4><h5 id="编写配置文件-1"><a href="#编写配置文件-1" class="headerlink" title="编写配置文件"></a>编写配置文件</h5><p>　在src下新建db.propertie文件，【注意文件后缀要为.propertie的文件】。内容如下：</p>
+<blockquote>
+<p>driver=com.mysql.jdbc.Driver<br>url=jdbc:mysql://localhost:3306/java?useUnicode=true&amp;characterEncoding=utf8<br>username=root<br>password=root</p>
+</blockquote>
+<h5 id="具体实现-1"><a href="#具体实现-1" class="headerlink" title="具体实现"></a>具体实现</h5><p>　具体实现如下：</p>
+<pre><code>public class ToolsV3 {
+    /**
+     * 公共连接数据库
+     * @return Connection
+     */
+
+     private static String driver = null;
+    private static String url = null;
+    private static String username = null;
+    private static String password = null;
+
+    //静态代码块加载配置文件
+    static{    
+        //通过类加载器
+        try {
+            //获取当前类的类加载器
+            ClassLoader classLoader = ToolsV3.class.getClassLoader();
+            //通过类加载器的方法获取到一个输入流
+            InputStream is = classLoader.getResourceAsStream(&quot;db.properties&quot;);
+            //实例化一个Properties对象
+            Properties pro = new Properties();
+            //加载一个输入流
+            pro.load(is);
+            //获取相关参数的值
+            driver = pro.getProperty(&quot;driver&quot;);
+            url = pro.getProperty(&quot;url&quot;);
+            username = pro.getProperty(&quot;username&quot;);
+            password = pro.getProperty(&quot;password&quot;);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static Connection Conn(){
+        Connection conn = null;
+
+        try {
+            // 注册驱动
+            Class.forName(driver);
+            // 获取Connection连接 
+            conn = DriverManager.getConnection(url, username, password);    
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        //返回获取到的连接
+        return conn;
+    }
+
+    /**
+     * 公共释放数据库连接
+     */
+    public static void release(Connection conn, PreparedStatement prep, ResultSet re){
+        try {
+            if (re!=null){re.close();}
+            if (prep!=null){prep.close();}
+            if (conn!=null){conn.close();}
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+</code></pre><h3 id="调用"><a href="#调用" class="headerlink" title="调用"></a>调用</h3><p>　将其中的ToolsV3根据情况具体对应调用就行。例如，使用普通抽取就使用ToolsV1，使用ResourceBundle就调用ToolsV2</p>
+<h5 id="具体实现-2"><a href="#具体实现-2" class="headerlink" title="具体实现"></a>具体实现</h5><pre><code>public class JDBC_Tools_Test {
+    @Test
+    public void JDBC_Test(){
+        Connection conn = null;
+        PreparedStatement prep = null;
+        ResultSet result = null;
+        try {
+            //1,调用刚刚写好的工具类，获取连接
+            conn = ToolsV3.Conn();
+            //2,编写SQL模版
+            prep = conn.prepareStatement(&quot;select * from user where id=?&quot;);
+            //3,为sql赋值
+            prep.setInt(1, 1);
+            //4,执行sql
+            result = prep.executeQuery();
+            if (result.next()){
+                System.out.println(result.getString(1));
+            }
+            //5,获取结果集        
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }finally{
+            ToolsV3.release(conn, prep, result);
+        }
+
+
+    }
+}
+</code></pre>
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2017/10/29/JDBC2/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2017/10/29/JDBC2/" itemprop="url">JDBC2</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-10-29T09:52:57+08:00">
+                2017-10-29
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Java/" itemprop="url" rel="index">
+                    <span itemprop="name">Java</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          <h4 id="PreparedStatement"><a href="#PreparedStatement" class="headerlink" title="PreparedStatement"></a>PreparedStatement</h4><p>　　使用Connection的prepareStatement(String sql)：即创建它时就让它与一条SQL模板绑定；调用PreparedStatement的setXXX()系列方法为问号设置值调用executeUpdate()或executeQuery()方法，但要注意，调用没有参数的方法；<br>　　在使用Connection创建PreparedStatement对象时需要给出一个SQL模板，所谓SQL模板就是有“?”的SQL语句，其中“?”就是参数。</p>
+          <!--noindex-->
+          <div class="post-button text-center">
+            <a class="btn" href="/2017/10/29/JDBC2/#more" rel="contents">
+              阅读全文 &raquo;
+            </a>
+          </div>
+          <!--/noindex-->
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://yanrs.me/2017/10/29/JDBC1/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -1023,7 +1492,7 @@
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">292</span>
+                  <span class="site-state-item-count">294</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>
@@ -1045,7 +1514,7 @@
               
               <div class="site-state-item site-state-tags">
                 <a href="/tags/index.html">
-                  <span class="site-state-item-count">144</span>
+                  <span class="site-state-item-count">147</span>
                   <span class="site-state-item-name">标签</span>
                 </a>
               </div>

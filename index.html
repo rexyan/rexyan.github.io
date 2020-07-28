@@ -348,6 +348,593 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2020/07/28/4. MapReduce/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2020/07/28/4. MapReduce/" itemprop="url">4. MapReduce</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2020-07-28T23:41:57+08:00">
+                2020-07-28
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Java-大数据进阶/" itemprop="url" rel="index">
+                    <span itemprop="name">Java 大数据进阶</span>
+                  </a>
+                </span>
+
+                
+                
+                  ， 
+                
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Java-大数据进阶/Hadoop/" itemprop="url" rel="index">
+                    <span itemprop="name">Hadoop</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="MR-相关概念"><a href="#MR-相关概念" class="headerlink" title="MR 相关概念"></a>MR 相关概念</h3><ol>
+<li>Job(作业) :  一个MR程序称为一个Job</li>
+<li>MRAppMaster（MR任务的主节点）: 一个Job在运行时，会先启动一个进程，这个进程为 MRAppMaster。负责 Job 中执行状态的监控，容错，和 RM 申请资源，提交 Task 等。</li>
+<li>Task(任务)：  Task是一个进程，负责某项计算。</li>
+<li>Map(Map阶段): Map 是 MapReduce 程序运行的第一个阶段。Map阶段的目的是将输入的数据，进行切分。将一个大数据，切分为若干小部分。切分后，每个部分称为1片(split)，每片数据会交给一个Task（进程）进行计算，负责 Map 阶段的 Task 称为 MapTask。在一个 MR 程序的 Map 阶段，会启动N（取决于切片数，多少个切片就会启动多少个 MapTask）个 MapTask。每个 MapTask 是并行运行。</li>
+<li>Reduce(Reduce阶段)： Reduce 是MapReduce 程序运行的第二个阶段(最后一个阶段)，Reduce 阶段的目的是将 Map 阶段，每个 MapTask 计算后的结果进行合并汇总，得到最终结果。Reduce阶段是可选的，不一定有。负责 Reduce 阶段的 Task 称为ReduceTask。一个Job可以通过设置，启动N个ReduceTask，这些ReduceTask也是并行运行，每个ReduceTask最终都会产生一个结果。</li>
+</ol>
+<h3 id="MR-相关组件"><a href="#MR-相关组件" class="headerlink" title="MR 相关组件"></a>MR 相关组件</h3><ol>
+<li>Mapper:   map 阶段核心的处理逻辑</li>
+<li>Reducer:   reduce 阶段核心的处理逻辑</li>
+<li>InputFormat:  输入格式。MR 程序必须指定一个输入目录，一个输出目录，InputFormat 代表输入目录中文件的格式。如果是普通文件，可以使用FileInputFormat。如果是SequeceFile（hadoop提供的一种文件格式），可以使用 SequnceFileInputFormat，如果处理的数据在数据库中，需要使用 DBInputFormat。</li>
+<li>RecordReader:  记录读取器。RecordReader 负责从输入格式中，读取数据，读取后封装为一组记录(k-v)。</li>
+<li>OutPutFormat: 输出格式。OutPutFormat 代表 MR 处理后的结果，要以什么样的文件格式写出。将结果写出到一个普通文件中，可以使用 FileOutputFormat，将结果写出到数据库中，可以使用 DBOutPutFormat，将结果写出到 SequeceFil e中，可以使用 SequnceFileOutputFormat。</li>
+<li>RecordWriter: 记录写出器。将处理的结果以什么样的格式写出到输出文件中。</li>
+<li>Partitioner: 分区器。负责在 Mapper 将数据写出时，为每组 keyout-valueout 打上标记，进行分区。一个ReduceTask只会处理一个分区的数据。</li>
+</ol>
+<h3 id="MR-流程"><a href="#MR-流程" class="headerlink" title="MR 流程"></a>MR 流程</h3><ol>
+<li>InputFormat 调用 RecordReader，从输入目录的文件中，读取一组数据，封装为 keyin-valuein 对象</li>
+<li>将封装好的 key-value，交给 Mapper.map() ——&gt;将处理的结果写出 keyout-valueout</li>
+<li>ReduceTask 启动 Reducer，使用 Reducer.reduce() 处理 Mapper写出的 keyout-valueout，</li>
+<li>OutPutFormat 调用 RecordWriter，将 Reducer 处理后的 keyout-valueout 写出到文件</li>
+</ol>
+<p>Map阶段(MapTask)：  切片(Split) —– 读取数据(Read) —– 交给Mapper处理(Map) —– 分区和排序(sort)<br>Reduce阶段(ReduceTask):  拷贝数据(copy) —– 排序(sort) —– 合并(reduce) —– 写出(write)</p>
+<h3 id="MR-编程"><a href="#MR-编程" class="headerlink" title="MR 编程"></a>MR 编程</h3><p>MR的编程只需要将自定义的组件和系统默认组件进行组合，组合之后运行即可，步骤：</p>
+<ol>
+<li>Map 阶段的核心处理逻辑需要编写在 Mapper 中</li>
+<li>Reduce 阶段的核心处理逻辑需要编写在 Reducer 中</li>
+<li>将编写的 Mapper 和 Reducer 进行组合，组合成一个 Job</li>
+<li>对 Job 进行设置，设置后运行</li>
+</ol>
+<h4 id="wordcount"><a href="#wordcount" class="headerlink" title="wordcount"></a>wordcount</h4><p>InputFormat 的实现类很多</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5kP*h6unlPTbuijUhG0tIl4a8RpMOv5*ivHT7GQnD4hjQGkfk.fZbCq2Vm.dpLa3SZdwHFC8YXxKlkmUZmQGQfk!/mnull&amp;bo=eAaUA3gGlAMDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>InputFormat 的作用：</p>
+<ol>
+<li>验证输入目录中的文件格式，是否符合当前 Job 的要求</li>
+<li>生成切片，每个切片都会交给一个 MapTask 处理</li>
+<li>提供 RecordReader，由 RecordReader 从切片中读取记录，交给 Mapper 处理</li>
+</ol>
+<p>InputFormat 中的 <code>List&lt;InputSplit&gt; getSplits</code> 方法的功能就是切片。<code>ecordReader&lt;K,V&gt; createRecordReader</code> 的功能是创建 RecordReader。默认 Hadoop 使用的是 TextInputFormat，而 TextInputFormat 创建的 RecordReader 是 LineRecordReader。所以 Hadoop 默认的 InputFormat 使用 TextInputFormat，默认是 Reader 使用 LineRecordReader。</p>
+<h5 id="本地模式"><a href="#本地模式" class="headerlink" title="本地模式"></a>本地模式</h5><p>WCMapper 完整代码</p>
+<pre class="line-numbers language-java"><code class="language-java"><span class="token keyword">package</span> com<span class="token punctuation">.</span>yanrs<span class="token punctuation">.</span>mr<span class="token punctuation">.</span>wordcount<span class="token punctuation">;</span>
+
+
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>io<span class="token punctuation">.</span>IntWritable<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>io<span class="token punctuation">.</span>LongWritable<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>io<span class="token punctuation">.</span>Text<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>mapreduce<span class="token punctuation">.</span>Mapper<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>io<span class="token punctuation">.</span>IOException<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">/**
+ * KEYIN, VALUEIN: mapper 输入的 key-value 类型，由当前 JOb 的 InputFormat的 RecordReader 决定
+ * KEYOUT, VALUEOUT：mapper 输出的 key-value 类型
+ */</span>
+<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">WCMapper</span> <span class="token keyword">extends</span> <span class="token class-name">Mapper</span><span class="token operator">&lt;</span>LongWritable<span class="token punctuation">,</span> Text<span class="token punctuation">,</span> Text<span class="token punctuation">,</span> IntWritable<span class="token operator">></span> <span class="token punctuation">{</span>
+
+    <span class="token keyword">private</span> Text outKey <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Text</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">private</span> IntWritable outValue <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">IntWritable</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token annotation punctuation">@Override</span>
+    <span class="token keyword">protected</span> <span class="token keyword">void</span> <span class="token function">map</span><span class="token punctuation">(</span>LongWritable key<span class="token punctuation">,</span> Text value<span class="token punctuation">,</span> Context context<span class="token punctuation">)</span> <span class="token keyword">throws</span> IOException<span class="token punctuation">,</span> InterruptedException <span class="token punctuation">{</span>
+        <span class="token comment" spellcheck="true">// key 是行号，value 是一行的文本内容</span>
+        System<span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span><span class="token string">"keyin: "</span> <span class="token operator">+</span> key <span class="token operator">+</span> <span class="token string">" valuein: "</span> <span class="token operator">+</span> value<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment" spellcheck="true">// 将文本内容进行拆分，得到一个个单词组成的数组</span>
+        String<span class="token punctuation">[</span><span class="token punctuation">]</span> words <span class="token operator">=</span> value<span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">split</span><span class="token punctuation">(</span><span class="token string">"\t"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment" spellcheck="true">// 遍历数组，并输出，输出格式为（单词，1）</span>
+        <span class="token keyword">for</span> <span class="token punctuation">(</span>String word<span class="token operator">:</span>words<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            outKey<span class="token punctuation">.</span><span class="token function">set</span><span class="token punctuation">(</span>word<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            context<span class="token punctuation">.</span><span class="token function">write</span><span class="token punctuation">(</span>outKey<span class="token punctuation">,</span> outValue<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>WCReducer 完整代码</p>
+<pre class="line-numbers language-java"><code class="language-java"><span class="token keyword">package</span> com<span class="token punctuation">.</span>yanrs<span class="token punctuation">.</span>mr<span class="token punctuation">.</span>wordcount<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>io<span class="token punctuation">.</span>IntWritable<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>io<span class="token punctuation">.</span>Text<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>mapreduce<span class="token punctuation">.</span>Reducer<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>io<span class="token punctuation">.</span>IOException<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">/**
+ * KEYIN,VALUEIN: Mapper 的输出做为这里的输入
+ * KEYOUT,VALUEOUT： 自定义，因为这个 MR 程序是统计单词出现的频率，所以这里类型为 Text, IntWritable
+ */</span>
+<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">WCReducer</span> <span class="token keyword">extends</span> <span class="token class-name">Reducer</span><span class="token operator">&lt;</span>Text<span class="token punctuation">,</span> IntWritable<span class="token punctuation">,</span> Text<span class="token punctuation">,</span> IntWritable<span class="token operator">></span> <span class="token punctuation">{</span>
+
+    <span class="token keyword">private</span> IntWritable outValue <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">IntWritable</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token comment" spellcheck="true">//reduce 方法一次处理一组数据，key（单词） 相同的数据是一组</span>
+    <span class="token annotation punctuation">@Override</span>
+    <span class="token keyword">protected</span> <span class="token keyword">void</span> <span class="token function">reduce</span><span class="token punctuation">(</span>Text key<span class="token punctuation">,</span> Iterable<span class="token operator">&lt;</span>IntWritable<span class="token operator">></span> values<span class="token punctuation">,</span> Context context<span class="token punctuation">)</span> <span class="token keyword">throws</span> IOException<span class="token punctuation">,</span> InterruptedException <span class="token punctuation">{</span>
+        <span class="token keyword">int</span> sum <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+        <span class="token comment" spellcheck="true">// 遍历每个 key（单词） ，让相同的 key（单词） 的值进行累加</span>
+        <span class="token keyword">for</span> <span class="token punctuation">(</span>IntWritable value<span class="token operator">:</span>values<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+            sum<span class="token operator">+=</span>value<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span>
+
+        outValue<span class="token punctuation">.</span><span class="token function">set</span><span class="token punctuation">(</span>sum<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment" spellcheck="true">// 将结果写出，key 是单词，outValue 是累加的次数</span>
+        context<span class="token punctuation">.</span><span class="token function">write</span><span class="token punctuation">(</span>key<span class="token punctuation">,</span> outValue<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>WCDriver 完整代码</p>
+<pre class="line-numbers language-java"><code class="language-java"><span class="token keyword">package</span> com<span class="token punctuation">.</span>yanrs<span class="token punctuation">.</span>mr<span class="token punctuation">.</span>wordcount<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>conf<span class="token punctuation">.</span>Configuration<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>fs<span class="token punctuation">.</span>FileSystem<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>fs<span class="token punctuation">.</span>Path<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>io<span class="token punctuation">.</span>IntWritable<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>io<span class="token punctuation">.</span>Text<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>mapreduce<span class="token punctuation">.</span>Job<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>mapreduce<span class="token punctuation">.</span>lib<span class="token punctuation">.</span>input<span class="token punctuation">.</span>FileInputFormat<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>mapreduce<span class="token punctuation">.</span>lib<span class="token punctuation">.</span>output<span class="token punctuation">.</span>FileOutputFormat<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>io<span class="token punctuation">.</span>IOException<span class="token punctuation">;</span>
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>net<span class="token punctuation">.</span>URISyntaxException<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">/**
+ * 启动这个进程，那么就会运行该 job
+ */</span>
+<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">WCDriver</span> <span class="token punctuation">{</span>
+    <span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token keyword">void</span> <span class="token function">main</span><span class="token punctuation">(</span>String<span class="token punctuation">[</span><span class="token punctuation">]</span> args<span class="token punctuation">)</span> <span class="token keyword">throws</span> IOException<span class="token punctuation">,</span> ClassNotFoundException<span class="token punctuation">,</span> InterruptedException<span class="token punctuation">,</span> URISyntaxException <span class="token punctuation">{</span>
+        <span class="token comment" spellcheck="true">// 获取文件系统</span>
+        Configuration conf <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Configuration</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        conf<span class="token punctuation">.</span><span class="token function">set</span><span class="token punctuation">(</span><span class="token string">"fs.defaultFS"</span><span class="token punctuation">,</span> <span class="token string">"hdfs://hadoop10:9000"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        FileSystem fileSystem <span class="token operator">=</span> FileSystem<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>conf<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token comment" spellcheck="true">// 设置输入目录和输出目录</span>
+        Path inputPath <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Path</span><span class="token punctuation">(</span><span class="token string">"/wcinput"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        Path outPath <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Path</span><span class="token punctuation">(</span><span class="token string">"/mroutput"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment" spellcheck="true">// 输出目录存在就删除</span>
+        <span class="token keyword">if</span><span class="token punctuation">(</span>fileSystem<span class="token punctuation">.</span><span class="token function">exists</span><span class="token punctuation">(</span>outPath<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">{</span>
+            fileSystem<span class="token punctuation">.</span><span class="token function">delete</span><span class="token punctuation">(</span>outPath<span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span>
+
+        <span class="token comment" spellcheck="true">// 创建 Job</span>
+        Job job <span class="token operator">=</span> Job<span class="token punctuation">.</span><span class="token function">getInstance</span><span class="token punctuation">(</span>conf<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token comment" spellcheck="true">// 设置 job 名称</span>
+        job<span class="token punctuation">.</span><span class="token function">setJobName</span><span class="token punctuation">(</span><span class="token string">"wordcount"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token comment" spellcheck="true">// 设置job运行的 Mapper，Reducer</span>
+        job<span class="token punctuation">.</span><span class="token function">setMapperClass</span><span class="token punctuation">(</span>WCMapper<span class="token punctuation">.</span><span class="token keyword">class</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        job<span class="token punctuation">.</span><span class="token function">setReducerClass</span><span class="token punctuation">(</span>WCReducer<span class="token punctuation">.</span><span class="token keyword">class</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token comment" spellcheck="true">// 设置 Mapper，Reducer 的输出 key 和 value 类型。</span>
+        <span class="token comment" spellcheck="true">// job 需要根据 Mapper，Reducer 输出的 key value 类型准备序列化器，通过序列化器对输出的 key value 进行序列化和反序列化</span>
+        <span class="token comment" spellcheck="true">// 如果 Mapper，Reducer 输出的 key 和 value 类型一致，那么可以像下面一样直接设置 job 的最终输出类型</span>
+        job<span class="token punctuation">.</span><span class="token function">setOutputKeyClass</span><span class="token punctuation">(</span>Text<span class="token punctuation">.</span><span class="token keyword">class</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        job<span class="token punctuation">.</span><span class="token function">setOutputValueClass</span><span class="token punctuation">(</span>IntWritable<span class="token punctuation">.</span><span class="token keyword">class</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token comment" spellcheck="true">// 设置输入输出目录</span>
+        FileInputFormat<span class="token punctuation">.</span><span class="token function">setInputPaths</span><span class="token punctuation">(</span>job<span class="token punctuation">,</span> inputPath<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        FileOutputFormat<span class="token punctuation">.</span><span class="token function">setOutputPath</span><span class="token punctuation">(</span>job<span class="token punctuation">,</span> outPath<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token comment" spellcheck="true">// 运行 Job 并打印日志信息</span>
+        job<span class="token punctuation">.</span><span class="token function">waitForCompletion</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>直接在 idea 中运行 WCDriver 的 main 方法即可。上面设置连接的是 Hadoop10 的文件系统，但是是在本地运行的。</p>
+<h5 id="yarn-上运行"><a href="#yarn-上运行" class="headerlink" title="yarn 上运行"></a>yarn 上运行</h5><p>WCMapper 完整代码，同上</p>
+<p>WCReducer 完整代码，同上</p>
+<p>在 yarn 上运行，需要指定运行方式为 yarn，且指定 resourcemanager 的地址</p>
+<pre class="line-numbers language-java"><code class="language-java"><span class="token comment" spellcheck="true">// 设置在 yarn 上运行</span>
+conf<span class="token punctuation">.</span><span class="token function">set</span><span class="token punctuation">(</span><span class="token string">"mapreduce.framework.name"</span><span class="token punctuation">,</span> <span class="token string">"yarn"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+conf<span class="token punctuation">.</span><span class="token function">set</span><span class="token punctuation">(</span><span class="token string">"yarn.resourcemanager.hostname"</span><span class="token punctuation">,</span> <span class="token string">"hadoop11"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+<p>还需要设置 job 所在的 jar 包</p>
+<pre class="line-numbers language-java"><code class="language-java"><span class="token comment" spellcheck="true">// yarn 运行时候还需要设置 job 所在的 jar 包</span>
+job<span class="token punctuation">.</span><span class="token function">setJarByClass</span><span class="token punctuation">(</span>WCDriver<span class="token punctuation">.</span><span class="token keyword">class</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token comment" spellcheck="true">// 或者使用</span>
+
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+<p>将代码打包，上传到 hadoop 上，使用 hadoop jar 命令运行</p>
+<pre class="line-numbers language-shell"><code class="language-shell">hadoop jar mapreduce-test-1.0-SNAPSHOT.jar com.yanrs.mr.wordcount.WCDriver
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>WCDriver 完整代码</p>
+<pre class="line-numbers language-java"><code class="language-java"><span class="token keyword">package</span> com<span class="token punctuation">.</span>yanrs<span class="token punctuation">.</span>mr<span class="token punctuation">.</span>wordcount<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>conf<span class="token punctuation">.</span>Configuration<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>fs<span class="token punctuation">.</span>FileSystem<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>fs<span class="token punctuation">.</span>Path<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>io<span class="token punctuation">.</span>IntWritable<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>io<span class="token punctuation">.</span>Text<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>mapreduce<span class="token punctuation">.</span>Job<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>mapreduce<span class="token punctuation">.</span>lib<span class="token punctuation">.</span>input<span class="token punctuation">.</span>FileInputFormat<span class="token punctuation">;</span>
+<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>hadoop<span class="token punctuation">.</span>mapreduce<span class="token punctuation">.</span>lib<span class="token punctuation">.</span>output<span class="token punctuation">.</span>FileOutputFormat<span class="token punctuation">;</span>
+
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>io<span class="token punctuation">.</span>IOException<span class="token punctuation">;</span>
+<span class="token keyword">import</span> java<span class="token punctuation">.</span>net<span class="token punctuation">.</span>URISyntaxException<span class="token punctuation">;</span>
+
+<span class="token comment" spellcheck="true">/**
+ * 启动这个进程，那么就会运行该 job
+ */</span>
+<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">WCDriver</span> <span class="token punctuation">{</span>
+    <span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token keyword">void</span> <span class="token function">main</span><span class="token punctuation">(</span>String<span class="token punctuation">[</span><span class="token punctuation">]</span> args<span class="token punctuation">)</span> <span class="token keyword">throws</span> IOException<span class="token punctuation">,</span> ClassNotFoundException<span class="token punctuation">,</span> InterruptedException<span class="token punctuation">,</span> URISyntaxException <span class="token punctuation">{</span>
+        <span class="token comment" spellcheck="true">// 获取文件系统</span>
+        Configuration conf <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Configuration</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        conf<span class="token punctuation">.</span><span class="token function">set</span><span class="token punctuation">(</span><span class="token string">"fs.defaultFS"</span><span class="token punctuation">,</span> <span class="token string">"hdfs://hadoop10:9000"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment" spellcheck="true">// 设置在 yarn 上运行</span>
+        conf<span class="token punctuation">.</span><span class="token function">set</span><span class="token punctuation">(</span><span class="token string">"mapreduce.framework.name"</span><span class="token punctuation">,</span> <span class="token string">"yarn"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        conf<span class="token punctuation">.</span><span class="token function">set</span><span class="token punctuation">(</span><span class="token string">"yarn.resourcemanager.hostname"</span><span class="token punctuation">,</span> <span class="token string">"hadoop11"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        FileSystem fileSystem <span class="token operator">=</span> FileSystem<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>conf<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token comment" spellcheck="true">// 设置输入目录和输出目录</span>
+        Path inputPath <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Path</span><span class="token punctuation">(</span><span class="token string">"/wcinput"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        Path outPath <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Path</span><span class="token punctuation">(</span><span class="token string">"/mroutput"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment" spellcheck="true">// 输出目录存在就删除</span>
+        <span class="token keyword">if</span><span class="token punctuation">(</span>fileSystem<span class="token punctuation">.</span><span class="token function">exists</span><span class="token punctuation">(</span>outPath<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">{</span>
+            fileSystem<span class="token punctuation">.</span><span class="token function">delete</span><span class="token punctuation">(</span>outPath<span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span>
+
+        <span class="token comment" spellcheck="true">// 创建 Job</span>
+        Job job <span class="token operator">=</span> Job<span class="token punctuation">.</span><span class="token function">getInstance</span><span class="token punctuation">(</span>conf<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token comment" spellcheck="true">// yarn 运行时候还需要设置 job 所在的 jar 包</span>
+        job<span class="token punctuation">.</span><span class="token function">setJarByClass</span><span class="token punctuation">(</span>WCDriver<span class="token punctuation">.</span><span class="token keyword">class</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token comment" spellcheck="true">// 或者使用</span>
+        <span class="token comment" spellcheck="true">// job.setJar("mapreduce-test-1.0-SNAPSHOT.jar");</span>
+
+        <span class="token comment" spellcheck="true">// 设置 job 名称</span>
+        job<span class="token punctuation">.</span><span class="token function">setJobName</span><span class="token punctuation">(</span><span class="token string">"wordcount"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token comment" spellcheck="true">// 设置job运行的 Mapper，Reducer</span>
+        job<span class="token punctuation">.</span><span class="token function">setMapperClass</span><span class="token punctuation">(</span>WCMapper<span class="token punctuation">.</span><span class="token keyword">class</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        job<span class="token punctuation">.</span><span class="token function">setReducerClass</span><span class="token punctuation">(</span>WCReducer<span class="token punctuation">.</span><span class="token keyword">class</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token comment" spellcheck="true">// 设置 Mapper，Reducer 的输出 key 和 value 类型。</span>
+        <span class="token comment" spellcheck="true">// job 需要根据 Mapper，Reducer 输出的 key value 类型准备序列化器，通过序列化器对输出的 key value 进行序列化和反序列化</span>
+        <span class="token comment" spellcheck="true">// 如果 Mapper，Reducer 输出的 key 和 value 类型一致，那么可以像下面一样直接设置 job 的最终输出类型</span>
+        job<span class="token punctuation">.</span><span class="token function">setOutputKeyClass</span><span class="token punctuation">(</span>Text<span class="token punctuation">.</span><span class="token keyword">class</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        job<span class="token punctuation">.</span><span class="token function">setOutputValueClass</span><span class="token punctuation">(</span>IntWritable<span class="token punctuation">.</span><span class="token keyword">class</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token comment" spellcheck="true">// 设置输入输出目录</span>
+        FileInputFormat<span class="token punctuation">.</span><span class="token function">setInputPaths</span><span class="token punctuation">(</span>job<span class="token punctuation">,</span> inputPath<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        FileOutputFormat<span class="token punctuation">.</span><span class="token function">setOutputPath</span><span class="token punctuation">(</span>job<span class="token punctuation">,</span> outPath<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token comment" spellcheck="true">// 运行 Job 并打印日志信息</span>
+        job<span class="token punctuation">.</span><span class="token function">waitForCompletion</span><span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2020/07/27/JSONP 单点登录方案/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2020/07/27/JSONP 单点登录方案/" itemprop="url">JSONP 单点登录方案</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2020-07-27T23:41:57+08:00">
+                2020-07-27
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/技术/" itemprop="url" rel="index">
+                    <span itemprop="name">技术</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="流程图"><a href="#流程图" class="headerlink" title="流程图"></a>流程图</h3><p><img src="http://jarvisfile-test.oss-cn-shanghai.aliyuncs.com/app-a8187ae7-5671-4888-4321-2cc8c4d476ba%2Fhuidata%2Fsnipaste_20200728_133553.png?OSSAccessKeyId=LTAIazOFLTVBmUh9&amp;Expires=1596519483&amp;Signature=kss5ACAJ4BdfyLE8BCISfBzQ4m4%3D" alt></p>
+<h3 id="接入示例"><a href="#接入示例" class="headerlink" title="接入示例"></a>接入示例</h3><h4 id="前端"><a href="#前端" class="headerlink" title="前端"></a>前端</h4><pre class="line-numbers language-html"><code class="language-html"><span class="token doctype">&lt;!DOCTYPE html></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">charset</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>utf-8<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>title</span><span class="token punctuation">></span></span>xxx 系统<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>title</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span><span class="token punctuation">></span></span><span class="token script language-javascript">
+    <span class="token keyword">function</span> <span class="token function">users_callback</span><span class="token punctuation">(</span>status<span class="token punctuation">,</span> username<span class="token punctuation">,</span> email<span class="token punctuation">,</span> loginTime<span class="token punctuation">,</span> aliveTime <span class="token punctuation">,</span>token<span class="token punctuation">,</span> msg<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        <span class="token keyword">if</span> <span class="token punctuation">(</span>status<span class="token operator">===</span><span class="token string">"1"</span><span class="token punctuation">)</span><span class="token punctuation">{</span>
+            <span class="token comment" spellcheck="true">// TODO 用户已在 oss 登录成功</span>
+             <span class="token comment" spellcheck="true">// 为保证过期时间一致，须将 cookie 过期时间设置为 aliveTime</span>
+            document<span class="token punctuation">.</span>cookie<span class="token operator">=</span><span class="token string">"token="</span><span class="token operator">+</span>token<span class="token punctuation">;</span>
+            console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>username<span class="token punctuation">,</span> email<span class="token punctuation">,</span> loginTime<span class="token punctuation">,</span> aliveTime<span class="token punctuation">,</span> token<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token comment" spellcheck="true">// 请求后端接口，后端接口校验 token 有效性</span>
+        <span class="token punctuation">}</span>
+
+        <span class="token comment" spellcheck="true">// TODO 用户未在 oss 登录成功</span>
+        console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>msg<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+</span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>script</span> <span class="token attr-name">type</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>text/javascript<span class="token punctuation">"</span></span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>http://xxx.com/api/oss/jsonp.js?callback<span class="token punctuation">=</span>users_callback<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script language-javascript"></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>script</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">></span></span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h4 id="后端"><a href="#后端" class="headerlink" title="后端"></a>后端</h4><p>后端需调用 <code>/api/oss/auth_token</code> 验证 token 信息，该接口会返回用户基本信息。如系统和 oos 所用 redis 一致，那么可以不调用该接口进行验证，可直接在 redis 中进行验证【oss 系统 token 格式为 “oss:token值”，不推荐此种验证方式】。验证成功后业务系统可发放本地凭证，为了统一各系统，须将凭证过期时间设置为与 <code>/api/oss/auth_token</code> 接口中返回的 aliveTime 时间一致。</p>
+<h3 id="注意事项"><a href="#注意事项" class="headerlink" title="注意事项"></a>注意事项</h3><ol>
+<li><p>oss 登录成功后返回参数中会携带 redirect  参数，该参数的值为跳转 oos 登录页面所携带的 referrer 头信息</p>
+</li>
+<li><p><code>/api/oss/jsonp.js</code> 接口 callback 参数默认值为 <code>callback</code>, 接入系统可自定义回调函数，只需保持回调函数名称和逻辑处理函数名称一致即可 </p>
+</li>
+<li><p><code>/api/oss/jsonp.js</code> 成功后，返回参数目前示例如下所示，为保证后续兼容性，回调函数参数需支持可变长参数。返回内容解释如下</p>
+<pre class="line-numbers language-javascript"><code class="language-javascript"><span class="token function">users_callback</span><span class="token punctuation">(</span>                             <span class="token comment" spellcheck="true">// 回调函数名称</span>
+<span class="token string">'1'</span><span class="token punctuation">,</span>                                    <span class="token comment" spellcheck="true">// 请求认证状态 "1" 或 "0", "1" 代表成功</span>
+<span class="token string">'数据中心BI'</span><span class="token punctuation">,</span>                            <span class="token comment" spellcheck="true">// username</span>
+<span class="token string">'data.bi@huifu.com'</span><span class="token punctuation">,</span>                    <span class="token comment" spellcheck="true">// email</span>
+<span class="token string">'2020-07-21 17:48:47'</span><span class="token punctuation">,</span>                  <span class="token comment" spellcheck="true">// loginTime</span>
+<span class="token string">'2020-07-21 19:48:47'</span><span class="token punctuation">,</span>                  <span class="token comment" spellcheck="true">// aliveTime</span>
+<span class="token string">'oss:KH1hsLxzyVR8Ujqc673w'</span><span class="token punctuation">,</span>             <span class="token comment" spellcheck="true">// token</span>
+<span class="token string">''</span>                                      <span class="token comment" spellcheck="true">// msg</span>
+<span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+</li>
+<li><p>JSONP 接口需要判断请求发起方域名是否在允许 oss 登录的名单内</p>
+</li>
+</ol>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://yanrs.me/2020/07/22/3. HDFS/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -855,6 +1442,7 @@ Replication 2 set: /test_command/command.txt
   fs<span class="token punctuation">.</span><span class="token function">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 <span class="token punctuation">}</span>
 <span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p><a href="https://github.com/rexyan/it_guigu/tree/master/hadoop_hdfs" target="_blank" rel="noopener">代码地址</a></p>
 <h3 id="Python-Client"><a href="#Python-Client" class="headerlink" title="Python Client"></a>Python Client</h3><pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">from</span> hdfs <span class="token keyword">import</span> InsecureClient
 
 client <span class="token operator">=</span> InsecureClient<span class="token punctuation">(</span><span class="token string">'http://hadoop10:50070'</span><span class="token punctuation">,</span> user<span class="token operator">=</span><span class="token string">'rexyan'</span><span class="token punctuation">)</span>
@@ -913,6 +1501,7 @@ client <span class="token operator">=</span> InsecureClient<span class="token pu
     get_file_info<span class="token punctuation">(</span><span class="token string">"/"</span><span class="token punctuation">)</span>
 <span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 <p>更多信息可参考 <a href="https://hdfscli.readthedocs.io/en/latest/quickstart.html#instantiating-a-client" target="_blank" rel="noopener">此处</a></p>
+<p><a href="https://github.com/rexyan/it_guigu/tree/master/hadoop_hdfs_python" target="_blank" rel="noopener">代码地址</a></p>
 <h3 id="HDFS的写数据流程"><a href="#HDFS的写数据流程" class="headerlink" title="HDFS的写数据流程"></a>HDFS的写数据流程</h3><p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5pUkRF09GK7hwFjqCu3SCXM4penA7Q5nPZigxO9H5EqObidvS6rZddlwPY8tvd40Ca3Hb6G4KQrUCyusr0yQHA8!/mnull&amp;bo=CQTcAQkE3AEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
 <h4 id="正常写流程"><a href="#正常写流程" class="headerlink" title="正常写流程"></a>正常写流程</h4><ol>
 <li>服务端启动 HDFS 中的 NN 和 DN 进程</li>
@@ -1106,6 +1695,10 @@ hadoop12
 <p>查看两个存储数据的目录，会发现一个目录存储了一个文件的块信息</p>
 <p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5iiHJ.W399anGzLqQNo68XhRuN1.i5FndH*4K8m5NvssbgyOnbLWCM239wbCPf3k5kcgGLZUAQif7w.IwY3U12k!/mnull&amp;bo=*QNqAf0DagEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
 <p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5iiHJ.W399anGzLqQNo68XiFFLws0zFZ8k6mLwTAVJ9PKzOgAT3c5P0DV4rlcHxrl5vI1gKtjggxrUgo9nuS3AM!/mnull&amp;bo=BgRpAgYEaQIDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<h3 id="解决HDFS上小文件的存储"><a href="#解决HDFS上小文件的存储" class="headerlink" title="解决HDFS上小文件的存储"></a>解决HDFS上小文件的存储</h3><ol>
+<li>从源头上解决，在上传时，将多个小文件归档，tar -zcvf xxx.tar.gz  小文件列表</li>
+<li>如果小文件已经上传到HDFS了，可以使用在线归档。在线归档的功能实际是一个MR程序，这个程序将HDFS已经存在的多个小文件归档为一个归档文件！</li>
+</ol>
 
           
         
@@ -3271,7 +3864,7 @@ ID_WORKER_STR snowflake算法生成的字符串ID
         System<span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span>i<span class="token punctuation">)</span><span class="token punctuation">;</span>
     <span class="token punctuation">}</span>
 <span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<h3 id="乐观锁"><a href="#乐观锁" class="headerlink" title="乐观锁"></a>乐观锁</h3><p>主要适用场景：当更新一条记录的时候，希望这条记录没有被别人更新，也就是说实现线程安全的数据更新。乐观锁解决的是 “丢失更新” 的问题。“丢失更新” 是指，事务中当对同一条记录进行修改的时候（事务中对同一条记录进行读可能出现脏读，不可重复读和幻读，写则可能出现丢失更新），例如 A 将数据库中的值修改为 300，然后提交了事务，同时 B 将又将数据库中的值改为 500，也提交了事务。最后数据库中的值是 500 ，但是对于 A 来说，就是 “丢失更新”。</p>
+<h3 id="乐观锁"><a href="#乐观锁" class="headerlink" title="乐观锁"></a>乐观锁</h3><p>主要适用场景：当更新一条记录的时候，希望这条记录没有被别人更新，也就是说实现线程安全的数据更新。乐观锁解决的是 “丢失更新” 的问题。“丢失更新” 是指，事务中当对同一条记录进行修改的时候（事务中对同一条记录进行读可能出现脏读，不可重复读和幻读，写则可能出现丢失更新），例如 A 将数据库中的值修改为 300，然后提交了事务，同时 B 将又将数据库中的值改为 500，也提交了事务。最后数据库中的值是 500 ，但是对于 A 来说，就是 “<a href="https://www.cnblogs.com/doucheyard/p/5662171.html" target="_blank" rel="noopener">丢失更新</a>”。</p>
 <p>解决丢失更新的方案是使用乐观锁，在数据库中新增 version 字段，A，B 在进行更改前获取该 version 字段的值，提交事务的时候判断自己获取的 version 值和数据库中的是否一致，一致则提交事务，并将 version 值加一，否则本次修改失败。整个过程如下：</p>
 <ul>
 <li>取出记录时，获取当前version</li>
@@ -5546,876 +6139,6 @@ java.util.concurrent.RejectedExecutionException: Task com.atguigu.juc.MyThreadPo
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2020/05/19/55. Zookeeper/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2020/05/19/55. Zookeeper/" itemprop="url">55. Zookeeper</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2020-05-19T22:40:57+08:00">
-                2020-05-19
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Java-大数据/" itemprop="url" rel="index">
-                    <span itemprop="name">Java 大数据</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="环境安装"><a href="#环境安装" class="headerlink" title="环境安装"></a>环境安装</h3><p>ubuntu 安装 java8 <a href="https://www.cnblogs.com/zzy1024/p/11406269.html" target="_blank" rel="noopener">参考</a></p>
-<pre><code>apt update
-apt install openjdk-8-jdk
-</code></pre><p>Zookeeper 下载，<a href="http://zookeeper.apache.org/" target="_blank" rel="noopener">官方地址</a>   <a href="https://downloads.apache.org/zookeeper/zookeeper-3.6.0/apache-zookeeper-3.6.0-bin.tar.gz" target="_blank" rel="noopener">apache-zookeeper-3.6.0-bin.tar.gz</a></p>
-<p>解压文件</p>
-<pre><code>tar -zxvf apache-zookeeper-3.6.0-bin.tar.gz
-</code></pre><p>进去解压目录重新命名配置文件</p>
-<pre class="line-numbers language-shell"><code class="language-shell">mv zoo_sample.cfg zoo.cfg
-<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-<p>修改数据文件目录</p>
-<pre><code>dataDir=/users/yanrs/zookeeper
-</code></pre><p>服务端启动</p>
-<pre><code>./bin/zkServer.sh start  # 后台启动
-# ./bin/zkServer.sh start-foreground  # 前台启动
-</code></pre><p>客户端启动</p>
-<pre><code>./bin/zkCli.sh
-</code></pre><p>可以使用以下命令查看服务是否正常启动。</p>
-<pre><code>ps -ef | grep zookeeper  # 方法1
-lsof -i:2181  # 方法2，查端口是否被占用
-netstat -anp tcp | grep 2181  # 方法3，查端口是否被占用
-</code></pre><h3 id="简单操作"><a href="#简单操作" class="headerlink" title="简单操作"></a>简单操作</h3><h4 id="查看根节点信息"><a href="#查看根节点信息" class="headerlink" title="查看根节点信息"></a>查看根节点信息</h4><p>使用 ls / 查看根节点下所有的 znode</p>
-<pre><code>[zk: localhost:2181(CONNECTED) 0] ls /
-[zookeeper]
-[zk: localhost:2181(CONNECTED) 1] 
-</code></pre><h4 id="创建节点"><a href="#创建节点" class="headerlink" title="创建节点"></a>创建节点</h4><p>使用 create 创建 worders 节点，并且指定了一个空字符串，这说明我们在创建的时候不希望在 worders 节点中保存数据。这种方式创建的是持久化节点。</p>
-<pre><code>[zk: localhost:2181(CONNECTED) 1] create /worders &quot;&quot;
-Created /worders
-[zk: localhost:2181(CONNECTED) 2] ls /
-[worders, zookeeper]
-[zk: localhost:2181(CONNECTED) 3] 
-</code></pre><p>创建有序的持久化节点（只需加上 -s 即可）</p>
-<pre><code>[zk: localhost:2181(CONNECTED) 15] create -s /test testdata
-Created /test0000000001
-[zk: localhost:2181(CONNECTED) 16]
-</code></pre><p>创建临时节点（客户端断开，临时节点就会消失）</p>
-<pre><code>[zk: localhost:2181(CONNECTED) 21] create -e /test_tmp testdata
-Created /test_tmp
-</code></pre><p>创建有序的临时节点</p>
-<pre><code>[zk: localhost:2181(CONNECTED) 22] create -e -s /test_tmp testdata
-Created /test_tmp0000000006
-</code></pre><p><strong>总结：创建有序节点只需加上 -s 即可，创建临时节点只需加上 -e 即可</strong></p>
-<h4 id="删除节点"><a href="#删除节点" class="headerlink" title="删除节点"></a>删除节点</h4><p>使用 delete 加路径来删除节点信息</p>
-<pre><code>[zk: localhost:2181(CONNECTED) 1] delete /worders
-[zk: localhost:2181(CONNECTED) 2] ls /
-[zookeeper]
-[zk: localhost:2181(CONNECTED) 3]
-</code></pre><p>可以使用 deleteall 来递归删除节点信息</p>
-<pre><code>[zk: localhost:2181(CONNECTED) 49] deleteall /test  # 不必担心test下面是否还有子路径，全都删除
-</code></pre><h4 id="停止服务"><a href="#停止服务" class="headerlink" title="停止服务"></a>停止服务</h4><pre><code>./bin/zkServer.sh stop
-</code></pre><h3 id="会话"><a href="#会话" class="headerlink" title="会话"></a>会话</h3><p>会话状态的转换依赖于发生在客户端与服务之间的各种事情</p>
-<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjDeo7iXaCTahVvWILWz0Rl1s8HlloaCQIkSMvr.U.p2P9ZADynnwHbcIgvNmFUg6sg!!/mnull&amp;bo=IgPqACID6gADCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-<p>一个会话从 NOT_CONNECTED 状态开始，当 ZooKeeper 客户端初始化后转换到 CONNECTING 状态（图中的箭头1）。正常情况下，成功与 ZooKeeper 服务器建立连接后，会话转换到 CONNECTED 状态（箭头2）。当客户端与 ZooKeeper 服务器断开连接或者无法收到服务器的响应时，它就会转换回 CONNECTING 状态（箭头3）并尝试发现其他 ZooKeeper 服务器。如果可以发现另一个服务器或重连到原来的服务器，当服务器确认会话有效后，状态又会转换回 CONNECTED 状态。否则，它将会声明会话过期，然后转换到  CLOSED状态（箭头4）。应用也可以显式地关闭会话（箭头4和箭头5）。</p>
-<p>创建一个会话时，你需要设置会话超时这个重要的参数，这个参数设置了 ZooKeeper 服务允许会话被声明为超时之前存在的时间。如果经过时间 t 之后服务接收不到这个会话的任何消息，服务就会声明会话过期。而在客户端侧，如果经过 t/3 的时间未收到任何消息，客户端将向服务器发送心跳消息。在经过 2t/3 时间后，ZooKeeper 客户端开始寻找其他的服务器，而此时它还有 t/3 时间去寻找。</p>
-<p>在仲裁模式下，客户端有多个服务器可以连接，而在独立模式下，客户端只能尝试重新连接单个服务器。在仲裁模式中，应用需要传递可用的服务器列表给客户端，告知客户端可以连接的服务器信息并选择一个进行连接。当尝试连接到一个不同的服务器时，非常重要的是，这个服务器的 ZooKeeper 状态要与最后连接的服务器的 ZooKeeper 状态保持最新。客户端不能连接到这样的服务器：它未发现更新而客户端却已经发现的更新。ZooKeeper 通过在服务中排序更新操作来决定状态是否最新。ZooKeeper 确保每一个变化相对于所有其他已执行的更新是完全有序的。因此，<strong>如果一个客户端在位置 i 观察到一个更新，它就不能连接到只观察到 i&lt;i 的服务器上</strong>。在 ZooKeeper 实现中，系统根据每一个更新建立的顺序来分配给事务标识符。</p>
-<h3 id="仲裁模式"><a href="#仲裁模式" class="headerlink" title="仲裁模式"></a>仲裁模式</h3><h4 id="搭建集群"><a href="#搭建集群" class="headerlink" title="搭建集群"></a>搭建集群</h4><p>在 conf/zoo.cfg 下添加配置信息</p>
-<pre><code>server.1=127.0.0.1:2222:2223
-server.2=127.0.0.1:3333:4444
-server.3=127.0.0.1:4444:4445
-</code></pre><p>每一个 server.n 项指定了编号为 n 的 ZooKeeper 服务器使用的地址和端口号。每个 server.n 项通过冒号分隔为三部分，第一部分为服务器 n 的 IP 地址或主机名（hostname），第二部分和第三部分为 TCP 端口号，<strong>分别用于仲裁通信和群首选举</strong>。因为我们在同一个机器上运行三个服务器进程，所以我们需要在每一项中使用不同的端口号。通常，我们在不同的服务器上运行每个服务器进程，因此每个服务器项的配置可以使用相同的端口号。</p>
-<p>复制 conf/zoo.cfg 文件，在 conf 下创建 z1/z1.cfg。复制 conf/zoo.cfg 文件，在 conf 下创建 z2/z2.cfg，并将其中的端口改为 2182，复制 conf/zoo.cfg 文件，在 conf 下创建 z3/z3.cfg，并将其中的端口改为 2183，目录结构如下：</p>
-<pre><code>root@iZbp18at9sb673q1srsg3oZ:~/apache-zookeeper-3.6.0-bin/conf# tree .
-.
-├── configuration.xsl
-├── log4j.properties
-├── z1
-│?? └── z1.cfg
-├── z2
-│?? └── z2.cfg
-├── z3
-│?? └── z3.cfg
-└── zoo.cfg
-</code></pre><p>切换到 dataDir 所在的目录，分别创建以下目录，用于存放数据文件</p>
-<pre><code>mkdir z1
-mkdir z1/data
-mkdir z2
-mkdir z2/data
-mkdir z3
-mkdir z3/data
-</code></pre><p>当启动一个服务器时，我们需要知道启动的是哪个服务器。一个服务器通过读取data目录下一个名为myid的文件来获取服务器ID信息。可以通过以下命令来创建这些文件：</p>
-<pre><code>echo 1 &gt; z1/data/myid
-echo 2 &gt; z2/data/myid
-echo 3 &gt; z3/data/myid
-</code></pre><p>目录结构如下：</p>
-<pre><code>root@iZbp18at9sb673q1srsg3oZ:/users/yanrs/zookeeper# tree .
-.
-├── z1
-│?? └── data
-│??     └── myid
-├── z2
-│?? └── data
-│??     └── myid
-└── z3
-    └── data
-        └── myid
-</code></pre><p>切换到 conf/z1 下启动 z1 服务</p>
-<pre><code>../../bin/zkServer.sh start ./z1.cfg 
-</code></pre><p>查看 log 文件夹中的日志，因为我们只启动了三个 ZooKeepe r服务器中的一个，所以整个服务还无法运行。在日志中我们将会看到以下形式的记录：</p>
-<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjA9Df6BLf1YmGYgRAVymTXpoywCThO8.xdL0BglC6i3Sx4JhQLHbSDyNZgvKitOpcw!!/mnull&amp;bo=3QWAAh8GnAIDCfE!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-<p>这个服务器疯狂地尝试连接到其他服务器，然后失败，如果我们启动另一个服务器，我们可以构成仲裁的法定人数。切换到  conf/z2 目录，执行以下命令，启动 z2。</p>
-<pre><code> ../../bin/zkServer.sh start ./z2.cfg 
-</code></pre><p>查看 z1 和 z2 的状态，可以看到 z2 成为了 leader，z1 成为了 follower</p>
-<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjDHoCajW8BcKU8G0QeaSA8Cnv6H5pKEQAfmA8U*q7fNX85jj17sczJpYdQy*7CxSdA!!/mnull&amp;bo=NAWaADQFmgADCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjAjwFjTEhWqKpyPfpKVLEI7nKU4L46G97YUn7rFfJWesNc5sA3elbq06I1CUpGcsMA!!/mnull&amp;bo=QASdAEAEnQADCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-<h4 id="访问集群"><a href="#访问集群" class="headerlink" title="访问集群"></a>访问集群</h4><p>在 bin 目录下访问集群，访问集群时，我们需要加上 server 的地址，连接后使用 Ctrl + c 进行停止，反复多次连接会发现端口在 2181 和 2182 之间切换，还会注意到尝试 2183 端口后连接失败的消息，之后为成功连接到某一个服务器端口的消息。客户端以随机顺序连接到连接串中的服务器。这样可以用 ZooKeeper 来实现一个简单的负载均衡。不过，客户端无法指定优先选择的服务器来进行连接。</p>
-<pre><code>./zkCli.sh -server 127.0.0.1:2181,127.0.0.1:2182,127.0.0.1:2183
-</code></pre><h3 id="分布式锁"><a href="#分布式锁" class="headerlink" title="分布式锁"></a>分布式锁</h3><p>假设有一个应用由 n 个进程组成，这些进程尝试获取一个锁。再次强调，ZooKeeper 并未直接暴露原语，因此我们使用 ZooKeeper 的接口来管理 znode，以此来实现锁。为了获得一个锁，每个进程 p 尝试创建 znode，名为 /lock。如果进程 p 成功创建了 znode，就表示它获得了锁并可以继续执行其临界区域的代码。不过一个潜在的问题是进程 p 可能崩溃，导致这个锁永远无法释放。在这种情况下，没有任何其他进程可以再次获得这个锁，整个系统可能因死锁而失灵。为了避免这种情况，我们不得不在创建这个节点时指定 /lock 为临时节点。</p>
-<p>其他进程因 znode 存在而创建 /lock 失败。当收到 /lock 删除的通知时，如果进程 p 还需要继续获取锁，它就继续尝试创建 /lock 的步骤，如果其他进程已经创建了，就继续监听节点。</p>
-<h3 id="实现主从模式"><a href="#实现主从模式" class="headerlink" title="实现主从模式"></a>实现主从模式</h3><h4 id="主节点"><a href="#主节点" class="headerlink" title="主节点"></a>主节点</h4><h5 id="创建主节点"><a href="#创建主节点" class="headerlink" title="创建主节点"></a>创建主节点</h5><p>因为只有一个进程会成为主节点，所以一个进程成为 ZooKeeper 的主节点后必须锁定管理权。为此，进程需要创建一个临时 znode，名为 /master：</p>
-<pre><code>./zkCli.sh -server 127.0.0.1:2181 
-</code></pre><p>连接 2181 并创建 master 节点，其中 -e 指定该节点为临时节点，一个临时节点会在会话过期或关闭时自动被删除。，”” 引号中的为节点数据信息。</p>
-<pre><code>[zk: 127.0.0.1:2181(CONNECTED) 0] create -e /master &quot;test data: im 2181&quot;
-Created /master
-[zk: 127.0.0.1:2181(CONNECTED) 1] 
-</code></pre><p>查看创建的节点的信息</p>
-<pre><code>[zk: 127.0.0.1:2181(CONNECTED) 7] ls /  # 查看 zk 树的节点信息
-[master, zookeeper]
-[zk: 127.0.0.1:2181(CONNECTED) 8] get /master  # 查看 /master 节点信息
-test data: im 2181
-[zk: 127.0.0.1:2181(CONNECTED) 9] stat /master   # 查看 /master 的元数据信息
-cZxid = 0x10000000f
-ctime = Tue Apr 28 18:31:40 CST 2020
-mZxid = 0x10000000f
-mtime = Tue Apr 28 18:31:40 CST 2020
-pZxid = 0x10000000f
-cversion = 0
-dataVersion = 0
-aclVersion = 0
-ephemeralOwner = 0x100004792a60003
-dataLength = 18
-numChildren = 0
-[zk: 127.0.0.1:2181(CONNECTED) 10] 
-</code></pre><h5 id="抢占主节点"><a href="#抢占主节点" class="headerlink" title="抢占主节点"></a>抢占主节点</h5><p>连接 2182 并尝试创建 master 节点</p>
-<pre><code>./zkCli.sh -server 127.0.0.1:2181 
-</code></pre><p>会提示节点已经存在</p>
-<pre><code>[zk: 127.0.0.1:2182(CONNECTED) 1] create -e /master &quot;test data: im 2182&quot;
-Node already exists: /master
-[zk: 127.0.0.1:2182(CONNECTED) 2] 
-</code></pre><h5 id="监视主节点"><a href="#监视主节点" class="headerlink" title="监视主节点"></a>监视主节点</h5><p>使用 stat -w + 节点名称来为节点创建监视点</p>
-<pre><code>[zk: 127.0.0.1:2182(CONNECTED) 5] stat -w /master  # 为 /master 节点创建监视点
-cZxid = 0x10000000f
-ctime = Tue Apr 28 18:31:40 CST 2020
-mZxid = 0x10000000f
-mtime = Tue Apr 28 18:31:40 CST 2020
-pZxid = 0x10000000f
-cversion = 0
-dataVersion = 0
-aclVersion = 0
-ephemeralOwner = 0x100004792a60003
-dataLength = 18
-numChildren = 0
-[zk: 127.0.0.1:2182(CONNECTED) 6] 
-</code></pre><p>删除 /master 节点，会看到监视点发出节点被删除的信息</p>
-<pre><code>[zk: 127.0.0.1:2182(CONNECTED) 7] delete /master   # 删除节点
-
-WATCHER::
-
-WatchedEvent state:SyncConnected type:NodeDeleted path:/master  # 监听器效果
-[zk: 127.0.0.1:2182(CONNECTED) 8] 
-</code></pre><h5 id="抢占主节点-1"><a href="#抢占主节点-1" class="headerlink" title="抢占主节点"></a>抢占主节点</h5><p>在次运行创建主节点信息时，就能创建了。因为之前的已经被删除了。</p>
-<pre><code>[zk: 127.0.0.1:2182(CONNECTED) 8] create -e /master &quot;test data: im 2182&quot;
-Created /master
-[zk: 127.0.0.1:2182(CONNECTED) 9]
-</code></pre><h4 id="从节点，任务和分配"><a href="#从节点，任务和分配" class="headerlink" title="从节点，任务和分配"></a>从节点，任务和分配</h4><p>创建三个父znode，这三个节点为持久性节点，不包含任何数据</p>
-<pre><code>create /workers &quot;&quot;
-create /tasks &quot;&quot;
-create /assign &quot;&quot;
-ls /
-</code></pre><p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjIsTZVZOUcZOwWP6y1eTrP349nILABsg8JdUmp.LbqXEsIs5SwrDD0RQqgrMgnLLDg!!/mnull&amp;bo=xAPOAMQDzgADCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-<p>在真实的应用中，这些 znode 可能由主进程在分配任务前创建，也可能由一个引导程序创建，不管这些节点是如何创建的，一旦这些节点存在了，主节点就需要监视 /workers 和 /tasks 的子节点的变化情况：</p>
-<pre><code>ls -w /workers
-ls -w /tasks
-</code></pre><p>从节点首先要通知主节点，告知从节点可以执行任务。从节点通过在 /workers 子节点下创建临时性的 znode 来进行通知，并在子节点中使用庄机名来标识自己：</p>
-<pre><code>create -e /workers/zk.yanrs.com &quot;zk.yanrs.com:2181&quot;
-</code></pre><p>从节点创建后主节点就能收到监听信息</p>
-<pre><code>WATCHER::
-
-WatchedEvent state:SyncConnected type:NodeChildrenChanged path:/workers
-</code></pre><p>后面操作略，主要流程信息如下：</p>
-<pre><code>从节点告知主节点可以执行任务，并传递自己的身份(便于后续主节点分配任务给自己)
-create -e /workers/zk.yanrs.com &quot;zk.yanrs.com:2181&quot;
-
-从节点创建 /assign/zk.yanrs.com 节点来接收分配的任务，并监听状态
-create /assign/zk.yanrs.com &quot;&quot;
-ls -w /assign/zk.yanrs.com
-
-客户端添加任务，并监听任务状态
-create -s /tasks/task- &quot;cmd&quot;
-ls -w /tasks/task-0000000000 
-
-主节点分配任务，这时从节点会接收到通知
-create /assign/zk.yanrs.com/task-0000000000 &quot;&quot;
-
-如果任务是给自己的，那么就执行任务，完成后添加 status 子节点，并标记为完成
-create /tasks/task-0000000000/status &quot;done&quot;
-
-# 客户端检查执行结果
-get /tasks/task-0000000000
-</code></pre><h3 id="Stat-结构体"><a href="#Stat-结构体" class="headerlink" title="Stat 结构体"></a>Stat 结构体</h3><p>Znode 维护了一个 stat 结构，这个 stat 包含数据变化的版本号、访问控制列表变化、还有时间戳。版本号和时间戳一起，可让 Zookeeper 验证缓存和协调更新。每次 znode 的数据发生了变化，版本号就增加。例如，无论何时客户端检索数据，它也一起检索数据的版本号。并且当客户端执行更新或删除时，客户端必须提供他正在改变的znode 的版本号。如果它提供的版本号和真实的数据版本号不一致，更新将会失败。</p>
-<p>查看某个目录的 stat 信息:</p>
-<pre><code>[zk: localhost:2181(CONNECTED) 25] stat test_tmp
-Path must start with / character
-[zk: localhost:2181(CONNECTED) 26] stat /test_tmp
-cZxid = 0x9
-ctime = Sun May 17 21:16:29 CST 2020
-mZxid = 0x9
-mtime = Sun May 17 21:16:29 CST 2020
-pZxid = 0x9
-cversion = 0
-dataVersion = 0
-aclVersion = 0
-ephemeralOwner = 0x10010118bfa0000
-dataLength = 8
-numChildren = 0
-</code></pre><p>Stat 结构体：</p>
-<pre><code>czxid - 创建节点的事务的 zxid（ZooKeeper Transaction Id），即创建节点的时候自动生成的一个 ID
-ctime - znode 被创建的毫秒数(从1970年开始)
-mzxid - znode 最后更新的zxid
-mtime - znode 最后修改的毫秒数(从1970年开始)
-pZxid - znode 最后更新的子节点 zxid
-cversion - znode子节点变化号，znode子节点修改次数
-dataversion - znode数据变化号
-aclVersion - znode访问控制列表的变化号
-ephemeralOwner - 如果是临时节点，这个是znode拥有者的session id。如果不是临时节点则是0。
-dataLength - znode的数据长度
-numChildren - znode子节点数量
-</code></pre><h3 id="Znode"><a href="#Znode" class="headerlink" title="Znode"></a>Znode</h3><p>Znode = path + data + stat</p>
-<h3 id="Java-API"><a href="#Java-API" class="headerlink" title="Java API"></a>Java API</h3><h4 id="简单操作-1"><a href="#简单操作-1" class="headerlink" title="简单操作"></a>简单操作</h4><p>演示连接，创建节点，获取节点信息。<a href="https://github.com/rexyan/it_guigu/blob/master/ZooKeeper/zookeeperapi/src/main/java/com/atguigu/zookeeper/Demo1.java" target="_blank" rel="noopener">源码地址</a> </p>
-<pre class="line-numbers language-java"><code class="language-java"><span class="token keyword">package</span> com<span class="token punctuation">.</span>atguigu<span class="token punctuation">.</span>zookeeper<span class="token punctuation">;</span>
-
-<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>zookeeper<span class="token punctuation">.</span>*<span class="token punctuation">;</span>
-<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>zookeeper<span class="token punctuation">.</span>data<span class="token punctuation">.</span>Stat<span class="token punctuation">;</span>
-
-<span class="token keyword">import</span> java<span class="token punctuation">.</span>io<span class="token punctuation">.</span>IOException<span class="token punctuation">;</span>
-<span class="token keyword">import</span> java<span class="token punctuation">.</span>rmi<span class="token punctuation">.</span>server<span class="token punctuation">.</span>ExportException<span class="token punctuation">;</span>
-
-<span class="token comment" spellcheck="true">/**
- * ZK 基础使用
- */</span>
-<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">Demo1</span> <span class="token punctuation">{</span>
-    <span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> String CONNECTSRING<span class="token operator">=</span><span class="token string">"127.0.0.1:2181"</span><span class="token punctuation">;</span>
-    <span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> String PATH<span class="token operator">=</span><span class="token string">"/root"</span><span class="token punctuation">;</span>
-    <span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> <span class="token keyword">int</span> TIMEOUT<span class="token operator">=</span> <span class="token number">20</span> <span class="token operator">*</span> <span class="token number">1000</span><span class="token punctuation">;</span>
-
-    <span class="token comment" spellcheck="true">/**
-     * 获取 ZK 实例连接实例
-     * @return
-     * @throws IOException
-     */</span>
-    <span class="token keyword">public</span> ZooKeeper <span class="token function">startZK</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">throws</span> IOException <span class="token punctuation">{</span>
-        <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">ZooKeeper</span><span class="token punctuation">(</span>CONNECTSRING<span class="token punctuation">,</span> TIMEOUT<span class="token punctuation">,</span> <span class="token keyword">new</span> <span class="token class-name">Watcher</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
-            <span class="token annotation punctuation">@Override</span>
-            <span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">process</span><span class="token punctuation">(</span>WatchedEvent watchedEvent<span class="token punctuation">)</span> <span class="token punctuation">{</span>
-                System<span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span><span class="token string">"连接监听"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-            <span class="token punctuation">}</span>
-        <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-    <span class="token punctuation">}</span>
-
-    <span class="token comment" spellcheck="true">/**
-     * 关闭 ZK
-     * @param zooKeeper
-     * @throws InterruptedException
-     */</span>
-    <span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">stopZk</span><span class="token punctuation">(</span>ZooKeeper zooKeeper<span class="token punctuation">)</span> <span class="token keyword">throws</span> InterruptedException <span class="token punctuation">{</span>
-        <span class="token keyword">if</span><span class="token punctuation">(</span>zooKeeper<span class="token operator">!=</span>null<span class="token punctuation">)</span><span class="token punctuation">{</span>
-            zooKeeper<span class="token punctuation">.</span><span class="token function">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-        <span class="token punctuation">}</span>
-    <span class="token punctuation">}</span>
-
-    <span class="token comment" spellcheck="true">/**
-     * 创建 ZNode 节点
-     * @param zooKeeper
-     * @param path
-     * @param data
-     * @return
-     * @throws KeeperException
-     * @throws InterruptedException
-     */</span>
-    <span class="token keyword">public</span> String <span class="token function">createZNode</span><span class="token punctuation">(</span>ZooKeeper zooKeeper<span class="token punctuation">,</span> String path<span class="token punctuation">,</span> String data<span class="token punctuation">)</span> <span class="token keyword">throws</span> KeeperException<span class="token punctuation">,</span> InterruptedException <span class="token punctuation">{</span>
-        <span class="token comment" spellcheck="true">// ZooDefs.Ids.OPEN_ACL_UNSAFE 代表无 ACL</span>
-        <span class="token comment" spellcheck="true">// CreateMode.PERSISTENT 表示非临时节点</span>
-       <span class="token keyword">return</span> zooKeeper<span class="token punctuation">.</span><span class="token function">create</span><span class="token punctuation">(</span>path<span class="token punctuation">,</span> data<span class="token punctuation">.</span><span class="token function">getBytes</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> ZooDefs<span class="token punctuation">.</span>Ids<span class="token punctuation">.</span>OPEN_ACL_UNSAFE<span class="token punctuation">,</span> CreateMode<span class="token punctuation">.</span>PERSISTENT<span class="token punctuation">)</span><span class="token punctuation">;</span>
-    <span class="token punctuation">}</span>
-
-    <span class="token comment" spellcheck="true">/**
-     * 获取数据
-     * @param zooKeeper
-     * @param path
-     * @return
-     * @throws KeeperException
-     * @throws InterruptedException
-     */</span>
-    <span class="token keyword">public</span> String <span class="token function">getZNode</span><span class="token punctuation">(</span>ZooKeeper zooKeeper<span class="token punctuation">,</span> String path<span class="token punctuation">)</span> <span class="token keyword">throws</span> KeeperException<span class="token punctuation">,</span> InterruptedException <span class="token punctuation">{</span>
-        <span class="token comment" spellcheck="true">// 这里没有 watch，所以 watch 为 false</span>
-        <span class="token comment" spellcheck="true">// 第三个参数为 Stat，传入一个空对象即可</span>
-        <span class="token keyword">byte</span><span class="token punctuation">[</span><span class="token punctuation">]</span> data <span class="token operator">=</span> zooKeeper<span class="token punctuation">.</span><span class="token function">getData</span><span class="token punctuation">(</span>path<span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">,</span> <span class="token keyword">new</span> <span class="token class-name">Stat</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-        <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">String</span><span class="token punctuation">(</span>data<span class="token punctuation">)</span><span class="token punctuation">;</span>
-    <span class="token punctuation">}</span>
-
-    <span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token keyword">void</span> <span class="token function">main</span><span class="token punctuation">(</span>String<span class="token punctuation">[</span><span class="token punctuation">]</span> args<span class="token punctuation">)</span> <span class="token keyword">throws</span> Exception <span class="token punctuation">{</span>
-        Demo1 demo1 <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Demo1</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-        ZooKeeper zooKeeper <span class="token operator">=</span> demo1<span class="token punctuation">.</span><span class="token function">startZK</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-        <span class="token keyword">if</span> <span class="token punctuation">(</span>zooKeeper<span class="token punctuation">.</span><span class="token function">exists</span><span class="token punctuation">(</span>PATH<span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">)</span><span class="token operator">==</span>null<span class="token punctuation">)</span><span class="token punctuation">{</span>
-            demo1<span class="token punctuation">.</span><span class="token function">createZNode</span><span class="token punctuation">(</span>zooKeeper<span class="token punctuation">,</span> PATH<span class="token punctuation">,</span> <span class="token string">"test data"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-            String zNode <span class="token operator">=</span> demo1<span class="token punctuation">.</span><span class="token function">getZNode</span><span class="token punctuation">(</span>zooKeeper<span class="token punctuation">,</span> PATH<span class="token punctuation">)</span><span class="token punctuation">;</span>
-            System<span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span>zNode<span class="token punctuation">)</span><span class="token punctuation">;</span>
-        <span class="token punctuation">}</span><span class="token keyword">else</span><span class="token punctuation">{</span>
-            System<span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span><span class="token string">"znode exists!!"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-        <span class="token punctuation">}</span>
-    <span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<h4 id="监听器"><a href="#监听器" class="headerlink" title="监听器"></a>监听器</h4><p>在获取值的时候加入一个监听器，如果值发生变化就触发 triggerValue 函数。<a href="https://github.com/rexyan/it_guigu/blob/master/ZooKeeper/zookeeperapi/src/main/java/com/atguigu/zookeeper/Watch1.java" target="_blank" rel="noopener">源码地址</a></p>
-<pre class="line-numbers language-java"><code class="language-java"><span class="token keyword">package</span> com<span class="token punctuation">.</span>atguigu<span class="token punctuation">.</span>zookeeper<span class="token punctuation">;</span>
-
-<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>zookeeper<span class="token punctuation">.</span>*<span class="token punctuation">;</span>
-<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>zookeeper<span class="token punctuation">.</span>data<span class="token punctuation">.</span>Stat<span class="token punctuation">;</span>
-
-<span class="token keyword">import</span> java<span class="token punctuation">.</span>io<span class="token punctuation">.</span>IOException<span class="token punctuation">;</span>
-
-<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">Watch1</span> <span class="token punctuation">{</span>
-    <span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> String CONNECTSRING<span class="token operator">=</span><span class="token string">"127.0.0.1:2181"</span><span class="token punctuation">;</span>
-    <span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> String PATH<span class="token operator">=</span><span class="token string">"/root"</span><span class="token punctuation">;</span>
-    <span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> <span class="token keyword">int</span> TIMEOUT<span class="token operator">=</span> <span class="token number">20</span> <span class="token operator">*</span> <span class="token number">1000</span><span class="token punctuation">;</span>
-
-    <span class="token keyword">private</span> ZooKeeper zooKeeper<span class="token punctuation">;</span>
-
-    <span class="token keyword">public</span> ZooKeeper <span class="token function">getZooKeeper</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
-        <span class="token keyword">return</span> zooKeeper<span class="token punctuation">;</span>
-    <span class="token punctuation">}</span>
-
-    <span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">setZooKeeper</span><span class="token punctuation">(</span>ZooKeeper zooKeeper<span class="token punctuation">)</span> <span class="token punctuation">{</span>
-        <span class="token keyword">this</span><span class="token punctuation">.</span>zooKeeper <span class="token operator">=</span> zooKeeper<span class="token punctuation">;</span>
-    <span class="token punctuation">}</span>
-
-    <span class="token comment" spellcheck="true">/**
-     * 获取 ZK 实例连接实例
-     * @return
-     * @throws IOException
-     */</span>
-    <span class="token keyword">public</span> ZooKeeper <span class="token function">startZK</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">throws</span> IOException <span class="token punctuation">{</span>
-        <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">ZooKeeper</span><span class="token punctuation">(</span>CONNECTSRING<span class="token punctuation">,</span> TIMEOUT<span class="token punctuation">,</span> <span class="token keyword">new</span> <span class="token class-name">Watcher</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
-            <span class="token annotation punctuation">@Override</span>
-            <span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">process</span><span class="token punctuation">(</span>WatchedEvent watchedEvent<span class="token punctuation">)</span> <span class="token punctuation">{</span>
-                System<span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span><span class="token string">"连接监听"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-            <span class="token punctuation">}</span>
-        <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-    <span class="token punctuation">}</span>
-
-    <span class="token comment" spellcheck="true">/**
-     * 关闭 ZK
-     * @throws InterruptedException
-     */</span>
-    <span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">stopZk</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">throws</span> InterruptedException <span class="token punctuation">{</span>
-        <span class="token keyword">if</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>zooKeeper<span class="token operator">!=</span>null<span class="token punctuation">)</span><span class="token punctuation">{</span>
-            <span class="token keyword">this</span><span class="token punctuation">.</span>zooKeeper<span class="token punctuation">.</span><span class="token function">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-        <span class="token punctuation">}</span>
-    <span class="token punctuation">}</span>
-
-    <span class="token comment" spellcheck="true">/**
-     * 创建 ZNode 节点
-     * @param path
-     * @param data
-     * @return
-     * @throws KeeperException
-     * @throws InterruptedException
-     */</span>
-    <span class="token keyword">public</span> String <span class="token function">createZNode</span><span class="token punctuation">(</span>String path<span class="token punctuation">,</span> String data<span class="token punctuation">)</span> <span class="token keyword">throws</span> KeeperException<span class="token punctuation">,</span> InterruptedException <span class="token punctuation">{</span>
-        <span class="token comment" spellcheck="true">// ZooDefs.Ids.OPEN_ACL_UNSAFE 代表无 ACL</span>
-        <span class="token comment" spellcheck="true">// CreateMode.PERSISTENT 表示非临时节点</span>
-        <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">.</span>zooKeeper<span class="token punctuation">.</span><span class="token function">create</span><span class="token punctuation">(</span>path<span class="token punctuation">,</span> data<span class="token punctuation">.</span><span class="token function">getBytes</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> ZooDefs<span class="token punctuation">.</span>Ids<span class="token punctuation">.</span>OPEN_ACL_UNSAFE<span class="token punctuation">,</span> CreateMode<span class="token punctuation">.</span>PERSISTENT<span class="token punctuation">)</span><span class="token punctuation">;</span>
-    <span class="token punctuation">}</span>
-
-    <span class="token comment" spellcheck="true">/**
-     * 获取数据
-     * @param path
-     * @return
-     * @throws KeeperException
-     * @throws InterruptedException
-     */</span>
-    <span class="token keyword">public</span> String <span class="token function">getZNode</span><span class="token punctuation">(</span>String path<span class="token punctuation">)</span> <span class="token keyword">throws</span> KeeperException<span class="token punctuation">,</span> InterruptedException <span class="token punctuation">{</span>
-        <span class="token comment" spellcheck="true">// 这里添加一个监听器</span>
-        <span class="token comment" spellcheck="true">// 第三个参数为 Stat，传入一个空对象即可</span>
-        <span class="token keyword">byte</span><span class="token punctuation">[</span><span class="token punctuation">]</span> data <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>zooKeeper<span class="token punctuation">.</span><span class="token function">getData</span><span class="token punctuation">(</span>path<span class="token punctuation">,</span> <span class="token keyword">new</span> <span class="token class-name">Watcher</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
-            <span class="token annotation punctuation">@Override</span>
-            <span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">process</span><span class="token punctuation">(</span>WatchedEvent watchedEvent<span class="token punctuation">)</span> <span class="token punctuation">{</span>
-                String newValue <span class="token operator">=</span> null<span class="token punctuation">;</span>
-                <span class="token keyword">try</span> <span class="token punctuation">{</span>
-                    newValue <span class="token operator">=</span> <span class="token function">triggerValue</span><span class="token punctuation">(</span>path<span class="token punctuation">)</span><span class="token punctuation">;</span>
-                <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span><span class="token class-name">Exception</span> e<span class="token punctuation">)</span> <span class="token punctuation">{</span>
-                    e<span class="token punctuation">.</span><span class="token function">printStackTrace</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-                <span class="token punctuation">}</span>
-                System<span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span><span class="token string">"newValue:"</span> <span class="token operator">+</span> newValue<span class="token punctuation">)</span><span class="token punctuation">;</span>
-            <span class="token punctuation">}</span>
-        <span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token keyword">new</span> <span class="token class-name">Stat</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-        <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">String</span><span class="token punctuation">(</span>data<span class="token punctuation">)</span><span class="token punctuation">;</span>
-    <span class="token punctuation">}</span>
-
-    <span class="token keyword">private</span> String <span class="token function">triggerValue</span><span class="token punctuation">(</span>String path<span class="token punctuation">)</span> <span class="token keyword">throws</span> KeeperException<span class="token punctuation">,</span> InterruptedException <span class="token punctuation">{</span>
-        <span class="token keyword">byte</span><span class="token punctuation">[</span><span class="token punctuation">]</span> data <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>zooKeeper<span class="token punctuation">.</span><span class="token function">getData</span><span class="token punctuation">(</span>path<span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">,</span> <span class="token keyword">new</span> <span class="token class-name">Stat</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-        <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">String</span><span class="token punctuation">(</span>data<span class="token punctuation">)</span><span class="token punctuation">;</span>
-    <span class="token punctuation">}</span>
-
-    <span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token keyword">void</span> <span class="token function">main</span><span class="token punctuation">(</span>String<span class="token punctuation">[</span><span class="token punctuation">]</span> args<span class="token punctuation">)</span> <span class="token keyword">throws</span> Exception <span class="token punctuation">{</span>
-        Watch1 watch1 <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Watch1</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-        watch1<span class="token punctuation">.</span><span class="token function">setZooKeeper</span><span class="token punctuation">(</span>watch1<span class="token punctuation">.</span><span class="token function">startZK</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-        <span class="token keyword">if</span><span class="token punctuation">(</span>watch1<span class="token punctuation">.</span><span class="token function">getZooKeeper</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">exists</span><span class="token punctuation">(</span>PATH<span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">)</span><span class="token operator">==</span>null<span class="token punctuation">)</span><span class="token punctuation">{</span>
-            watch1<span class="token punctuation">.</span><span class="token function">createZNode</span><span class="token punctuation">(</span>PATH<span class="token punctuation">,</span> <span class="token string">"test data"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-            String zNode <span class="token operator">=</span> watch1<span class="token punctuation">.</span><span class="token function">getZNode</span><span class="token punctuation">(</span>PATH<span class="token punctuation">)</span><span class="token punctuation">;</span>
-            System<span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span>zNode<span class="token punctuation">)</span><span class="token punctuation">;</span>
-        <span class="token punctuation">}</span><span class="token keyword">else</span><span class="token punctuation">{</span>
-            System<span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span><span class="token string">"znode exists!!"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-        <span class="token punctuation">}</span>
-
-        Thread<span class="token punctuation">.</span><span class="token function">sleep</span><span class="token punctuation">(</span>Integer<span class="token punctuation">.</span>MAX_VALUE<span class="token punctuation">)</span><span class="token punctuation">;</span>
-    <span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<p>测试的时候，先将之前的 znode 节点删除，然后运行程序重新创建，创建后重新设置值，就能看到监听器监听到的变化，但是如果再次设置值的时候就监听不到了，原因是<strong>每个监听器只通知一次。</strong></p>
-<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjC8D.N2xYMRB*BvZcE967WuwoJFpMPIjWX8XlEPdQsdlnFCUG7Aik*qRu7mZuhCefQ!!/mnull&amp;bo=ygMkAMoDJAADCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-<p>运行程序</p>
-<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjLN8mvYWRxYxN.R42eePmLQEW97qPetgOmdLmvdh21.KvjOasqaff9nJ3HNT*A8pQA!!/mnull&amp;bo=wwMlAMMDJQADCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-<p>查看监听器的输出</p>
-<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjHuMB4LiqrBSRiXFrofI7xrlLKP.Tm1HnQcDZmhcMT7Bpj35GaCDVt8V8pTqNO3XUw!!/mnull&amp;bo=4AiqAeAIqgEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-<p>上面中的监听器通知一次后就结束了，如果一直监听某个节点呢？<a href="https://github.com/rexyan/it_guigu/blob/master/ZooKeeper/zookeeperapi/src/main/java/com/atguigu/zookeeper/Watch2.java" target="_blank" rel="noopener">源码地址</a></p>
-<pre class="line-numbers language-java"><code class="language-java"><span class="token keyword">package</span> com<span class="token punctuation">.</span>atguigu<span class="token punctuation">.</span>zookeeper<span class="token punctuation">;</span>
-
-<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>zookeeper<span class="token punctuation">.</span>*<span class="token punctuation">;</span>
-<span class="token keyword">import</span> org<span class="token punctuation">.</span>apache<span class="token punctuation">.</span>zookeeper<span class="token punctuation">.</span>data<span class="token punctuation">.</span>Stat<span class="token punctuation">;</span>
-
-<span class="token keyword">import</span> java<span class="token punctuation">.</span>io<span class="token punctuation">.</span>IOException<span class="token punctuation">;</span>
-
-<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">Watch2</span> <span class="token punctuation">{</span>
-    <span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> String CONNECTSRING<span class="token operator">=</span><span class="token string">"127.0.0.1:2181"</span><span class="token punctuation">;</span>
-    <span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> String PATH<span class="token operator">=</span><span class="token string">"/root"</span><span class="token punctuation">;</span>
-    <span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> <span class="token keyword">int</span> TIMEOUT<span class="token operator">=</span> <span class="token number">20</span> <span class="token operator">*</span> <span class="token number">1000</span><span class="token punctuation">;</span>
-
-    <span class="token keyword">private</span> ZooKeeper zooKeeper<span class="token punctuation">;</span>
-
-    <span class="token keyword">public</span> ZooKeeper <span class="token function">getZooKeeper</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
-        <span class="token keyword">return</span> zooKeeper<span class="token punctuation">;</span>
-    <span class="token punctuation">}</span>
-
-    <span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">setZooKeeper</span><span class="token punctuation">(</span>ZooKeeper zooKeeper<span class="token punctuation">)</span> <span class="token punctuation">{</span>
-        <span class="token keyword">this</span><span class="token punctuation">.</span>zooKeeper <span class="token operator">=</span> zooKeeper<span class="token punctuation">;</span>
-    <span class="token punctuation">}</span>
-
-    <span class="token comment" spellcheck="true">/**
-     * 获取 ZK 实例连接实例
-     * @return
-     * @throws IOException
-     */</span>
-    <span class="token keyword">public</span> ZooKeeper <span class="token function">startZK</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">throws</span> IOException <span class="token punctuation">{</span>
-        <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">ZooKeeper</span><span class="token punctuation">(</span>CONNECTSRING<span class="token punctuation">,</span> TIMEOUT<span class="token punctuation">,</span> <span class="token keyword">new</span> <span class="token class-name">Watcher</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
-            <span class="token annotation punctuation">@Override</span>
-            <span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">process</span><span class="token punctuation">(</span>WatchedEvent watchedEvent<span class="token punctuation">)</span> <span class="token punctuation">{</span>
-                System<span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span><span class="token string">"连接监听"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-            <span class="token punctuation">}</span>
-        <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-    <span class="token punctuation">}</span>
-
-    <span class="token comment" spellcheck="true">/**
-     * 关闭 ZK
-     * @throws InterruptedException
-     */</span>
-    <span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">stopZk</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">throws</span> InterruptedException <span class="token punctuation">{</span>
-        <span class="token keyword">if</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>zooKeeper<span class="token operator">!=</span>null<span class="token punctuation">)</span><span class="token punctuation">{</span>
-            <span class="token keyword">this</span><span class="token punctuation">.</span>zooKeeper<span class="token punctuation">.</span><span class="token function">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-        <span class="token punctuation">}</span>
-    <span class="token punctuation">}</span>
-
-    <span class="token comment" spellcheck="true">/**
-     * 创建 ZNode 节点
-     * @param path
-     * @param data
-     * @return
-     * @throws KeeperException
-     * @throws InterruptedException
-     */</span>
-    <span class="token keyword">public</span> String <span class="token function">createZNode</span><span class="token punctuation">(</span>String path<span class="token punctuation">,</span> String data<span class="token punctuation">)</span> <span class="token keyword">throws</span> KeeperException<span class="token punctuation">,</span> InterruptedException <span class="token punctuation">{</span>
-        <span class="token comment" spellcheck="true">// ZooDefs.Ids.OPEN_ACL_UNSAFE 代表无 ACL</span>
-        <span class="token comment" spellcheck="true">// CreateMode.PERSISTENT 表示非临时节点</span>
-        <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">.</span>zooKeeper<span class="token punctuation">.</span><span class="token function">create</span><span class="token punctuation">(</span>path<span class="token punctuation">,</span> data<span class="token punctuation">.</span><span class="token function">getBytes</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> ZooDefs<span class="token punctuation">.</span>Ids<span class="token punctuation">.</span>OPEN_ACL_UNSAFE<span class="token punctuation">,</span> CreateMode<span class="token punctuation">.</span>PERSISTENT<span class="token punctuation">)</span><span class="token punctuation">;</span>
-    <span class="token punctuation">}</span>
-
-    <span class="token comment" spellcheck="true">/**
-     * 获取数据
-     * @param path
-     * @return
-     * @throws KeeperException
-     * @throws InterruptedException
-     */</span>
-    <span class="token keyword">public</span> String <span class="token function">getZNode</span><span class="token punctuation">(</span>String path<span class="token punctuation">)</span> <span class="token keyword">throws</span> KeeperException<span class="token punctuation">,</span> InterruptedException <span class="token punctuation">{</span>
-        <span class="token comment" spellcheck="true">// 这里添加一个监听器</span>
-        <span class="token comment" spellcheck="true">// 第三个参数为 Stat，传入一个空对象即可</span>
-        <span class="token keyword">byte</span><span class="token punctuation">[</span><span class="token punctuation">]</span> data <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>zooKeeper<span class="token punctuation">.</span><span class="token function">getData</span><span class="token punctuation">(</span>path<span class="token punctuation">,</span> <span class="token keyword">new</span> <span class="token class-name">Watcher</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
-            <span class="token annotation punctuation">@Override</span>
-            <span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">process</span><span class="token punctuation">(</span>WatchedEvent watchedEvent<span class="token punctuation">)</span> <span class="token punctuation">{</span>
-                String newValue <span class="token operator">=</span> null<span class="token punctuation">;</span>
-                <span class="token keyword">try</span> <span class="token punctuation">{</span>
-                    <span class="token function">triggerValue</span><span class="token punctuation">(</span>path<span class="token punctuation">)</span><span class="token punctuation">;</span>
-                <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span><span class="token class-name">Exception</span> e<span class="token punctuation">)</span> <span class="token punctuation">{</span>
-                    e<span class="token punctuation">.</span><span class="token function">printStackTrace</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-                <span class="token punctuation">}</span>
-            <span class="token punctuation">}</span>
-        <span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token keyword">new</span> <span class="token class-name">Stat</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-        String oldValue <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">String</span><span class="token punctuation">(</span>data<span class="token punctuation">)</span><span class="token punctuation">;</span>
-        System<span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span><span class="token string">"old value: "</span> <span class="token operator">+</span> oldValue<span class="token punctuation">)</span><span class="token punctuation">;</span>
-        <span class="token keyword">return</span> oldValue<span class="token punctuation">;</span>
-    <span class="token punctuation">}</span>
-
-    <span class="token keyword">private</span> String <span class="token function">triggerValue</span><span class="token punctuation">(</span>String path<span class="token punctuation">)</span> <span class="token keyword">throws</span> KeeperException<span class="token punctuation">,</span> InterruptedException <span class="token punctuation">{</span>
-        <span class="token keyword">byte</span><span class="token punctuation">[</span><span class="token punctuation">]</span> data <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span>zooKeeper<span class="token punctuation">.</span><span class="token function">getData</span><span class="token punctuation">(</span>path<span class="token punctuation">,</span> <span class="token keyword">new</span> <span class="token class-name">Watcher</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
-            <span class="token annotation punctuation">@Override</span>
-            <span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">process</span><span class="token punctuation">(</span>WatchedEvent watchedEvent<span class="token punctuation">)</span> <span class="token punctuation">{</span>
-                <span class="token keyword">try</span> <span class="token punctuation">{</span>
-                    <span class="token comment" spellcheck="true">// 再次调用自己，为 path 节点添加监听器</span>
-                    <span class="token function">triggerValue</span><span class="token punctuation">(</span>path<span class="token punctuation">)</span><span class="token punctuation">;</span>
-                <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span><span class="token class-name">Exception</span> e<span class="token punctuation">)</span> <span class="token punctuation">{</span>
-                    e<span class="token punctuation">.</span><span class="token function">printStackTrace</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-                <span class="token punctuation">}</span>
-            <span class="token punctuation">}</span>
-        <span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token keyword">new</span> <span class="token class-name">Stat</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-        String newValue <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">String</span><span class="token punctuation">(</span>data<span class="token punctuation">)</span><span class="token punctuation">;</span>
-        System<span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span><span class="token string">"newValue: "</span> <span class="token operator">+</span> newValue<span class="token punctuation">)</span><span class="token punctuation">;</span>
-        <span class="token keyword">return</span> newValue<span class="token punctuation">;</span>
-    <span class="token punctuation">}</span>
-
-    <span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token keyword">void</span> <span class="token function">main</span><span class="token punctuation">(</span>String<span class="token punctuation">[</span><span class="token punctuation">]</span> args<span class="token punctuation">)</span> <span class="token keyword">throws</span> Exception <span class="token punctuation">{</span>
-        Watch2 watch1 <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Watch2</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-        watch1<span class="token punctuation">.</span><span class="token function">setZooKeeper</span><span class="token punctuation">(</span>watch1<span class="token punctuation">.</span><span class="token function">startZK</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-        <span class="token keyword">if</span><span class="token punctuation">(</span>watch1<span class="token punctuation">.</span><span class="token function">getZooKeeper</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">exists</span><span class="token punctuation">(</span>PATH<span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">)</span><span class="token operator">==</span>null<span class="token punctuation">)</span><span class="token punctuation">{</span>
-            watch1<span class="token punctuation">.</span><span class="token function">createZNode</span><span class="token punctuation">(</span>PATH<span class="token punctuation">,</span> <span class="token string">"test data"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-            String zNode <span class="token operator">=</span> watch1<span class="token punctuation">.</span><span class="token function">getZNode</span><span class="token punctuation">(</span>PATH<span class="token punctuation">)</span><span class="token punctuation">;</span>
-            System<span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span>zNode<span class="token punctuation">)</span><span class="token punctuation">;</span>
-        <span class="token punctuation">}</span><span class="token keyword">else</span><span class="token punctuation">{</span>
-            System<span class="token punctuation">.</span>out<span class="token punctuation">.</span><span class="token function">println</span><span class="token punctuation">(</span><span class="token string">"znode exists!!"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-        <span class="token punctuation">}</span>
-
-        Thread<span class="token punctuation">.</span><span class="token function">sleep</span><span class="token punctuation">(</span>Integer<span class="token punctuation">.</span>MAX_VALUE<span class="token punctuation">)</span><span class="token punctuation">;</span>
-    <span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<p>上面程序只要一直改变 /root 节点的值，就会一直处罚监听器，并且在监听器中再次设置一个监听器，下次改变的时候就能发现。这样就实现了一直监听某个节点的需求。</p>
-<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjD9xctpLC8ppKmZZfGQu9PTQpt*pafdhxdGHIJIQjEIie*11rZ.cbLcvuz9cbj2YEg!!/mnull&amp;bo=ygM2AMoDNgADCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjK403uuz8kP4YRQov6DpLcn38nAlGMGjrPUHzZclF69bA2lOSfOIiXGT7yJKwfnSYw!!/mnull&amp;bo=5AjMAeQIzAEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2020/05/19/54. JVM/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2020/05/19/54. JVM/" itemprop="url">54. JVM</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2020-05-19T22:30:57+08:00">
-                2020-05-19
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Java-大数据/" itemprop="url" rel="index">
-                    <span itemprop="name">Java 大数据</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="JVM体系结构"><a href="#JVM体系结构" class="headerlink" title="JVM体系结构"></a>JVM体系结构</h3><p>灰色部分没有垃圾回收，垃圾回收出现在橙色部分，而且 99% 的垃圾回收都在堆当中。</p>
-<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjOwtYHJuGsJyZl3yoa57vHy7F7gjiuzc9zoKgNxqkICl40.bwWCegiLlYHtNEM7HLw!!/mnull&amp;bo=MgPYAjID2AIDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-<p><strong>灰色的部分（虚拟机栈，本地方法栈，程序计数器）是线程隔离的数据区。其他部分都是线程共享的。</strong></p>
-<h4 id="类加载器"><a href="#类加载器" class="headerlink" title="类加载器"></a>类加载器</h4><p>负责加载 class 文件，class 文件在文件开头有特定的文件标示，并且 ClassLoader 只负责 class 文件的加载，至于它是否可以运行，则由 Execution Engine 决定。类加载器有，虚拟机自带的加载器，启动类加载器（Bootstrap）扩展类加载器（Extension），应用程序类加载器（AppClassLoader），用户自定义加载器（继承 ClassLoader 自己实现的）</p>
-<h4 id="程序计数器"><a href="#程序计数器" class="headerlink" title="程序计数器"></a>程序计数器</h4><p>程序计数器(Progam Counter Register)是一块较小的内存空间，它可以看作是当前线程所执行的<br>字节码的行号指示器。在 Java 虛拟机的概念模型里，字节码解释器工作时就是通过改变这个计数器<br>的值来选取下一条需要执行的字节码指令，它是程序控制流的指示器，分支、循环、跳转、异常处<br>理、线程恢复等基础功能都需要依赖这个计数器来完成。</p>
-<p>由于 Java 虚拟机的多线程是通过线程轮流切换、分配处理器执行时间的方式来实现的，在任何一<br>个确定的时刻， 一个处理器(对于多核处理器来说是一个内核)都只会执行一条线程中的指令。因<br>此，为了线程切换后能恢复到正确的执行位置，每条线程都需要有一个独立的程序计数器，各条线程<br>之间计数器互不影响，独立存储，我们称这类内存区域为“线程私有”的内存。</p>
-<p>如果线程正在执行的是一个 Java 方法，这个计数器记录的是正在执行的虚拟机字节码指令的地<br>址;如果正在执行的是本地(Native) 方法，这个计数器值则应为空(Undefined) 。此内存区域是唯<br>一个在《Java虚拟机规范》中没有规定任何 OutOfMemoryError 情况的区域。</p>
-<h4 id="虚拟机栈（Java-栈）"><a href="#虚拟机栈（Java-栈）" class="headerlink" title="虚拟机栈（Java 栈）"></a>虚拟机栈（Java 栈）</h4><p>在线程创建的时候创建，生命周期是跟随线程的生命周期的，对于栈来说不存在垃圾回收的问题。</p>
-<p>里面主要存放8种基本类型的变量 + 对象的引用变量 + 实例方法</p>
-<h4 id="本地方法栈"><a href="#本地方法栈" class="headerlink" title="本地方法栈"></a>本地方法栈</h4><p>它的具体做法是在本地方法栈中登记 native 方法，在执行引擎执行的时候加载本地方法库</p>
-<h4 id="方法区"><a href="#方法区" class="headerlink" title="方法区"></a>方法区</h4><p>方法区是所有线程共享的，所有字段和方法的字节码，以及一些特殊方法如构造函数，接口代码也是定义在这里。简单来说就是所有定义的方法的信息都保存在这里。</p>
-<p><strong>静态变量，常量，类信息（构造函数，接口定义）运行时常量池</strong> 都存在这里，但是实例变量不在这里，实例变量在堆中。</p>
-<h4 id="堆"><a href="#堆" class="headerlink" title="堆"></a>堆</h4><p>一个 JVM 实例只存在一个堆内存，堆内存的大小是可以调节的。类载器读取了类文件后, 需要把类、方法、常变量放到堆内存中，保存所有引用类型的真实信息，以方便执行器执行，堆内存分为三部分，分别是 <strong>新生区</strong>， <strong>养老区</strong>， <strong>永久区</strong>。</p>
-<p>新生区是类的诞生、成长、消亡的区域，一个类在这里产生，应用，最后被垃圾回收器收集，结束生命。新生区又分为两部分: 伊甸区(Eden space)和幸存者区(Survivor pace)， 所有的类都是在伊甸区被 new 出来的。幸存区有两个: 0区(Survivor 0 space)和1区(Survivor 1 space)。当伊甸园的空间用完时,程序又需要创建对象，JVM 的垃圾回收器将对伊甸园区进行垃圾回收(Minor GC),将伊甸园区中的不再被其他对象所引用的对象进行销毁。然后将伊甸园中的剩余对象移动到幸存0区。若幸存0区也满了，再对该区进行垃圾回收,然后移动到1区。那如果1区也满了呢?再次垃圾回收,满足条件后再移动到养老区。若养老区也满了,那么这个时候将产生 MajorGC(FullGC)，进行养老区的内存清理。若养老区执行了 Full GC 之后发现依然无法进行对象的保存，就会产生 OOM 异常 “OutOfMemoryError” 。</p>
-<p>如果出现 java.lang.OutOfMemoryError: Java heap space异常，说明 Java虚拟机的堆内存不够。原可能是 Java虚拟机的堆内存设置不够，可以通过参数 -Xms、-Xmx 来调整（<strong>如果默认不调整，Java 虚拟机启动占用的内存大小为机器内存的 64/1，最大可达机器内存 4/1。可以通过-Xms 来设置最小内存，-Xmx 类设置最大内存</strong> ）。或者是代码中创建了大量大对象，并且长时间不能被垃圾收集器收集(存在被引用)。</p>
-<p>永久区是一个常驻内存区域，用于存放 JDK 自身所携带的 Class, Interface 的元数据，也就是说它存储的是运行环境必须的类信息，被装载进此区域的数据是不会被垃圾回收器回收掉的，关闭 JVM 才会释放此区域所占用的内存。如果出现 java. lang. OutOfMemoryError: PermGen space,说明是 Java 虚拟机对永久代 Perm 内存设置不够。一般出现这种情况，都是程序启动需要加载大量的第三方jar包。例如:在一个 Tomcat 下部署了太多的应用。或者大量动态反射生成的类不断被加载，最终导致 Perm 区被占满。在 Java 1.7 及 1.7 以前是存在 永久区 的，从 1.8 开始就没有了，取而代之的是元空间。</p>
-<p>可以<a href="https://www.jianshu.com/p/c34af977ade1" target="_blank" rel="noopener">导出 JVM 的dump 文件进行分析</a>，查看到底是哪里发生了 oom 问题。</p>
-<h4 id="执行引擎"><a href="#执行引擎" class="headerlink" title="执行引擎"></a>执行引擎</h4><p>负责解释命令，将命令提交给操作系统执行。</p>
-<h4 id="本地库接口"><a href="#本地库接口" class="headerlink" title="本地库接口"></a>本地库接口</h4><p>本地接口的作用是融合不同的编程语言为 Java 所用，它的具体做法是在本地方法栈中登记 native 方法，在执行引擎执行的时候加载本地方法库</p>
-<h3 id="GC"><a href="#GC" class="headerlink" title="GC"></a>GC</h3><p>GC，又叫做分带收集算法。表现为频繁的收集<strong>新生区</strong>，较少的收集<strong>养老区</strong>，基本不动 <strong>永久区</strong></p>
-<h4 id="GC-的四种算法"><a href="#GC-的四种算法" class="headerlink" title="GC 的四种算法"></a>GC 的四种算法</h4><ol>
-<li><p>引用计数算法：引用计数为 0 就会被回收，但是存在循环引用的问题。</p>
-</li>
-<li><p>复制算法：这种算法在新生区中被使用，HotSpot JVM把年轻代（新生区）分为了三部分：1个 Eden 区和2个Survivor区（分别叫from和to）。默认比例为 8:1:1, 一般情况下，新创建的对象都会被分配到Eden区(一些大对象特殊处理),这些对象经过第一次Minor GC 后，如果仍然存活，将会被移到 Survivor 区。对象 在Survivor区中每熬过一次 Minor GC，年龄就会增加1岁，当它的年龄增加到一定程度时，就会被移动到年老代（养老区）中。因为年轻代中的对象基本都是朝生夕死的 (90%以上)，所以在年轻代的垃圾回收算法使用的是复制算法，复制算法的基本思想就是将内存分为两块，每次只用其中一块，当这一块内存用完，就将还活着的对象复制到另外一块上面。复制算法不会产生内存碎片。在GC开始的时候，对象只会存在于Eden区和名为“From”的Survivor区，Survivor区“To”是空的。紧接着进行GC，Eden区中所有存活的对象都会被复制到“To”，而在“From”区中，仍存活的对象会根据他们的年龄值来决定去向。年龄达到一定值(年龄阈值，可以通过-XX:MaxTenuringThreshold 来设置)的对象会被移动到年老代中，没有达到阈值的对象会被复制到 “To” 区域。经过这次 GC 后，Eden 区和 From区已经被清空。这个时候，“From” 和 “To” 会交换他们的角色，也就是新的 “To” 就是上次 GC 前的 “From”，新的 “From” 就是上次GC前的 “To”。不管怎样，都会保证名为To的Survivor区域是空的。Minor GC会一直重复这样的过程，直到“To”区被填满，“To”区被填满之后，会将所有对象移动到年老代中。</p>
-<p>因为Eden区对象一般存活率较低，一般的，使用两块10%的内存作为空闲和活动区间，而另外80%的内存，则是用来给新建对象分配内存的。一旦发生GC，将10%的from活动区间与另外80%中存活的eden对象转移到10%的to空闲区间，接下来，将之前90%的内存全部释放，以此类推。 </p>
-<p>复制算法它的缺点也是相当明显的。 它浪费了一半的内存，这太要命了。 如果对象的存活率很高，我们可以极端一点，假设是100%存活，那么我们需要将所有对象都复制一遍，并将所有引用地址重置一遍。复制这一工作所花费的时间，在对象存活率达到一定程度时，将会变的不可忽视。 所以从以上描述不难看出，复制算法要想使用，最起码对象的存活率要非常低才行，而且最重要的是，我们必须要克服50%内存的浪费。</p>
-<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjEjxrkbN*AdmhELI5MopBuh*pcV.JHAJ3gzV6c6adxDD4Empvhj5unBqYleCR2F8bw!!/mnull&amp;bo=nwE2AZ8BNgECCS0!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-</li>
-</ol>
-<ol start="3">
-<li><p>标记清除：标记清除在养老区中被使用。当堆中的有效内存空间（available memory）被耗尽的时候，就会停止整个程序（也被称为stop the world），然后进行两项工作，第一项则是标记，第二项则是清除。标记：从引用根节点开始标记所有被引用的对象。标记的过程其实就是遍历所有的GC Roots，然后将所有GC Roots可达的对象      标记为存活的对象。 清除：遍历整个堆，把未标记的对象清除。</p>
-<p>它的缺点就是效率比较低（递归与全堆对象遍历），而且在进行GC的时候，需要停止应用程序，这会导致用户体验非常差劲。其次，主要的缺点则是这种方式清理出来的空闲内存是不连续的，这点不难理解，我们的死亡对象都是随即的出现在内存的各个角落的，现在把它们清除之后，内存的布局自然会乱七八糟。而为了应付这一点，JVM就不得不维持一个内存的空闲列表，这又是一种开销。而且在分配数组对象的时候，寻找连续的内存空间会不太好找。 </p>
-<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjBjnPM4YLvHLnDsCU06ZnRjOcc9GZK7o2npr9ZRam1U82U*byJfaRTLbsv.4NLFR1g!!/mnull&amp;bo=nQGaAJ0BmgACCS0!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-</li>
-</ol>
-<ol start="4">
-<li><p>标记压缩：标记压缩在养老区中被使用。在整理压缩阶段，不再对标记的对像做回收，而是通过所有存活对像都向一端移动，然后直接清除边界以外的内存。可以看到，标记的存活对象将会被整理，按照内存地址依次排列，而未被标记的内存会被清理掉。如此一来，当我们需要给新对象分配内存时，JVM只需要持有一个内存的起始地址即可，这比维护一个空闲列表显然少了许多开销。 标记/整理算法不仅可以弥补标记/清除算法当中，内存区域分散的缺点，也消除了复制算法当中，内存减半的高额代价。</p>
-<p>标记/整理算法唯一的缺点就是效率也不高，不仅要标记所有存活对象，还要整理所有存活对象的引用地址。从效率上来说，标记/整理算法要低于复制算法。</p>
-</li>
-<li><p>标记清除压缩：是标记清除和标记压缩的结合。</p>
-</li>
-</ol>
-<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjJ2aCrL*1JKKMNmcR6ujPdBWZKJhB0He.H19axk5XBriOpEYxo1Du2Q*xHrDT7BS4A!!/mnull&amp;bo=lwGVAJcBlQACCS0!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
   </section>
 
   
@@ -6466,7 +6189,7 @@ numChildren - znode子节点数量
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">292</span>
+                  <span class="site-state-item-count">294</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>
@@ -6488,7 +6211,7 @@ numChildren - znode子节点数量
               
               <div class="site-state-item site-state-tags">
                 <a href="/tags/index.html">
-                  <span class="site-state-item-count">144</span>
+                  <span class="site-state-item-count">147</span>
                   <span class="site-state-item-name">标签</span>
                 </a>
               </div>

@@ -349,6 +349,414 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2017/12/04/MySQL事务/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2017/12/04/MySQL事务/" itemprop="url">MySQl事务</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-12-04T12:28:52+08:00">
+                2017-12-04
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/技术/" itemprop="url" rel="index">
+                    <span itemprop="name">技术</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="介绍"><a href="#介绍" class="headerlink" title="介绍"></a>介绍</h3><ol>
+<li>在 MySQL 中只有使用了 Innodb 数据库引擎的数据库或表才支持事务。</li>
+<li>事务处理可以用来维护数据库的完整性，保证成批的 SQL 语句要么全部执行，要么全部不执行</li>
+<li><p>事务用来管理 insert,update,delete 语句</p>
+<p>一般来说，事务是必须满足4个条件（ACID）： Atomicity（原子性）、Consistency（稳定性）、Isolation（隔离性）、Durability（可靠性）</p>
+</li>
+</ol>
+<h3 id="默认情况"><a href="#默认情况" class="headerlink" title="默认情况"></a>默认情况</h3><p>　在 MySQL 命令行的默认设置下，事务都是自动提交的，即执行 SQL 语句后就会马上执行 COMMIT 操作。因此要显式地开启一个事务务须使用命令 BEGIN 或 START TRANSACTION，或者执行命令 SET AUTOCOMMIT=0，用来禁止使用当前会话的自动提交。</p>
+<h3 id="事务控制"><a href="#事务控制" class="headerlink" title="事务控制"></a>事务控制</h3><ol>
+<li>BEGIN或START TRANSACTION；显式地开启一个事务；</li>
+<li>COMMIT；也可以使用COMMIT WORK，不过二者是等价的。COMMIT会提交事务，并使已对数据库进行的所有修改称为永久性的；</li>
+<li>ROLLBACK；有可以使用ROLLBACK WORK，不过二者是等价的。回滚会结束用户的事务，并撤销正在进行的所有未提交的修改；</li>
+<li>SAVEPOINT identifier；SAVEPOINT允许在事务中创建一个保存点，一个事务中可以有多个SAVEPOINT；</li>
+<li>RELEASE SAVEPOINT identifier；删除一个事务的保存点，当没有指定的保存点时，执行该语句会抛出一个异常；</li>
+<li>ROLLBACK TO identifier；把事务回滚到标记点；</li>
+<li>SET TRANSACTION；用来设置事务的隔离级别。InnoDB存储引擎提供事务的隔离级别有READ UNCOMMITTED、READ COMMITTED、REPEATABLE READ和SERIALIZABLE。</li>
+</ol>
+<h3 id="MySQL事务处理"><a href="#MySQL事务处理" class="headerlink" title="MySQL事务处理"></a>MySQL事务处理</h3><p>1、用 BEGIN, ROLLBACK, COMMIT来实现<br>　　BEGIN 开始一个事务<br>　　ROLLBACK 事务回滚<br>　　COMMIT 事务确认<br>2、直接用 SET 来改变 MySQL 的自动提交模式:<br>　　SET AUTOCOMMIT=0 禁止自动提交<br>　　SET AUTOCOMMIT=1 开启自动提交</p>
+<h3 id="测试"><a href="#测试" class="headerlink" title="测试"></a>测试</h3><p><img src="/2017/12/04/MySQL事务/1.png" alt></p>
+<h3 id="在Java中使用"><a href="#在Java中使用" class="headerlink" title="在Java中使用"></a>在Java中使用</h3><pre><code>package com.rexyan.mysql;
+
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.SQLException;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.commons.dbutils.DbUtils;
+import org.apache.commons.dbutils.QueryRunner;
+
+import com.rexyan.utils.DataSourceUtils;
+
+public class MySQL extends HttpServlet {
+    public void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        Connection connection = null;
+        try {
+            QueryRunner queryRunner = new QueryRunner(); 
+            connection = DataSourceUtils.getConnection();
+            //开启事务
+            connection.setAutoCommit(false);
+            String sql = &quot;delete from user where id=?&quot;;
+            queryRunner.update(connection, sql, 6);
+        } catch (SQLException e) {
+            // 回滚
+            try {
+                connection.rollback();
+            } catch (SQLException e1) {
+                e1.printStackTrace();
+            }
+        }finally {
+            // 提交
+            try {
+                connection.commit();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }    
+    }
+
+    public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        doGet(request, response);
+    }
+}
+</code></pre>
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2017/11/16/JSTL/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2017/11/16/JSTL/" itemprop="url">JSTL</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-11-16T16:28:52+08:00">
+                2017-11-16
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Java/" itemprop="url" rel="index">
+                    <span itemprop="name">Java</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h3><p>　JSTL（JSP Standard Tag Library)，JSP标准标签库，可以嵌入在jsp页面中使用标签的形式完成业务逻辑等功能。jstl出现的目的同el一样也是要提到jsp页面中的脚本代码。JSTL标准标准标签库有5个子库，但随着发展，目前常使用的是他的核心库。<br>    　　标签库　　　　ＵＲＬ 　　　　　　 前缀</p>
+<ol>
+<li>Core         <a href="http://java.sun.com/jsp/jstl/core" target="_blank" rel="noopener">http://java.sun.com/jsp/jstl/core</a>    c</li>
+<li>I18N        <a href="http://java.sun.com/jsp/jstl/fmt" target="_blank" rel="noopener">http://java.sun.com/jsp/jstl/fmt</a>    fmt</li>
+<li>SQL            <a href="http://java.sun.com/jsp/jstl/sql" target="_blank" rel="noopener">http://java.sun.com/jsp/jstl/sql</a>    sql</li>
+<li>XML            <a href="http://java.sun.com/jsp/jstl/xml" target="_blank" rel="noopener">http://java.sun.com/jsp/jstl/xml</a>    x</li>
+<li>Functions    <a href="http://java.sun.com/jsp/jstl/functions" target="_blank" rel="noopener">http://java.sun.com/jsp/jstl/functions</a>    fn</li>
+</ol>
+<h3 id="下载以及导入"><a href="#下载以及导入" class="headerlink" title="下载以及导入"></a>下载以及导入</h3><p>　从Apache的网站下载JSTL的JAR包。进入        “<a href="http://archive.apache.org/dist/jakarta/taglibs/standard/binaries/”" target="_blank" rel="noopener">http://archive.apache.org/dist/jakarta/taglibs/standard/binaries/”</a> 网址下载JSTL的安装包。jakarta-taglibs-standard-1.1.2.zip，然后将下载好的JSTL安装包    进行解压，此时，在lib目录下可以看到两个JAR文件，分别为jstl.jar和standard.jar。    其中，jstl.jar文件包含JSTL规范中定义的接口和相关类，standard.jar文件包含用于    实现JSTL的.class文件以及JSTL中5个标签库描述符文件（TLD），将两个jar包导入我们工程的lib中</p>
+<h3 id="if标签"><a href="#if标签" class="headerlink" title="if标签"></a>if标签</h3><p>　if判断中没有else，所有我们可以使用！来实现同样的效果</p>
+<pre><code>&lt;!-- JSTL if判断 --&gt;
+&lt;c:if test=&quot;${str1==1111111111 }&quot;&gt;
+11111
+&lt;/c:if&gt;
+&lt;c:if test=&quot;${str1!=2222222222 }&quot;&gt;
+22222
+&lt;/c:if&gt;
+</code></pre><h3 id="for标签"><a href="#for标签" class="headerlink" title="for标签"></a>for标签</h3><h4 id="使用方式1"><a href="#使用方式1" class="headerlink" title="使用方式1"></a>使用方式1</h4><pre><code>&lt;!-- JSTL for循环1 --&gt;
+&lt;%
+int s=10;
+int s2=0;
+String[] str = {&quot;---&quot;,&quot;+++&quot;};
+request.setAttribute(&quot;s&quot;, s);
+request.setAttribute(&quot;s2&quot;, s2);
+request.setAttribute(&quot;str&quot;, str);
+
+%&gt;
+&lt;c:forEach begin=&quot;${s2 }&quot; end=&quot;${s }&quot; var=&quot;a&quot;&gt;
+${a }
+&lt;/c:forEach&gt;
+</code></pre><h4 id="使用方式2"><a href="#使用方式2" class="headerlink" title="使用方式2"></a>使用方式2</h4><pre><code>&lt;!-- JSTL for循环2 --&gt;
+&lt;c:forEach var=&quot;item&quot; items=&quot;${str }&quot;&gt;
+    ${item }
+&lt;/c:forEach&gt; 
+</code></pre><h3 id="完整代码"><a href="#完整代码" class="headerlink" title="完整代码"></a>完整代码</h3><pre><code>&lt;!-- JSTL if判断 --&gt;
+request.setAttribute(&quot;str1&quot;, &quot;1111111111&quot;);
+&lt;c:if test=&quot;${str1==1111111111 }&quot;&gt;
+11111
+&lt;/c:if&gt;
+&lt;c:if test=&quot;${str1!=2222222222 }&quot;&gt;
+22222
+&lt;/c:if&gt;
+
+&lt;!-- JSTL for循环1 --&gt;
+&lt;%
+int s=10;
+int s2=0;
+String[] str = {&quot;---&quot;,&quot;+++&quot;};
+request.setAttribute(&quot;s&quot;, s);
+request.setAttribute(&quot;s2&quot;, s2);
+request.setAttribute(&quot;str&quot;, str);
+
+%&gt;
+&lt;c:forEach begin=&quot;${s2 }&quot; end=&quot;${s }&quot; var=&quot;a&quot;&gt;
+${a }
+&lt;/c:forEach&gt;
+&lt;!-- JSTL for循环2 --&gt;
+&lt;c:forEach var=&quot;item&quot; items=&quot;${str }&quot;&gt;
+    ${item }
+&lt;/c:forEach&gt; 
+</code></pre>
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://yanrs.me/2017/11/16/el/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -1556,643 +1964,6 @@ public class session_cookie extends HttpServlet {
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2017/11/11/Request/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content="">
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2017/11/11/Request/" itemprop="url">Request</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-11-11T15:03:57+08:00">
-                2017-11-11
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category" >
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Java/" itemprop="url" rel="index">
-                    <span itemprop="name">Java</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="HttpServletRequest"><a href="#HttpServletRequest" class="headerlink" title="HttpServletRequest"></a>HttpServletRequest</h3><p>　　我们在创建Servlet时会覆盖service()方法，或doGet()/doPost(),这些方法都有两个参数，一个为代表请求的request和代表响应response。<br>　　service方法中的request的类型是ServletRequest，而doGet/doPost方法的request的类型是HttpServletRequest，HttpServletRequest是ServletRequest的子接口，功能和方法更加强大</p>
-<h3 id="request获得请求行"><a href="#request获得请求行" class="headerlink" title="request获得请求行"></a>request获得请求行</h3><p>　　获得客户端的请求方式：String getMethod()<br>　　获得请求的资源：<br>　　　String getRequestURI()<br>　　　StringBuffer getRequestURL()<br>　　　String getContextPath() —web应用的名称<br>　　　String getQueryString() —- get提交url地址后的参数字符串<br>　　　username=zhangsan&amp;password=123</p>
-<p>　　注意：request获得客户机（客户端）的一些信息<br>　　request.getRemoteAddr() — 获得访问的客户端IP地址</p>
-<pre><code>package com.rexyan.request;
-
-import java.io.IOException;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-public class RequestServlet extends HttpServlet {
-
-    public void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        //获取请求的方法
-        System.out.println(request.getMethod());
-        //获取URL【http://localhost:8080/Request/requestservlet】
-        System.out.println(request.getRequestURL());
-        //获取URI【/Request/requestservlet】
-        System.out.println(request.getRequestURI());
-        //获取Web应用的名称
-        System.out.println(request.getContextPath());
-        //获取get方式请求的参数
-        System.out.println(request.getQueryString());
-        //获取客户机的IP地址
-        System.err.println(request.getRemoteAddr());
-
-    }
-
-    public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        doGet(request, response);
-    }
-}
-</code></pre><h3 id="request获得请求头"><a href="#request获得请求头" class="headerlink" title="request获得请求头"></a>request获得请求头</h3><p>　　long getDateHeader(String name)<br>　　String getHeader(String name)<br>　　Enumeration getHeaderNames()<br>　　Enumeration getHeaders(String name)<br>　　int getIntHeader(String name)<br>　　referer头的作用：执行该此访问的的来源做防盗链</p>
-<h3 id="request获得请求体"><a href="#request获得请求体" class="headerlink" title="request获得请求体"></a>request获得请求体</h3><p>　　请求体中的内容是通过post提交的请求参数，格式是：<br>　　　username=zhangsan&amp;password=123&amp;hobby=football&amp;hobby=basketball<br>　　　key  value<br>　　　username                [zhangsan]<br>　　　password                [123]<br>　　　hobby                    [football，basketball]</p>
-<p>　　以上面参数为例，通过一下方法获得请求参数：<br>　　　String getParameter(String name)<br>　　　String[] getParameterValues(String name)<br>　　　Enumeration getParameterNames()<br>　　　Map&lt;String,String[]&gt; getParameterMap()<br>　　注意：get请求方式的请求参数 上述的方法一样可以获得</p>
-<p>　　解决post提交方式的乱码：<br>　　　request.setCharacterEncoding(“UTF-8”);<br>　　解决get提交的方式的乱码：<br>　　　parameter = new String(parameter.getbytes(“iso8859-1”),”utf-8”);</p>
-<pre><code>package com.rexyan.request;
-import java.io.IOException;
-import java.util.Enumeration;
-import java.util.Map;
-import java.util.Map.Entry;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import sun.net.www.content.audio.x_aiff;
-
-public class RequestServlet extends HttpServlet {
-
-    public void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        //设置GET方式提交的数据编码【原理是先将传来的数据进行ISO编码，后使用UTF-8解码】
-        String username = request.getParameter(&quot;name&quot;);
-        username = new String(username.getBytes(&quot;ISO-8859-1&quot;),&quot;UTF-8&quot;);
-        //设置POST方式提交的数据编码
-        request.setCharacterEncoding(&quot;utf-8&quot;);
-        //获取所有的name
-        Enumeration&lt;String&gt; parameterNames = request.getParameterNames();
-        //遍历name
-        while (parameterNames.hasMoreElements()) {
-            String string = (String) parameterNames.nextElement();
-            //根据name获取值
-            System.out.println(request.getParameter(string));
-        }
-        //--------------------------------------------------------
-        //用于获取只有一个名称，但是多个值，例如：checkbox
-        request.getParameterValues(&quot;name&quot;);
-        //根据name单个获取值
-        request.getParameter(&quot;username&quot;);
-        request.getParameter(&quot;password&quot;);
-        //将获取的值组装成一个Map
-        Map&lt;String, String[]&gt; parameterMap = request.getParameterMap();
-        for (Entry&lt;String, String[]&gt; entry: parameterMap.entrySet()) {
-            System.out.println(entry.getKey());
-            for(String value:entry.getValue()){
-                System.out.println(value);
-            }
-        }
-
-    }
-
-    public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        doGet(request, response);
-    }
-}
-</code></pre><h3 id="request域"><a href="#request域" class="headerlink" title="request域"></a>request域</h3><p>　　目前学到的域：ServLetContext、Request</p>
-<pre><code>package com.rexyan.request;
-import java.io.IOException;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-public class RequestServlet extends HttpServlet {
-    public void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        //往域对象中设置一个名为name值为zhangsan的值
-        request.setAttribute(&quot;name&quot;, &quot;zhangsan&quot;);
-        //获取
-        request.getAttribute(&quot;name&quot;);
-        //删除
-        request.removeAttribute(&quot;name&quot;);
-    }
-
-    public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        doGet(request, response);
-    }
-}
-</code></pre><h3 id="request请求转发"><a href="#request请求转发" class="headerlink" title="request请求转发"></a>request请求转发</h3><pre><code>package com.rexyan.request;
-import java.io.IOException;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-public class RequestServlet extends HttpServlet {
-    public void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        request.getRequestDispatcher(&quot;/index.jsp&quot;).forward(request, response);
-    }
-
-    public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        doGet(request, response);
-    }
-}
-</code></pre><h3 id="ServletContext域与Request域比较"><a href="#ServletContext域与Request域比较" class="headerlink" title="ServletContext域与Request域比较"></a>ServletContext域与Request域比较</h3><p>　　注意：ServletContext域与Request域的生命周期比较？<br>　　ServletContext：<br>　　　创建：服务器启动<br>　　　销毁：服务器关闭<br>　　　域的作用范围：整个web应用<br>　　request：<br>　　　创建：访问时创建request<br>　　　销毁：响应结束request销毁<br>　　　域的作用范围：一次请求中</p>
-<p>　　注意：转发与重定向的区别？<br>　　　1）重定向两次请求，转发一次请求<br>　　　2）重定向地址栏的地址变化，转发地址不变<br>　　　3）重新定向可以访问外部网站 转发只能访问内部资源<br>　　　4）转发的性能要优于重定向</p>
-<p>　　注意：客户端地址与服务器端地址的写法？<br>　　　客户端地址：<br>　　　　是客户端去访问服务器的地址，服务器外部的地址，特点：写上web应用名    称，直接输入地址：<br>　　　　例如：重定向<br>　　　　　response.sendRedirect(“/WEB15/test.jsp”);</p>
-<p>　　　服务器端地址：<br>　　　　服务器内部资源的跳转的地址，特点：不需要写web应用的名称<br>　　　　例如：转发<br>　　　　　request.getRequestDispatcher(“/index.jsp”).forward(request, response);</p>
-<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>　　总结：<br>　　　request获得行的内容<br>　　　request.getMethod()<br>　　　request.getRequestURI()<br>　　　request.getRequestURL()<br>　　　request.getContextPath()<br>　　　request.getRemoteAddr()<br>　　　<br>　　　request获得头的内容<br>　　　request.getHeader(name)</p>
-<p>　　　request获得体（请求参数）<br>　　　String request.getParameter(name)<br>　　　Map&lt;String,String[]&gt; request.getParameterMap();<br>　　　String[] request.getParameterValues(name);<br>　注意：客户端发送的参数 到服务器端都是字符串</p>
-<p>　获得中文乱码的解决：<br>　　post:<br>　　　request.setCharacterEncoding(“UTF-8”);<br>　　get:<br>　　　parameter = new String(parameter.getBytes(“iso8859-1”),”UTF-8”);</p>
-<p>　　request转发和域<br>　　　request.getRequestDispatcher(转发的地址).forward(req,resp);<br>　　　request.setAttribute(name,value)<br>　　　request.getAttribute(name)</p>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2017/11/10/Response/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content="">
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2017/11/10/Response/" itemprop="url">Response</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-11-10T15:03:57+08:00">
-                2017-11-10
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category" >
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Java/" itemprop="url" rel="index">
-                    <span itemprop="name">Java</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="HttpServletResponse"><a href="#HttpServletResponse" class="headerlink" title="HttpServletResponse"></a>HttpServletResponse</h3><p>　　我们在创建Servlet时会覆盖service()方法，或doGet()/doPost(),这些方法都有两个参数，一个为代表请求的request和代表响应response。<br>service方法中的response的类型是ServletResponse，而doGet/doPost方法的response的类型是HttpServletResponse，HttpServletResponse是ServletResponse的子接口，功能和方法更加强大</p>
-<h3 id="response设置响应行"><a href="#response设置响应行" class="headerlink" title="response设置响应行"></a>response设置响应行</h3><p>　　设置响应行的状态码<br>　　setStatus(int sc)</p>
-<pre><code>package com.rexyan.response;
-
-import java.io.IOException;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-public class Response extends HttpServlet {
-
-    public void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        //通过修改状态码和头的方式实现跳转
-        response.setStatus(301);
-        response.setHeader(&quot;Location&quot;, &quot;http://www.baidu.com&quot;);
-
-        //实际开发中使用这种方式
-        response.sendRedirect(&quot;http://www.baidu.com&quot;);
-    }
-
-    public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        doGet(request, response);
-    }
-}
-</code></pre><h3 id="response设置响应头"><a href="#response设置响应头" class="headerlink" title="response设置响应头"></a>response设置响应头</h3><p>　　addHeader(String name, String value)<br>　　addIntHeader(String name, int value)<br>　　addDateHeader(String name, long date)<br>　　setHeader(String name, String value) 【经常用】<br>　　setDateHeader(String name, long date)<br>　　setIntHeader(String name, int value)<br>　　其中，add表示添加，而set表示设置</p>
-<pre><code>package com.rexyan.response;
-
-import java.io.IOException;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-public class Response extends HttpServlet {
-
-    public void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        response.setHeader(&quot;name&quot;, &quot;rex&quot;);
-        response.addHeader(&quot;name&quot;, &quot;lisi&quot;);
-    }
-
-    public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        doGet(request, response);
-    }
-}
-</code></pre><h3 id="通过response设置响应体"><a href="#通过response设置响应体" class="headerlink" title="通过response设置响应体"></a>通过response设置响应体</h3><p>　　PrintWriter getWriter()获得字符流　通过字符流的write(Strings)方法可以将字符串设置到response缓冲区中，随后Tomcat会将response缓冲区中的内容组装成Http响应返回给浏览器端。<br>关于设置中文的乱码问题，原因：response缓冲区的默认编码是iso8859-1，此码表中没有中文，可以通过response的setCharacterEncoding(String charset) 设置response的编码</p>
-<p>　　但我们发现客户端还是不能正常显示文字原因：我们将response缓冲区的编码设置成UTF-8，但浏览器的默认编码是本地系    统的编码，因为我们都是中文系统，所以客户端浏览器的默认编码是GBK，我们可以    手动修改浏览器的编码是UTF-8。</p>
-<p>　　我们还可以在代码中指定浏览器解析页面的编码方式，<br>通过response的setContentType(String type)方法指定页面解析时的编码是UTF-8<br>response.setContentType(“text/html;charset=UTF-8”);</p>
-<p>　　上面的代码不仅可以指定浏览器解析页面时的编码，同时也内含setCharacterEncoding的功能，所以在实际开发中只要编写response.setContentType(“text/html;charset=UTF-8”);就可以解决页面输出中文乱码问题。</p>
-<pre><code>package com.rexyan.response;
-
-import java.io.IOException;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-public class Response extends HttpServlet {
-
-    public void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        response.setCharacterEncoding(&quot;UTF-8&quot;);
-        response.setContentType(&quot;text/html;charset=utf-8&quot;);
-        response.getWriter().write(&quot;中国&quot;);
-        //在实际开发中其实只需要使用response.setContentType(&quot;text/html;charset=utf-8&quot;);设置即可
-    }
-
-    public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        doGet(request, response);
-    }
-}
-</code></pre><h3 id="获取文件的绝对路径"><a href="#获取文件的绝对路径" class="headerlink" title="获取文件的绝对路径"></a>获取文件的绝对路径</h3><pre><code>String realPath = getServletContext().getRealPath(&quot;a.jpg&quot;);
-</code></pre><h3 id="响应头设置字节"><a href="#响应头设置字节" class="headerlink" title="响应头设置字节"></a>响应头设置字节</h3><p>　　ServletOutputStream  getOutputStream()<br>　　获得字节流，通过该字节流的write(byte[] bytes)可以向response缓冲区中写入字节，在由Tomcat服务器将字节内容组成Http响应返回给浏览器。</p>
-<pre><code>package com.rexyan.response;
-
-import java.io.FileInputStream;
-import java.io.IOException;
-import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-public class Response extends HttpServlet {
-
-    public void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        //传入相对路径通过ServerLetContext获取文件的绝对路径
-        String realPath = getServletContext().getRealPath(&quot;a.jpg&quot;);
-        //使用IO读取文件
-        FileInputStream fileInputStream = new FileInputStream(realPath);
-        //将文件写到response缓冲区
-        ServletOutputStream outputStream = response.getOutputStream();
-
-        int len = 0;
-        byte[] buffer = new byte[1024];
-        while ((len=fileInputStream.read(buffer))&gt;0) {
-            outputStream.write(buffer, 0, len);
-        }
-        fileInputStream.close();
-    }
-
-    public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        doGet(request, response);
-    }
-}
-</code></pre><h3 id="下载文件"><a href="#下载文件" class="headerlink" title="下载文件"></a>下载文件</h3><pre><code>package com.rexyan.response;
-
-import java.io.FileInputStream;
-import java.io.IOException;
-import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-public class Response extends HttpServlet {
-
-    public void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        //若要下载文件，需加上两个头文件
-        //通过getMimeType传入文件名获取文件的Mime类型
-        response.setContentType(getServletContext().getMimeType(&quot;a.jpg&quot;));
-        //设置头文件,告诉浏览器以下载的方式打开文件
-        response.setHeader(&quot;Content-Disposition&quot;, &quot;attachment;filename=a.jpg&quot;);
-
-        //------------------------------------------------------------------
-
-        //传入相对路径通过ServerLetContext获取文件的绝对路径
-        String realPath = getServletContext().getRealPath(&quot;a.jpg&quot;);
-        //使用IO读取文件
-        FileInputStream fileInputStream = new FileInputStream(realPath);
-        //将文件写到response缓冲区
-        ServletOutputStream outputStream = response.getOutputStream();
-
-        int len = 0;
-        byte[] buffer = new byte[1024];
-        while ((len=fileInputStream.read(buffer))&gt;0) {
-            outputStream.write(buffer, 0, len);
-        }
-        fileInputStream.close();
-
-    }
-
-    public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        doGet(request, response);
-    }
-}
-</code></pre><h3 id="文件下载出现乱码"><a href="#文件下载出现乱码" class="headerlink" title="文件下载出现乱码"></a>文件下载出现乱码</h3><p>　　但是，如果下载中文文件，页面在下载时会出现中文乱码或不能显示文件名的情况，    原因是不同的浏览器默认对下载文件的编码方式不同，ie是UTF-8编码方式，而火狐    浏览器是Base64编码方式。所里这里需要解决浏览器兼容性问题，解决浏览器兼容    性问题的首要任务是要辨别访问者是ie还是火狐（其他），通过Http请求体中的User-Agent属性可以辨别</p>
-<pre><code>if (agent.contains(&quot;MSIE&quot;)) {
-        // IE浏览器
-        filename = URLEncoder.encode(filename, &quot;utf-8&quot;);
-        filename = filename.replace(&quot;+&quot;, &quot; &quot;);
-} else if (agent.contains(&quot;Firefox&quot;)) {
-        // 火狐浏览器
-BASE64Encoder base64Encoder = new BASE64Encoder();
-        filename = &quot;=?utf-8?B?&quot;
-                + base64Encoder.encode(filename.getBytes(&quot;utf-8&quot;)) + &quot;?=&quot;;
-} else {
-        // 其它浏览器
-        filename = URLEncoder.encode(filename, &quot;utf-8&quot;);                
-}
-
-其中agent就是请求头User-Agent的值
-</code></pre><p>　　代码实现如下：</p>
-<pre><code>package com.rexyan.response;
-
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.net.URLEncoder;
-
-import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import sun.misc.BASE64Encoder;
-
-public class Response extends HttpServlet {
-
-    public void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        String agent = request.getHeader(&quot;User-Agent&quot;);
-        String filename = &quot;a.jpg&quot;;
-        String downname = filename;
-
-        if (agent.contains(&quot;MSIE&quot;)) {
-            // IE浏览器
-            downname = URLEncoder.encode(filename, &quot;utf-8&quot;);
-            downname = filename.replace(&quot;+&quot;, &quot; &quot;);
-        } else if (agent.contains(&quot;Firefox&quot;)) {
-            // 火狐浏览器
-            BASE64Encoder base64Encoder = new BASE64Encoder();
-            downname = &quot;=?utf-8?B?&quot; + base64Encoder.encode(filename.getBytes(&quot;utf-8&quot;)) + &quot;?=&quot;;
-        } else {
-            // 其它浏览器
-            downname = URLEncoder.encode(filename, &quot;utf-8&quot;);                
-        }
-
-        //若要下载文件，需加上两个头文件
-        //通过getMimeType传入文件名获取文件的Mime类型
-        response.setContentType(getServletContext().getMimeType(filename));
-        //设置头文件,告诉浏览器以下载的方式打开文件
-        response.setHeader(&quot;Content-Disposition&quot;, &quot;attachment;filename=&quot;+ downname);
-
-        //------------------------------------------------------------------
-
-        //传入相对路径通过ServerLetContext获取文件的绝对路径
-        String realPath = getServletContext().getRealPath(filename);
-        //使用IO读取文件
-        FileInputStream fileInputStream = new FileInputStream(realPath);
-        //将文件写到response缓冲区
-        ServletOutputStream outputStream = response.getOutputStream();
-
-        int len = 0;
-        byte[] buffer = new byte[1024];
-        while ((len=fileInputStream.read(buffer))&gt;0) {
-            outputStream.write(buffer, 0, len);
-        }
-        fileInputStream.close();
-
-    }
-
-    public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        doGet(request, response);
-    }
-}
-</code></pre>
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
   </section>
 
   
@@ -2243,7 +2014,7 @@ public class Response extends HttpServlet {
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">292</span>
+                  <span class="site-state-item-count">294</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>
@@ -2265,7 +2036,7 @@ public class Response extends HttpServlet {
               
               <div class="site-state-item site-state-tags">
                 <a href="/tags/index.html">
-                  <span class="site-state-item-count">144</span>
+                  <span class="site-state-item-count">147</span>
                   <span class="site-state-item-name">标签</span>
                 </a>
               </div>
