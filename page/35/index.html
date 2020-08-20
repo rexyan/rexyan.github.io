@@ -349,6 +349,215 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2017/12/12/redis实现消息队列/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2017/12/12/redis实现消息队列/" itemprop="url">Redis实现消息队列</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-12-12T18:52:57+08:00">
+                2017-12-12
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/奇淫技巧/" itemprop="url" rel="index">
+                    <span itemprop="name">奇淫技巧</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <p>为什么需要消息队列</p>
+<p>系统中引入消息队列机制是对系统一个非常大的改善。例如一个web系统中，用户做了某项操作后需要发送邮件通知到用户邮箱中。你可以使用同步方式让用户等待邮件发送完成后反馈给用户，但是这样可能会因为网络的不确定性造成用户长时间的等待从而影响用户体验。</p>
+<p>有些场景下是不可能使用同步方式等待完成的，那些需要后台花费大量时间的操作。例如极端例子，一个在线编译系统任务，后台编译完成需要30分钟。这种场景的设计不可能同步等待后在回馈，必须是先反馈用户随后异步处理完成，再等待处理完成后根据情况再此反馈用户与否。</p>
+<p>另外适用消息队列的情况是那些系统处理能力有限的情况下，先使用队列机制把任务暂时存放起来，系统再一个个轮流处理掉排队的任务。这样在系统吞吐量不足的情况下也能稳定的处理掉高并发的任务。</p>
+<p>消息队列可以用来做排队机制，只要系统需要用到排队机制的地方就可以使用消息队列来作。</p>
+<p>rabbitmq的优先级做法<br>目前成熟的消息队列产品有很多，著名的例如rabbitmq。它使用起来相对还是比较简单的，功能也相对比较丰富，一般场合下是完全够用的。但是有个很烦人的就是它不支持优先级。<br>例如一个发邮件的任务，某些特权用户希望它的邮件能够更加及时的发送出去，至少比普通用户要优先对待。默认情况下rabbitmq是无法处理掉 的，扔给rabbitmq的任务都是FIFO先进先出。但是我们可以使用一些变通的技巧来支持这些优先级。创建多个队列，并为rabbitmq的消费者设 置相应的路由规则。</p>
+<p>例如默认情况下有这样一个队列，我们拿list来模拟 [task1, task2, task3]，消费者轮流按照FIFO的原则一个个拿出task来处理掉。如果有高优先级的任务进来，它也只能跟在最后被处理[task1, task2, task3, higitask1]. 但是如果使用两个队列，一个高优先级队列，一个普通优先级队列。 普通优先级[task1, task2, task3], 高优先级[hightask1 ] 然后我们设置消费者的路由让消费者随机从任意队列中取数据即可。</p>
+<p>并且我们可以定义一个专门处理高优先级队列的消费者，它空闲的时候也不处理低优先级队列的数据。这类似银行的VIP柜台，普通客户在银行取号排队，一个VIP来了他虽然没有从取号机里拿出一个排在普通会员前面的票，但是他还是可以更快地直接走VIP通道。</p>
+<p>使用rabbitmq来做支持优先级的消息队列的话，就像是上面所述同银行VIP会员一样，走不同的通道。但是这种方式只是相对的优先级，做不 到绝对的优先级控制，例如我希望某一个优先级高的任务在绝对意义上要比其他普通任务优先处理掉，这样上面的方案是行不通的。因为rabbitmq的消费者 只知道再自己空闲的情况下从自己关心的队列中“随机”取某一个队列里面的第一个数据来处理，它没法控制优先取找哪一个队列。或者更加细粒度的优先级控制。 或者你系统里面设置的优先级有10多种。这样使用rabbitmq也是很难实现的。</p>
+<p>但是如果使用redis来做队列的话上面的需求都可以实现。</p>
+<p>使用redis怎么做消息队列<br>首先redis它的设计是用来做缓存的，但是由于它自身的某种特性使得他可以用来做消息队列。它有几个阻塞式的API可以使用，正是这些阻塞式的API让他有做消息队列的能力。</p>
+<p>试想一下在”数据库解决所有问题“的思路下，不使用消息队列也是可以完成你的需求的。我们把任务全部存放在数据库然后通过不断的轮询方式来取任 务处理。这种做法虽然可以完成你的任务但是做法很粗劣。但是如果你的数据库接口提供一个阻塞的方法那么就可以避免轮询操作了，你的数据库也可以用来做消息 队列，只不过目前的数据库还没有这样的接口。<br>另外做消息队列的其他特性例如FIFO也很容易实现，只需要一个List对象从头取数据，从尾部塞数据即可实现。<br>redis能做消息队列得益于他list对象blpop brpop接口以及Pub/Sub(发布/订阅)的某些接口。他们都是阻塞版的，所以可以用来做消息队列。</p>
+<p>redis消息队列优先级的实现<br>一些基础redis基础知识的说明</p>
+<pre><code>redis&gt; blpop tasklist 0
+&quot;im task 01&quot;
+</code></pre><p>这个例子使用blpop命令会阻塞方式地从tasklist列表中取头一个数据，最后一个参数就是等待超时的时间。如果设置为0则表示无限等 待。另外redis存放的数据都只能是string类型，所以在任务传递的时候只能是传递字符串。我们只需要简单的将负责数据序列化成json格式的字符 串，然后消费者那边再转换一下即可。</p>
+<p>这里我们的示例语言使用python，链接redis的库使用redis-py. 如果你有些编程基础把它切换成自己喜欢的语言应该是没问题的。</p>
+<p>简单的FIFO队列</p>
+<pre><code>import redis, time
+def handle(task):
+    print task
+    time.sleep(4)
+
+def main():
+    pool = redis.ConnectionPool(host=&#39;localhost&#39;, port=6379, db=0)
+    r = redis.Redis(connection_pool=pool)
+    while 1:
+        result = r.brpop(&#39;tasklist&#39;, 0)
+        handle(result[1])
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</code></pre><p>上例子即使一个最简单的消费者，我们通过一个无限循环不断地从redis的队列中取数据。如果队列中没有数据则没有超时的阻塞在那里，有数据则取出往下执行。<br>一般情况取出来是个复杂的字符串，我们可能需要将其格式化后作为再传给处理函数,但是为了简单我们的例子就是一个普通字符串。另外例子中的处理函数不做任何处理，仅仅sleep 用来模拟耗时的操作。</p>
+<p>我们另开一个redis的客户端来模拟生产者，自带的客户端就可以。多往tasklist 队列里面塞上一些数据。随后在消费者端便会看到这些模拟出来的任务被挨个消费掉。</p>
+<pre><code>redis&gt; lpush tasklist &#39;im task 01&#39;
+redis&gt; lpush tasklist &#39;im task 02&#39;
+redis&gt; lpush tasklist &#39;im task 03&#39;
+redis&gt; lpush tasklist &#39;im task 04&#39;
+redis&gt; lpush tasklist &#39;im task 05&#39;
+</code></pre><p>简单优先级的队列,假设一种简单的需求，只需要高优先级的比低优先级的任务率先处理掉。其他任务之间的顺序一概不管，这种我们只需要在在遇到高优先级任务的时候将它塞到队列的前头，而不是push到最后面即可。因为我们的队列是使用的redis的 list,所以很容易实现。遇到高优先级的使用rpush 遇到低优先级的使用lpush,随后会看到，高优先级的总是比低优先级的率先执行。但是这个方案的缺点是高优先级的任务之间的执行顺序是先进后出的。</p>
+<pre><code>redis&gt; lpush tasklist &#39;im task 01&#39;
+redis&gt; lpush tasklist &#39;im task 02&#39;
+redis&gt; rpush tasklist &#39;im high task 01&#39;
+redis&gt; rpush tasklist &#39;im high task 01&#39;
+redis&gt; lpush tasklist &#39;im task 03&#39;
+redis&gt; rpush tasklist &#39;im high task 03&#39;
+</code></pre><p>较为完善的队列<br>例子2中只是简单的将高优先级的任务塞到队列最前面，低优先级的塞到最后面。这样保证不了高优先级任务之间的顺序。<br>假设当所有的任务都是高优先级的话，那么他们的执行顺序将是相反的。这样明显违背了队列的FIFO原则。<br>不过只要稍加改进就可以完善我们的队列。</p>
+<p>跟使用rabbitmq一样，我们设置两个队列，一个高优先级一个低优先级的队列。高优先级任务放到高队列中，低的放在低优先队列中。redis和rabbitmq不同的是它可以要求队列消费者从哪个队列里面先读。</p>
+<pre><code>def main():
+    pool = redis.ConnectionPool(host=&#39;localhost&#39;, port=6379, db=0)
+    r = redis.Redis(connection_pool=pool)
+    while 1:
+        result = r.brpop([&#39;high_task_queue&#39;, &#39;low_task_queue&#39;], 0)
+        handle(result[1])
+</code></pre><p>上面的代码，会阻塞地从’high_task_queue’, ‘low_task_queue’这两个队列里面取数据，如果第一个没有再从第二个里面取。<br>所以只需要将队列消费者做这样的改进便可以达到目的。</p>
+<pre><code>redis&gt; lpush low_task_queue low001
+redis&gt; lpush low_task_queue low002
+redis&gt; lpush low_task_queue low003
+redis&gt; lpush low_task_queue low004
+redis&gt; lpush high_task_queue low001
+redis&gt; lpush high_task_queue low002
+redis&gt; lpush high_task_queue low003
+redis&gt; lpush high_task_queue low004
+</code></pre><p>通过上面的测试看到，高优先级的会被率先执行，并且高优先级之间也是保证了FIFO的原则。<br>这种方案我们可以支持不同阶段的优先级队列，例如高中低三个级别或者更多的级别都可以。</p>
+<p>优先级级别很多的情况<br>假设有个这样的需求，优先级不是简单的高中低或者0-10这些固定的级别。而是类似0-99999这么多级别。那么我们第三种方案将不太合适了。<br>虽然redis有sorted set这样的可以排序的数据类型，看是很可惜它没有阻塞版的接口。于是我们还是只能使用list类型通过其他方式来完成目的。</p>
+<p>有个简单的做法我们可以只设置一个队列，并保证它是按照优先级排序号的。然后通过二分查找法查找一个任务合适的位置，并通过 lset 命令插入到相应的位置。<br>例如队列里面包含着写优先级的任务[1, 3, 6, 8, 9, 14]，当有个优先级为7的任务过来，我们通过自己的二分算法一个个从队列里面取数据出来反和目标数据比对，计算出相应的位置然后插入到指定地点即可。</p>
+<p>因为二分查找是比较快的，并且redis本身也都在内存中，理论上速度是可以保证的。但是如果说数据量确实很大的话我们也可以通过一些方式来调优。</p>
+<p>回想我们第三种方案，把第三种方案结合起来就会很大程度上减少开销。例如数据量十万的队列，它们的优先级也是随机0-十万的区间。我们可以设置 10个或者100个不同的队列，0-一万的优先级任务投放到1号队列，一万-二万的任务投放到2号队列。这样将一个队列按不同等级拆分后它单个队列的数据 就减少许多，这样二分查找匹配的效率也会高一点。但是数据所占的资源基本是不变的，十万数据该占多少内存还是多少。只是系统里面多了一些队列而已。</p>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://yanrs.me/2017/12/04/MySQL事务/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -1738,232 +1947,6 @@ out.write((String)pageContext.findAttribute(&quot;name&quot;));
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2017/11/12/Session和Cookie/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content="">
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2017/11/12/Session和Cookie/" itemprop="url">Session和Cookie</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-11-12T15:03:57+08:00">
-                2017-11-12
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category" >
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Java/" itemprop="url" rel="index">
-                    <span itemprop="name">Java</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="会话技术"><a href="#会话技术" class="headerlink" title="会话技术"></a>会话技术</h3><p>　　从打开一个浏览器访问某个站点，到关闭这个浏览器的整个过程，成为一次会话。会    话技术就是记录这次会话中客户端的状态与数据的。<br>　　会话技术分为Cookie和Session：Cookie：数据存储在客户端本地，减少服务器端的存储的压力，安全性不好，客户端    可以清除cookie。Session：将数据存储到服务器端，安全性相对好，增加服务器的压力</p>
-<h3 id="Cookie"><a href="#Cookie" class="headerlink" title="Cookie"></a>Cookie</h3><p>　　注意：Cookie中不能存储中文</p>
-<pre><code>package Session;
-
-import java.io.IOException;
-import javax.servlet.ServletException;
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-public class SessionCookie extends HttpServlet {
-
-    public void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        //生成cookie
-        Cookie cookie = new Cookie(&quot;cookie_name&quot;, &quot;1111&quot;);
-        //设置cookie持久化时间【默认浏览器关闭就清除】,设置持久化 时间后会保存到磁盘
-        cookie.setMaxAge(10*60);
-        //设置携带路径
-        cookie.setPath(&quot;/&quot;);
-        //将cookie传递到浏览器
-        response.addCookie(cookie);
-        //-----------------------------------------------------
-        //获取浏览器传来的cookie
-        Cookie[] cookies = request.getCookies();
-        for(Cookie coo:cookies){
-            if (coo.getName().equals(&quot;cookie_name&quot;)){
-                System.out.println(coo.getValue());
-            }
-        }
-
-    }
-
-    public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        doGet(request, response);
-    }
-}
-</code></pre><p>　说明：　</p>
-<ol>
-<li>如果不设置持久化时间，cookie会存储在浏览器的内存中，浏览器关闭cookie信息销毁（会话级别的cookie），如果设置持久化时间，cookie信息会    被持久化到浏览器的磁盘文件里。　<br>　　示例：<br>　　　cookie.setMaxAge(10*60);<br> 　　设置cookie信息在浏览器的磁盘文件中存储的时间是10分钟，过期浏览器    自动删除该cookie信息</li>
-<li><p>如果不设置携带路径，那么该cookie信息会在访问产生该cookie的web资源所在的路径都携带cookie信息<br>　　示例：<br>　　　cookie.setPath(“/WEB16”);<br>　　　代表访问WEB16应用中的任何资源都携带cookie<br>　　　cookie.setPath(“/WEB16/cookieServlet”);<br>　　　代表访问WEB16中的cookieServlet时才携带cookie信息</p>
-<p> . 如果想删除客户端的已经存储的cookie信息，那么就使用同名同路径的持久化时    间为0的cookie进行覆盖即可</p>
-</li>
-</ol>
-<h3 id="Session"><a href="#Session" class="headerlink" title="Session"></a>Session</h3><p>　　【session也是域，目前共有了session，request，ServLetContext】</p>
-<p>　　Session技术是将数据存储在服务器端的技术，会为每个客户端都创建一块内存空间    存储客户的数据，但客户端需要每次都携带一个标识ID去服务器中寻找属于自己的内    存空间。所以说Session的实现是基于Cookie，Session需要借助于Cookie存储客    户的唯一性标识JSESSIONID</p>
-<pre><code>package Session;
-
-import java.io.IOException;
-import javax.servlet.ServletException;
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
-
-public class session_cookie extends HttpServlet {
-
-    public void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        //有JSESSIONID则获取返回session，没有则创建session
-        HttpSession session = request.getSession();
-        //session也是一个域
-        session.setAttribute(&quot;session_name&quot;, &quot;11111&quot;);
-        //根据名称在session中获取内容
-        System.out.println(&quot;第一次获取：&quot;+ session.getAttribute(&quot;session_name&quot;));
-        //在session域中删除属性
-        session.removeAttribute(&quot;session_name&quot;);
-        System.out.println(&quot;第二次获取：&quot;+ session.getAttribute(&quot;session_name&quot;));
-        //手动销毁session
-        session.invalidate();
-    }
-
-    public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        doGet(request, response);
-    }
-}
-</code></pre><p>　　在web.xml中设置session过期时间</p>
-<pre><code>&lt;session-config&gt;
-      &lt;session-timeout&gt;10&lt;/session-timeout&gt;
-&lt;/session-config&gt;
-</code></pre><p>　注意：　<br>　　HttpSession session = request.getSession();此方法会获得专属于当前会话的Session对象，如果服务器端没有该会话的Session    对象会创建一个新的Session返回，如果已经有了属于该会话的Session直接将已有    的Session返回（实质就是根据JSESSIONID判断该客户端是否在服务器上已经存在    session了）</p>
-<p>　　session的创建：第一次执行request.getSession()时创建<br>　　session的销毁：<br>　　　1）服务器（非正常）关闭时<br>　　　2）session过期/失效（默认30分钟）</p>
-<p>　　问题：时间的起算点 从何时开始计算30分钟？<br>　　　从不操作服务器端的资源开始计时，可以在工程的web.xml中进行配置<br>　　　3）手动销毁session<br>　　　　session.invalidate();</p>
-<p>　　session的作用范围：<br>　　　默认在一次会话中，也就是说在，一次会话中任何资源公用一个session对象</p>
-<p>　面试题：浏览器关闭，session就销毁了？ 不对</p>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
   </section>
 
   
@@ -2014,7 +1997,7 @@ public class session_cookie extends HttpServlet {
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">294</span>
+                  <span class="site-state-item-count">295</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>

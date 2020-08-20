@@ -348,6 +348,221 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/03/18/Nginx6/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2018/03/18/Nginx6/" itemprop="url">Nginx6－配置介绍、启动、检查配置</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-03-18T14:56:57+08:00">
+                2018-03-18
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Nginx/" itemprop="url" rel="index">
+                    <span itemprop="name">Nginx</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="include"><a href="#include" class="headerlink" title="include"></a>include</h3><p>再主配置文件中 /etc/nginx 下 nginx.cong 中 会有 include /etc/nginx/conf.d/*.conf; 这就说明nginx在加载的时候，除了回家在nginx.conf外还会包含  /etc/nginx/conf.d 下的所以以  .conf结尾的文件</p>
+<p><img src="/2018/03/18/Nginx6/images/Nginx6-1.png" alt></p>
+<h3 id="配置文件参数说明"><a href="#配置文件参数说明" class="headerlink" title="配置文件参数说明"></a>配置文件参数说明</h3><pre><code>user                     设置Nginx服务的系统使用用户
+woker_processes          工作进程数
+error_log                nginx的错误日志
+pid                         nginx服务启动时候pid
+events
+    woker_connections    每个进程允许最大连接数
+    use                  工作进程数
+</code></pre><p>woker_processes 是nginx工作的进程数，最好和服务器的CPU核数保持一致</p>
+<p><img src="/2018/03/18/Nginx6/images/Nginx6-2.png" alt></p>
+<p><img src="/2018/03/18/Nginx6/images/Nginx6-3.png" alt></p>
+<p>nginx.conf文件</p>
+<pre><code>http {
+    include      /etc/nginx/mime.types;       # content-type
+    default_type  application/octet-stream;
+    log_format  main  &#39;$remote_addr - $remote_user [$time_local] &quot;$request&quot; &#39;     # 定义日志的类型
+                      &#39;$status $body_bytes_sent &quot;$http_referer&quot; &#39;
+                      &#39;&quot;$http_user_agent&quot; &quot;$http_x_forwarded_for&quot;&#39;;
+    access_log  /var/log/nginx/access.log  main;                        # 访问日志的路径
+    sendfile        on;                                                                     # nginx的一个重要功能
+    #tcp_nopush    on;
+    keepalive_timeout  65;                                                          # 超时时间
+    #gzip  on;
+    include /etc/nginx/conf.d/*.conf;                                             # 包含其他的配置文件
+}
+</code></pre><p>/etc/nginx/conf.d下的default.conf文件</p>
+<pre><code>server {
+    listen      80;                                                     # 监听端口
+    server_name  localhost;                                  # 域名，主机名
+    #charset koi8-r;
+    #access_log  /var/log/nginx/host.access.log  main;
+    location / {                                                       # 访问根目录/时，所对应的配置，一个server下，location可以有多个
+        root  /usr/share/nginx/html;                         # 文件的位置
+        index  index.html index.htm;                       # 去到上面文件的位置后寻找的文件的，先找index.html ，没有再寻找index.htm
+    }
+    #error_page  404              /404.html
+    # redirect server error pages to the static page /50x.html
+    #
+    error_page  500 502 503 504  /50x.html;       # 错误页面配置，当出现500  502  503  504这些错误的时候，会去找/50x.html
+    location = /50x.html {                                      # 为/50x.html 配置localtion
+        root  /usr/share/nginx/html;                         # 配置50x.html的文件的路径
+    }
+    # proxy the PHP scripts to Apache listening on 127.0.0.1:80
+    #
+    #location ~ \.php$ {
+    #    proxy_pass  http://127.0.0.1;
+    #}
+    # pass the PHP scripts to FastCGI server listening on 127.0.0.1:9000
+    #
+    #location ~ \.php$ {
+    #    root          html;
+    #    fastcgi_pass  127.0.0.1:9000;
+    #    fastcgi_index  index.php;
+    #    fastcgi_param  SCRIPT_FILENAME  /scripts$fastcgi_script_name;
+    #    include        fastcgi_params;
+    #}
+    # deny access to .htaccess files, if Apache&#39;s document root
+    # concurs with nginx&#39;s one
+    #
+    #location ~ /\.ht {
+    #    deny  all;
+    #}
+}
+</code></pre><h3 id="检查配置"><a href="#检查配置" class="headerlink" title="检查配置"></a>检查配置</h3><pre><code>nginx  -t   -c  + 配置文件的路径
+</code></pre><p><img src="/2018/03/18/Nginx6/images/Nginx6-4.png" alt></p>
+<h3 id="启动"><a href="#启动" class="headerlink" title="启动"></a>启动</h3><p>重启或者启动nginx</p>
+<pre><code>systemctl start  nginx.service
+systemctl restart  nginx.service
+systemctl reload  nginx.service
+systemctl stop nginx.service
+</code></pre><p>以指定配置文件的方式，执行某种操作</p>
+<pre><code>nginx -s reload -c + 配置文件 
+</code></pre><p><img src="/2018/03/18/Nginx6/images/Nginx6-5.png" alt></p>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/03/18/Nginx5/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -1439,233 +1654,6 @@ mkdir backup
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/03/13/crontab/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2018/03/13/crontab/" itemprop="url">Linux Crontab定时任务</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-03-13T14:52:57+08:00">
-                2018-03-13
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/奇淫技巧/" itemprop="url" rel="index">
-                    <span itemprop="name">奇淫技巧</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="安装"><a href="#安装" class="headerlink" title="安装"></a>安装</h3><p>通常 ubuntu 下自带 cron，如果没有也可以通过以下命令进行安装：</p>
-<pre><code>apt-get install cron
-</code></pre><p>若已经安装，输入以下命令判断 cron 服务是否启动：</p>
-<pre><code>pgrep cron
-</code></pre><p>如果有 pid （一串数字）输出则说明 cron 服务已经启动，没有任何输出说明需要手动启动 cron 服务。<br>启动 cron 服务：</p>
-<pre><code>service cron start
-</code></pre><h3 id="管理任务计划"><a href="#管理任务计划" class="headerlink" title="管理任务计划"></a>管理任务计划</h3><p>cron 的所有任务计划都记录在 crontab 任务计划文件中，通过 crontab 命令对该任务文件进行管理。</p>
-<pre><code>参数    说明
--u user    指定用户
--e    编辑某个用户的计划任务文件，若不指定用户，默认编辑当前用户的计划任务文件
--l    显示某个用户的计划任务文件，若不指定用户，默认显示当前用户的计划任务文件
--r    删除某个用户的计划任务文件，若不指定用户，默认删除当前用户的计划任务文件
--i    在删除之前推送确认提示
-</code></pre><p>使用示例：</p>
-<pre><code>$ crontab -u foo -e     #编辑用户 foo 的计划任务文件
-$ crontab -e            #编辑当前用户的计划任务文件
-$ crontab -u foo -l     #显示用户 foo 的计划任务文件
-$ crontab -l            #显示当前用户的计划任务文件
-$ crontab -r            #删除当前用户的计划任务文件
-</code></pre><h3 id="编辑任务计划"><a href="#编辑任务计划" class="headerlink" title="编辑任务计划"></a>编辑任务计划</h3><p>初次使用 crontab -e，可能需要选择编辑器，输入编辑器序号点击回车后进入计划任务文件编辑模式。若直接进入编辑模式忽略以上内容。</p>
-<p>进入编辑模式后，按照指定格式添加任务计划。</p>
-<p>任务计划的语法格式如下：</p>
-<pre><code>m     h    dom mon  dow   command
-0-59 0-23 1-31 1-12 0-7   command
-</code></pre><p>m: 表示分钟<br>h: 表示小时<br>dom: 表示日期<br>mon: 表示月份<br>dow: 表示星期<br>command: 预执行的命令</p>
-<p>另外需要使用一些特殊符号实现灵活的配置：</p>
-<ul>
-<li>代表所有值<br>/ 代表“每”</li>
-</ul>
-<ul>
-<li>代表范围<br>, 分割数字</li>
-</ul>
-<p>任务示例如下：</p>
-<pre><code>## 指定具体执行时间
-2   *  *  *  * ls    #每个小时的第2分钟执行一次 ls 命令
-30  7  *  *  * ls    #每天7：30执行一次 ls 命令
-30 20  *  *  2 ls    #每周二，20：30执行一次 ls 命令（0和7表示星期天）
-
-## 指定间隔时间
-*/2 *  *  *  * ls    #每隔2分钟执行一次 ls 命令
-
-## 指定时间段
-30  7 3-6 *  * ls    #每个月的3，4，5，6号的7：30分各执行一次 ls 命令
-
-## 指定多个时间
-30  7 3,6 *  * ls    #每月的3号和6号的7：30分各执行一次 ls 命令 
-</code></pre><p>另外，使用 run-parts 可以运行指定目录下所有的脚本（注意脚本必须加上 “#!/bin/bash”，否则 run-parts 会调用失败）.</p>
-<pre><code>30 7 * * * run-parts /home   #每天7：30运行 /home 目录下的所有脚本
-</code></pre><p>按照指定格式添加任务，保存后，任务生效。</p>
-<p>下面是一个实际的计划任务文件，包含系统自带注释和一个每两分钟执行一次输出字符串 ”Hello World“ 到 /home 目录下 cron_test 文件的计划任务。</p>
-<pre><code># Edit this file to introduce tasks to be run by cron. 
-# 
-# Each task to run has to be defined through a single line
-# indicating with different fields when the task will be run
-# and what command to run for the task
-# 
-# To define the time you can provide concrete values for
-# minute (m), hour (h), day of month (dom), month (mon),
-# and day of week (dow) or use &#39;*&#39; in these fields (for &#39;any&#39;).# 
-# Notice that tasks will be started based on the cron&#39;s system
-# daemon&#39;s notion of time and timezones.
-# 
-# Output of the crontab jobs (including errors) is sent through
-# email to the user the crontab file belongs to (unless redirected).
-# 
-# For example, you can run a backup of all your user accounts
-# at 5 a.m every week with:
-# 0 5 * * 1 tar -zcf /var/backups/home.tgz /home/
-# 
-# For more information see the manual pages of crontab(5) and cron(8)
-# 
-# m h  dom mon dow   command
-*/2 * * * * echo &quot;Hello World&quot; &gt;&gt; /home/cron_test 
-</code></pre><p>常见规则</p>
-<pre><code>每五分钟执行  */5 * * * *
-
-每小时执行     0 * * * *
-
-每天执行        0 0 * * *
-
-每周执行       0 0 * * 0
-
-每月执行        0 0 1 * *
-
-每年执行       0 0 1 1 *
-</code></pre><h3 id="nohup和-amp"><a href="#nohup和-amp" class="headerlink" title="nohup和&amp;"></a>nohup和&amp;</h3><pre><code> nohup python scripts/listen_rspd_data_send_email.py &gt;nohup.out 2&gt;&amp;1 &amp;
-</code></pre>
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
   </section>
 
   
@@ -1716,7 +1704,7 @@ $ crontab -r            #删除当前用户的计划任务文件
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">294</span>
+                  <span class="site-state-item-count">295</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>
