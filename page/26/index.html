@@ -348,6 +348,332 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/07/26/部署Flask/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2018/07/26/部署Flask/" itemprop="url">部署Flask</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-07-26T10:36:57+08:00">
+                2018-07-26
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/技术/" itemprop="url" rel="index">
+                    <span itemprop="name">技术</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <p>Flask在部署上面有别于Tornado，因为Tornado本身就是一个HTTP Server，这里主要记录下Flask的部署方式，Tornado的之前已经记录过，这里就不再叙述了，本次的项目均使用docker部署，其中gunicorn采用docker-compse的方式。uwsgi采用原生dockerr命令的方式</p>
+<h3 id="gunicorn"><a href="#gunicorn" class="headerlink" title="gunicorn"></a>gunicorn</h3><p>在项目根目录下创建docker文件夹，下面存放docker-compose.yml和start.sh两个文件。项目根目录下还存放gunicorn.conf文件。</p>
+<p>docker-compose.yml文件内容大致如下</p>
+<pre class="line-numbers language-yml"><code class="language-yml">项目名称:
+    image: 镜像名称:镜像版本   # 这里是使用的镜像信息
+    ports:
+        - "映射出来的端口:容器内部的端口"  # 这里是端口映射
+    volumes:
+        - ../../项目名称/:/root/www/项目名称/  # 这里将项目文件映射到容器中的/root/www下
+    command: ['bash', '-c', '/root/www/项目名称/docker/start.sh']  # 执行start.sh脚本文件
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>gunicorn.conf内容大致如下</p>
+<pre class="line-numbers language-conf"><code class="language-conf">bind = '0.0.0.0:8673'  # 注意这里的端口，就是容器中项目启动的端口
+workers = 4   # 工作进程数
+backlog = 2048
+#worker_class = "gevent"  # 工作模式协程
+debug = True  # debug模式
+proc_name = 'gunicorn.pid'
+pidfile = 'gunicorn.pid'
+logfile = 'debug.log'
+loglevel='debug'
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h3 id="uwsgi"><a href="#uwsgi" class="headerlink" title="uwsgi"></a>uwsgi</h3><p>在项目根目录下创建uwsgi.ini文件，内容大致如下</p>
+<pre class="line-numbers language-ini"><code class="language-ini"><span class="token selector">[uwsgi]</span>
+<span class="token constant">http</span> <span class="token attr-value"><span class="token punctuation">=</span> 0.0.0.0:8673  # 启动服务的端口</span>
+<span class="token constant">processes</span> <span class="token attr-value"><span class="token punctuation">=</span> 8</span>
+<span class="token constant">#threads</span> <span class="token attr-value"><span class="token punctuation">=</span> 1</span>
+<span class="token constant">master</span> <span class="token attr-value"><span class="token punctuation">=</span> true</span>
+<span class="token constant">pythonpath</span> <span class="token attr-value"><span class="token punctuation">=</span> /root/www/项目名称/ </span>
+<span class="token constant">module</span> <span class="token attr-value"><span class="token punctuation">=</span> main   # 这里最好填写和uwsgi.ini在同一位置的另一个Python文件的名称</span>
+<span class="token constant">callable</span> <span class="token attr-value"><span class="token punctuation">=</span> app</span>
+<span class="token constant">memory-report</span> <span class="token attr-value"><span class="token punctuation">=</span> true</span>
+<span class="token constant">buffer-size</span> <span class="token attr-value"><span class="token punctuation">=</span> 32768</span>
+<span class="token constant">#plugins</span> <span class="token attr-value"><span class="token punctuation">=</span> python</span>
+<span class="token constant">#gevent</span> <span class="token attr-value"><span class="token punctuation">=</span> 500/</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>使用原生docker命令启动服务</p>
+<pre class="line-numbers language-docker"><code class="language-docker"> docker run <span class="token punctuation">-</span>d <span class="token punctuation">-</span><span class="token punctuation">-</span>restart=always <span class="token punctuation">-</span>p 8673<span class="token punctuation">:</span>8673 <span class="token punctuation">-</span>v 项目地址<span class="token punctuation">:</span>容器中的项目地址 <span class="token punctuation">-</span>v /etc/localtime<span class="token punctuation">:</span>/etc/localtime<span class="token punctuation">:</span>ro <span class="token punctuation">-</span>e <span class="token string">"SERVICE_NAME=服务名称（比如test_project）"</span> <span class="token punctuation">-</span>e <span class="token string">"SERVICE_TAGS=环境名称（比如test）"</span> <span class="token punctuation">-</span>w 工作目录（这里要和映射进去的路径一样，因为我们要执行uwsgi.ini文件） <span class="token punctuation">-</span><span class="token punctuation">-</span>name=容器名称 镜像名称<span class="token punctuation">:</span>版本 nohup uwsgi <span class="token punctuation">-</span><span class="token punctuation">-</span>ini uwsgi.ini <span class="token punctuation">-</span><span class="token punctuation">-</span>wsgi<span class="token punctuation">-</span>disable<span class="token punctuation">-</span>file<span class="token punctuation">-</span>wrapper
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/07/23/mac -bash ll/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2018/07/23/mac -bash ll/" itemprop="url">mac -bash ll command not found</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-07-23T22:31:57+08:00">
+                2018-07-23
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/博客/" itemprop="url" rel="index">
+                    <span itemprop="name">博客</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          <p>Mac在使用上不能使用 ll 列出目录和文件，可以通过设置别名的方式实现。<br></p>
+          <!--noindex-->
+          <div class="post-button text-center">
+            <a class="btn" href="/2018/07/23/mac -bash ll/#more" rel="contents">
+              阅读全文 &raquo;
+            </a>
+          </div>
+          <!--/noindex-->
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/07/14/苹果学生优惠/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -1556,326 +1882,11 @@ jupyter notebook                #运行
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/07/05/谷歌插件安装/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2018/07/05/谷歌插件安装/" itemprop="url">安装谷歌插件 + 科学上网</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-07-05T00:14:57+08:00">
-                2018-07-05
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/博客/" itemprop="url" rel="index">
-                    <span itemprop="name">博客</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="更新"><a href="#更新" class="headerlink" title="更新"></a>更新</h3><p>20191231 更新，各平台 SSR 下载。免费 SSR 订阅分享，账号分享。详见 <a href="https://yanrs.me/2019/12/29/%E5%85%8D%E8%B4%B9%20SSR%20%E7%A7%91%E5%AD%A6%E4%B8%8A%E7%BD%91%E6%94%BB%E7%95%A5/">地址</a> </p>
-<h3 id="安装"><a href="#安装" class="headerlink" title="安装"></a>安装</h3><h4 id="安装地址"><a href="#安装地址" class="headerlink" title="安装地址"></a>安装地址</h4><p>浏览器中输入chrome://apps/进入谷歌网上应用商店<br><img src="http://ww1.sinaimg.cn/large/005I1iHwgy1fsy8adshawj311i0hwdhm.jpg" alt></p>
-<h4 id="问题"><a href="#问题" class="headerlink" title="问题"></a>问题</h4><p>如果进不去则需要翻墙，如何翻墙，请看下面</p>
-<h3 id="翻墙"><a href="#翻墙" class="headerlink" title="翻墙"></a>翻墙</h3><p>翻墙需要下一个代理软件，并且需要代理服务器。没关系，都准备好了</p>
-<h4 id="下载软件"><a href="#下载软件" class="headerlink" title="下载软件"></a>下载软件</h4><p><a href="https://github.com/shadowsocks/shadowsocks-windows/releases/download/4.0.10/Shadowsocks-4.0.10.zip" target="_blank" rel="noopener">https://github.com/shadowsocks/shadowsocks-windows/releases/download/4.0.10/Shadowsocks-4.0.10.zip</a></p>
-<h4 id="解压安装"><a href="#解压安装" class="headerlink" title="解压安装"></a>解压安装</h4><p><img src="http://ww1.sinaimg.cn/large/005I1iHwgy1fsy8g0hbd6j30p106k0t7.jpg" alt><br>解压后得到一个文件，直接双击打开就好，如若不能打开按照提示升级.NET版本就好</p>
-<h4 id="填写帐号"><a href="#填写帐号" class="headerlink" title="填写帐号"></a>填写帐号</h4><p>打开软件后，右下角会出现一个小飞机的图标，双击打开面板<br>填写服务器地址为：104.224.151.119<br>端口为：9993<br>密码为：”你的名字的全拼” (真的是姓名的全拼，不是这里的汉字)<br>选择加密方式为：aes-256-cfb<br>其他的不用管，直接点击确定<br><img src="http://ww1.sinaimg.cn/large/005I1iHwgy1fsy8mzy1dkj30co0d5jsf.jpg" alt></p>
-<h4 id="开启"><a href="#开启" class="headerlink" title="开启"></a>开启</h4><p>右键点击小飞机，选中第一项，启动系统代理（开关），开机启动可选（是否开机启动）<br><img src="http://ww1.sinaimg.cn/large/005I1iHwgy1fsy8s4clsxj30ig0933zj.jpg" alt></p>
-<h4 id="更新PAC"><a href="#更新PAC" class="headerlink" title="更新PAC"></a>更新PAC</h4><p>选择PAC项目，然后选择从GFTList更新本地PAC，更新成功后会有弹窗提醒！<br><img src="http://ww1.sinaimg.cn/large/005I1iHwgy1fsy8updfyqj30ca07amxv.jpg" alt></p>
-<h4 id="实现访问国外网站"><a href="#实现访问国外网站" class="headerlink" title="实现访问国外网站"></a>实现访问国外网站</h4><p>接下来便可以愉快的访问国外的所有网站了<br>谷歌 <a href="https://www.google.com/" target="_blank" rel="noopener">https://www.google.com/</a><br>youtube <a href="https://www.youtube.com/" target="_blank" rel="noopener">https://www.youtube.com/</a><br>…..<br>只要是被强的都能访问</p>
-<h4 id="PAC模式和全局模式"><a href="#PAC模式和全局模式" class="headerlink" title="PAC模式和全局模式"></a>PAC模式和全局模式</h4><p>PAC模式： 只有不能访问的网站（被墙的网站），才会使用该软件去代理访问（平常使用选择PAC模式即可，不然如果开启全局模式的话， 访问百度你会从国外绕一圈再回到国内）<br>全局模式： 不管能不能打开的网站，都是用该软件（不推荐长期开启此模式，因为网络上的数据包会从国外【代理的服务器在洛杉矶，数据就会去洛杉矶，然后在回到你的电脑上】绕一圈再回来）<br><img src="http://ww1.sinaimg.cn/large/005I1iHwgy1fsy8zhhjejj30ca07g3yy.jpg" alt></p>
-<h4 id="翻墙的原理是什么"><a href="#翻墙的原理是什么" class="headerlink" title="翻墙的原理是什么"></a>翻墙的原理是什么</h4><p>原理就是你不能访问的东西，代理服务器替你去访问，然后再将数据返回给你。</p>
-<h3 id="插件"><a href="#插件" class="headerlink" title="插件"></a>插件</h3><h4 id="搜索安装"><a href="#搜索安装" class="headerlink" title="搜索安装"></a>搜索安装</h4><p>直接打开第一步进入谷歌网上应用商店，在红色部分搜索安装插件了，安装插件后，插件会显示在浏览器数据框的后面<br><img src="http://ww1.sinaimg.cn/large/005I1iHwgy1fsy987k0nxj311p0ka0xy.jpg" alt></p>
-<h4 id="推荐插件"><a href="#推荐插件" class="headerlink" title="推荐插件"></a>推荐插件</h4><ol>
-<li><p>划词翻译（选中文本后出现”译”，点击一下就能翻译了，什么有道翻译之类的就可以卸载了）<br><img src="http://ww1.sinaimg.cn/large/005I1iHwgy1fsy9c6gvyfj30fh071jry.jpg" alt></p>
-</li>
-<li><p>LastPass（一个网页密码记住的插件，很多网站注册的时候填写密码，后来就忘记了，这个插件可以帮助你记住密码，下次来直接登录）</p>
-</li>
-<li><p>tampermonkey （又叫做油猴，很强大很强大的一个插件，你是否遇到过百度云下载大文件很慢，且要打开百度云客户端？追剧有广告，还要会员？等等等等，有了油猴，这写都轻松解决，安装油猴后，去油猴论坛找自己喜欢的脚本，安装即可，地址：<a href="https://greasyfork.org/zh-CN）" target="_blank" rel="noopener">https://greasyfork.org/zh-CN）</a></p>
-</li>
-<li><p>AdBlock（广告拦截插件，网页上的广告统统都没了）</p>
-</li>
-<li><p>新浪微博图床（图床就是存储图片的网站，只需将图片上传，你就能得到一个该图片的链接，然后就可以到处分享和粘贴了，这篇文章的图片就是上传到新浪图床上的）</p>
-</li>
-<li><p>更多可以看这里的推荐（<a href="https://guanguans.cn/2018/03/25/Extended/" target="_blank" rel="noopener">https://guanguans.cn/2018/03/25/Extended/</a> ) 当然也可以直接去谷歌网上应用商店寻找 </p>
-</li>
-</ol>
-<p>第二步比较复杂，但是非常值得的，因为以后都可以翻墙了，手机上也可以，家里电脑，公司电脑都可以。windows需要下载上面介绍的软件，手机（iphone）需要下载Wingy。同样的填写帐号密码就能实现翻墙了。实现翻墙后最好去注册一个谷歌帐号，然后在浏览器里面登录该账号，这样家里，公司，手机等等等，的保存的网站标签啊，访问历史记录啊，都能同步了。</p>
-<p><img src="http://ww1.sinaimg.cn/large/005I1iHwgy1fsya1mbhqeg306o06oq3c.gif" alt></p>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/06/21/新开始/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2018/06/21/新开始/" itemprop="url">新开始</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-06-21T12:12:57+08:00">
-                2018-06-21
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/博客/" itemprop="url" rel="index">
-                    <span itemprop="name">博客</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <p>6月21日这算是一个特殊的日子。四个人和领导面谈，第一次和领导见面是在6月20日下午一点半讲座中，使用通俗易懂的语言讲述了云在企业中的应用以及公司在使用过程中的一些历程。对我提了三个问题，很遗憾回答都不太好，我也承认我们很多时候忽略了很多细节。在程序员的世界里没有人是全会的，自己也不用气馁，反而要做的是意识到自己的不足，缺点，知识的短板，从而快速有针对性的进行弥补。别人眼中的自己可能才是真正的自己。</p>
-<p>领导对我提问和谈话的过程中有缩有放，我理解为让我个人不浮躁，不自大，遵守公司的规矩。整个谈话的过程也很开心，都在大家的笑声中度过，最后还得到了一本领导自己出版的书，并附上了签名</p>
-<p><img src="/2018/06/21/新开始/../images/Python机器学习.jpg" alt></p>
-<p>总之很开心，虽然答得不好，但我认为这是好事，是对自我的一个认识，的确不止一个人说我对知识的理解不深刻，很多时候停留在表面，希望自己接下来加强对此方面的重视，多理解设计模式，底层以及基础知识，多看些想关的源码。</p>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
   </section>
 
   
   <nav class="pagination">
-    <a class="extend prev" rel="prev" href="/page/25/"><i class="fa fa-angle-left"></i></a><a class="page-number" href="/">1</a><span class="space">&hellip;</span><a class="page-number" href="/page/25/">25</a><span class="page-number current">26</span><a class="page-number" href="/page/27/">27</a><span class="space">&hellip;</span><a class="page-number" href="/page/37/">37</a><a class="extend next" rel="next" href="/page/27/"><i class="fa fa-angle-right"></i></a>
+    <a class="extend prev" rel="prev" href="/page/25/"><i class="fa fa-angle-left"></i></a><a class="page-number" href="/">1</a><span class="space">&hellip;</span><a class="page-number" href="/page/25/">25</a><span class="page-number current">26</span><a class="page-number" href="/page/27/">27</a><span class="space">&hellip;</span><a class="page-number" href="/page/38/">38</a><a class="extend next" rel="next" href="/page/27/"><i class="fa fa-angle-right"></i></a>
   </nav>
 
 
@@ -1921,7 +1932,7 @@ jupyter notebook                #运行
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">295</span>
+                  <span class="site-state-item-count">297</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>
@@ -1943,7 +1954,7 @@ jupyter notebook                #运行
               
               <div class="site-state-item site-state-tags">
                 <a href="/tags/index.html">
-                  <span class="site-state-item-count">147</span>
+                  <span class="site-state-item-count">148</span>
                   <span class="site-state-item-name">标签</span>
                 </a>
               </div>

@@ -1,0 +1,1436 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform">
+<meta http-equiv="Cache-Control" content="no-siteapp">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css">
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+    
+      
+    
+
+    
+  
+
+  
+    
+      
+    
+
+    
+  
+
+  
+    
+      
+    
+
+    
+  
+
+  
+    
+      
+    
+
+    
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic|Monda:300,300italic,400,400italic,700,700italic|Lobster Two:300,300italic,400,400italic,700,700italic|PT Mono:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css">
+
+<link href="/css/main.css?v=5.1.4" rel="stylesheet" type="text/css">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=5.1.4">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=5.1.4">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=5.1.4" color="#222">
+
+
+
+
+
+  <meta name="keywords" content="Hadoop,">
+
+
+
+
+
+  <link rel="alternate" href="/atom.xml" title="星尘" type="application/atom+xml">
+
+
+
+
+
+
+<meta name="description" content="Zookeeper 集群搭建ZK 的写流程，客户端可以连接任意的 zkserver 实例，向 server 发送写请求命令，如果当前连接的 server 不是Leader，server 会将写命令发送给 Leader，Leader 将写操作命令广播到集群的其他节点，所有节点都执行写操作命令，一旦集群中半数以上的节点写数据成功，Leader 会响应当前 Server，让当前 Server 响应客户端">
+<meta name="keywords" content="Hadoop">
+<meta property="og:type" content="article">
+<meta property="og:title" content="6. Hadoop HA">
+<meta property="og:url" content="https://yanrs.me/2020/08/25/6. Hadoop HA/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="Zookeeper 集群搭建ZK 的写流程，客户端可以连接任意的 zkserver 实例，向 server 发送写请求命令，如果当前连接的 server 不是Leader，server 会将写命令发送给 Leader，Leader 将写操作命令广播到集群的其他节点，所有节点都执行写操作命令，一旦集群中半数以上的节点写数据成功，Leader 会响应当前 Server，让当前 Server 响应客户端">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5qsTQQsLBSMU0hVtZ0NriXvfEXN0lE3YJe24RDltJhO2nKAF2rNND4YYXjAxxMQTPgkzdtc4lgJ2w6FG2s7J72c!/mnull&bo=XQRFAV0ERQEDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5uNtjh*JxaaNbSl..AmdW2sBk*HkFPzqVNBpZqsydmd*XbeKDsshTZgnIE7drEKKddeZJa94l2Q3VCvnyyeq0vs!/mnull&bo=CglEAQoJRAEDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5udfkVQUBwgzgTu1XQuDOdxVJWEqBSr.2P6sfDnP83gDddRrnsG6hchztNIoDp7neSiksyLf7fGVuCxE9YWQHog!/mnull&bo=zAeAAsoMGgQDCb0!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:updated_time" content="2020-08-25T13:59:56.772Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="6. Hadoop HA">
+<meta name="twitter:description" content="Zookeeper 集群搭建ZK 的写流程，客户端可以连接任意的 zkserver 实例，向 server 发送写请求命令，如果当前连接的 server 不是Leader，server 会将写命令发送给 Leader，Leader 将写操作命令广播到集群的其他节点，所有节点都执行写操作命令，一旦集群中半数以上的节点写数据成功，Leader 会响应当前 Server，让当前 Server 响应客户端">
+<meta name="twitter:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5qsTQQsLBSMU0hVtZ0NriXvfEXN0lE3YJe24RDltJhO2nKAF2rNND4YYXjAxxMQTPgkzdtc4lgJ2w6FG2s7J72c!/mnull&bo=XQRFAV0ERQEDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '5.1.4',
+    sidebar: {"position":"left","display":"always","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="https://yanrs.me/2020/08/25/6. Hadoop HA/">
+
+
+
+
+
+  <title>6. Hadoop HA | 星尘</title>
+  
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">星尘</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle">任汝千圣现,我有天真佛</p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/archives/" rel="section">
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories/" rel="section">
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags/" rel="section">
+            
+            标签
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-书屋">
+          <a href="https://books.yanrs.me/" rel="section">
+            
+            书屋
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-瞎扯">
+          <a href="/crap/" rel="section">
+            
+            瞎扯
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about/" rel="section">
+            
+            关于
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+            搜索
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2020/08/25/6. Hadoop HA/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">6. Hadoop HA</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2020-08-25T16:44:57+08:00">
+                2020-08-25
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Java-大数据进阶/" itemprop="url" rel="index">
+                    <span itemprop="name">Java 大数据进阶</span>
+                  </a>
+                </span>
+
+                
+                
+                  ， 
+                
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Java-大数据进阶/Hadoop/" itemprop="url" rel="index">
+                    <span itemprop="name">Hadoop</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+            <span class="post-meta-divider">|</span>
+            <span class="page-pv">本文总阅读量
+            <span class="busuanzi-value" id="busuanzi_value_page_pv"></span>次
+            </span>
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h3 id="Zookeeper-集群搭建"><a href="#Zookeeper-集群搭建" class="headerlink" title="Zookeeper 集群搭建"></a>Zookeeper 集群搭建</h3><p>ZK 的写流程，客户端可以连接任意的 zkserver 实例，向 server 发送写请求命令，如果当前连接的 server 不是Leader，server 会将写命令发送给 Leader，Leader 将写操作命令广播到集群的其他节点，所有节点都执行写操作命令，一旦集群中半数以上的节点写数据成功，Leader 会响应当前 Server，让当前 Server 响应客户端，写操作完成。</p>
+<p>集群搭建流程可参考之前 <a href="[https://yanrs.me/2020/05/19/55.%20Zookeeper/](https://yanrs.me/2020/05/19/55. Zookeeper/">文章</a>), 启动后效果如下：</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5qsTQQsLBSMU0hVtZ0NriXvfEXN0lE3YJe24RDltJhO2nKAF2rNND4YYXjAxxMQTPgkzdtc4lgJ2w6FG2s7J72c!/mnull&amp;bo=XQRFAV0ERQEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<h3 id="Hadoop-HA"><a href="#Hadoop-HA" class="headerlink" title="Hadoop HA"></a>Hadoop HA</h3><p>之前搭建 hadoop 集群的时候，NN 和 RM 都只有一个节点，那么实现 hadoop 的 HA，必须保证在 NN 和 RM 故障时，采取容错机制，可以让集群继续使用。</p>
+<h4 id="HDFS-HA"><a href="#HDFS-HA" class="headerlink" title="HDFS HA"></a>HDFS HA</h4><h5 id="元数据同步过程"><a href="#元数据同步过程" class="headerlink" title="元数据同步过程"></a>元数据同步过程</h5><p>NN 的高可用中元数据的同步过程为，在 active【使用 active 状态来标记主节点，使用 standby 状态标记备用节点】的 NN 格式化后，将空白的 fsimage 文件拷贝到所有的 NN 的机器上，active 的 NN 在启动后，将 edits 文件中的内容发送给 Journalnode 进程，standby 状态的 NN 主动从 Journalnode 进程拷贝数据，保证元数据的同步。Journalnode 在设计时，采用 paxos 协议, Journalnode 适合在奇数台机器上启动，在 hadoop 中，要求至少需要3个 Journalnode 进程，如果开启了 hdfs 的 ha, 就不能再启动 2NN。在同一时刻，最多只能有一个 NN 作为主节点，对外提供服务，其余的 NN，都作为备用节点，不对外提供服务。</p>
+<h5 id="搭建过程"><a href="#搭建过程" class="headerlink" title="搭建过程"></a>搭建过程</h5><p><strong>1. 修改 core-site.xml 中的 fs.defaultFS 地址</strong></p>
+<pre class="line-numbers language-xml"><code class="language-xml"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+   <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>fs.defaultFS<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+   <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>hdfs://mycluster<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+<p>mycluster 是自定义的集群名称</p>
+<p><strong>2. 修改 hdfs-site.xml 文件，配置 N 个 NN 运行的主机和端口。配置 JournalNode</strong></p>
+<pre class="line-numbers language-xml"><code class="language-xml"><span class="token comment" spellcheck="true">&lt;!-- 完全分布式集群名称 --></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>dfs.nameservices<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>mycluster<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
+
+    <span class="token comment" spellcheck="true">&lt;!-- 集群中NameNode节点都有哪些 --></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>dfs.ha.namenodes.mycluster<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>nn1,nn2<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
+
+    <span class="token comment" spellcheck="true">&lt;!-- nn1的RPC通信地址 --></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>dfs.namenode.rpc-address.mycluster.nn1<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>hadoop10:9000<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
+
+    <span class="token comment" spellcheck="true">&lt;!-- nn2的RPC通信地址 --></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>dfs.namenode.rpc-address.mycluster.nn2<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>hadoop11:9000<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
+
+    <span class="token comment" spellcheck="true">&lt;!-- nn1的http通信地址 --></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>dfs.namenode.http-address.mycluster.nn1<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>hadoop10:50070<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
+
+    <span class="token comment" spellcheck="true">&lt;!-- nn2的http通信地址 --></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>dfs.namenode.http-address.mycluster.nn2<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>hadoop11:50070<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
+
+    <span class="token comment" spellcheck="true">&lt;!-- 指定NameNode元数据在JournalNode上的存放位置(JournalNode 至少三个) --></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>dfs.namenode.shared.edits.dir<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>qjournal://hadoop10:8485;hadoop11:8485;hadoop12:8485/mycluster<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
+
+    <span class="token comment" spellcheck="true">&lt;!-- 配置隔离机制，即同一时刻只能有一台服务器对外响应。当发生自动故障转移的时候，使用 ssh 发送命令的方式来杀死之前的服务，防止脑裂的情况 --></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>dfs.ha.fencing.methods<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>sshfence<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
+
+    <span class="token comment" spellcheck="true">&lt;!-- 使用隔离机制时需要ssh无秘钥登录 --></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>dfs.ha.fencing.ssh.private-key-files<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>/home/rexyan/.ssh/id_rsa<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
+
+    <span class="token comment" spellcheck="true">&lt;!-- 声明journalnode服务器存储目录--></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>dfs.journalnode.edits.dir<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>/opt/module/hadoop-2.7.2/data/jn<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
+
+    <span class="token comment" spellcheck="true">&lt;!-- 关闭权限检查--></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>dfs.permissions.enable<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>false<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
+
+    <span class="token comment" spellcheck="true">&lt;!-- 访问代理类：client，mycluster，active配置失败自动切换实现方式--></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+          <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>dfs.client.failover.proxy.provider.mycluster<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>上面配置中配置了两个NN 节点，分别在 hadoop10 和 hadoop11 机器上，分别配置了两个节点的 RPC 地址和 HTTP 地址，配置了 Journal 服务所在的位置等。</p>
+<h5 id="启动过程"><a href="#启动过程" class="headerlink" title="启动过程"></a>启动过程</h5><p><strong>1. 在所有机器上启动 JournalNode</strong></p>
+<pre class="line-numbers language-bash"><code class="language-bash">sh xcall hadoop-daemons.sh start journalnode
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>查看状态</p>
+<pre class="line-numbers language-bash"><code class="language-bash">sh xcall jps
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p><strong>2. 格式化 NN，将格式化后的 fsimage 文件同步到其他 NN 节点，启动所有 NN，将其中一个 NN 的状态转换为 active 状态</strong></p>
+<p>上面配置了两个 NN，格式化 hadoop10 上的 NN 并格式化</p>
+<pre class="line-numbers language-bash"><code class="language-bash">hadoop namenode -format  <span class="token comment" spellcheck="true"># 格式化 hadoop 10 上的 NN</span>
+hadoop-daemon.sh start namenode   <span class="token comment" spellcheck="true"># 启动 hadoop 10 上的 NN</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+<p>在 hadoop11 上同步 hadoop 10 上的数据，包括 fsimage 文件等</p>
+<pre class="line-numbers language-bash"><code class="language-bash">hdfs namenode -bootstrapStandby   <span class="token comment" spellcheck="true"># 在 hadoop11 上同步 hadoop 10 上的数据</span>
+hadoop-daemon.sh start namenode   <span class="token comment" spellcheck="true"># 启动 hadoop11 上的 namenode</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+<p>启动 nn1 和 nn2 的 datanode</p>
+<pre class="line-numbers language-bash"><code class="language-bash">sh xcall hadoop-daemons.sh start datanode
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>访问 <a href="http://hadoop11:50070/" target="_blank" rel="noopener">http://hadoop11:50070/</a> 和 <a href="http://hadoop10:50070/" target="_blank" rel="noopener">http://hadoop10:50070/</a> 两个 nn 的 namenode web 地址，两者都显示为 standby</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5uNtjh*JxaaNbSl..AmdW2sBk*HkFPzqVNBpZqsydmd*XbeKDsshTZgnIE7drEKKddeZJa94l2Q3VCvnyyeq0vs!/mnull&amp;bo=CglEAQoJRAEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>手动将某个 nn 节点修改为 active 状态</p>
+<pre class="line-numbers language-bash"><code class="language-bash">hdfs haadmin -transitionToActive nn1  <span class="token comment" spellcheck="true"># 手动将 nn1 节点状态改为 active</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>再次访问 <a href="http://hadoop10:50070/" target="_blank" rel="noopener">http://hadoop10:50070/</a> 就能看到状态从 standby 变成了 active。</p>
+<p><strong>3. 文件上传测试</strong></p>
+<p>上传一个文件到 hdfs 中，因为只有 nn1 是 active 的，所以只有 nn1 提供服务。在 web 页面中只有 nn1 可以看到上传的文件信息。如果手动将 nn1 状态修改为 standby，将 nn2 状态修改为 active，那么就只有 nn2 可以看到上传的文件信息而 nn1 则不可以。</p>
+<pre class="line-numbers language-bash"><code class="language-bash">hdfs haadmin -transitionToStandby nn1  <span class="token comment" spellcheck="true"># 将 nn1 切换为 Standby</span>
+hdfs haadmin -transitionToActive nn2   <span class="token comment" spellcheck="true"># 将 nn2 切换为 Active</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+<h5 id="手动故障转移"><a href="#手动故障转移" class="headerlink" title="手动故障转移"></a>手动故障转移</h5><p>在上面的过程中 nn2 已经成为了 active 的状态，现在手动杀死 nn2 的 namenode 进程。因为 nn2 是 actice，且已经被杀死了，所以现在是无法正常提供服务的。</p>
+<pre class="line-numbers language-bash"><code class="language-bash">jps  <span class="token comment" spellcheck="true"># 先获取 namenode 进程号</span>
+<span class="token function">kill</span> -9 3596   <span class="token comment" spellcheck="true"># 结束 namenode 进程</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+<p>强制将 nn1 的状态修改为 Active</p>
+<pre class="line-numbers language-bash"><code class="language-bash">hdfs haadmin -transitionToActive --forceactive nn1  <span class="token comment" spellcheck="true"># 强制将 nn1 修改为 Active </span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>修改成功后 hdfs 就能正常的提供服务了</p>
+<h5 id="自动故障转移"><a href="#自动故障转移" class="headerlink" title="自动故障转移"></a>自动故障转移</h5><p>自动故障转移为 HDFS 部署增加了两个新组件：ZooKeeper 和 ZKFailoverController（ZKFC）进程。ZKFC 使用一个健康检查命令定期地 ping 与之在相同主机的 NameNode，只要该 NameNode 及时地回复健康状态，ZKFC认为该节点是健康的。如果该节点崩溃，冻结或进入不健康状态，健康监测器标识该节点为非健康的。并且其他 NameNode 的 ZKFC 进程在 ZooKeeper 抢夺分布式锁，抢到的则成为 Active 状态。</p>
+<p>为了防止脑裂情况的发生，hadoop HDFS 提供了两种解决方法，一种是配置 ssh 发送 kill 命令，即其他机器会通过 ssh 的方式来给你发送 kill 命令，防止你是假死。另外一种是自己配置一个脚本，当自己的 ZKFC 进程检测到自己处于不健康的状态时，那么就调用最的脚本将自己杀死。</p>
+<h5 id="自动故障转移配置"><a href="#自动故障转移配置" class="headerlink" title="自动故障转移配置"></a>自动故障转移配置</h5><p>在 hdfs-site.xml 中配置自动故障转移</p>
+<pre class="line-numbers language-xml"><code class="language-xml"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>dfs.ha.automatic-failover.enabled<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>true<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+<p>在 core-site.xml 中配置 zk 的集群地址信息</p>
+<pre class="line-numbers language-xml"><code class="language-xml"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>ha.zookeeper.quorum<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>hadoop10:2181,hadoop11:2181,hadoop12:2181<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+<p>分发修改的两个文件，然后启动 zk 服务</p>
+<pre class="line-numbers language-bash"><code class="language-bash">sh xcall /opt/module/apache-zookeeper-3.6.1-bin/bin/zkServer.sh start   <span class="token comment" spellcheck="true"># 启动</span>
+sh xcall /opt/module/apache-zookeeper-3.6.1-bin/bin/zkServer.sh status  <span class="token comment" spellcheck="true"># 查看状态</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+<p>初始化 HA 在 Zookeeper 中状态(其实就是在 zk 中新增一个 znode 信息，下面存放 hadoop ha 的信息)</p>
+<pre class="line-numbers language-bash"><code class="language-bash">hdfs zkfc -formatZK
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>启动 hdfs 服务</p>
+<pre class="line-numbers language-bash"><code class="language-bash">start-dfs.sh
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>查看 <a href="http://hadoop11:50070/" target="_blank" rel="noopener">http://hadoop11:50070/</a> 和 <a href="http://hadoop10:50070/" target="_blank" rel="noopener">http://hadoop10:50070/</a> 发现 hadoop11 成为了active</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5udfkVQUBwgzgTu1XQuDOdxVJWEqBSr.2P6sfDnP83gDddRrnsG6hchztNIoDp7neSiksyLf7fGVuCxE9YWQHog!/mnull&amp;bo=zAeAAsoMGgQDCb0!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>模拟故障，将 hadoop11 namenode 进程杀死，然后发现 hadoop10 自动成为了 active 状态。</p>
+<h4 id="YARN-HA"><a href="#YARN-HA" class="headerlink" title="YARN HA"></a>YARN HA</h4><p>在 yarn-site.xml 中增加下面配置</p>
+<pre class="line-numbers language-xml"><code class="language-xml">    <span class="token comment" spellcheck="true">&lt;!--启用resourcemanager ha--></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>yarn.resourcemanager.ha.enabled<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>true<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
+
+    <span class="token comment" spellcheck="true">&lt;!--声明两台resourcemanager的地址--></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>yarn.resourcemanager.cluster-id<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>cluster-yarn1<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
+
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>yarn.resourcemanager.ha.rm-ids<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>rm1,rm2<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
+
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>yarn.resourcemanager.hostname.rm1<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>hadoop10<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
+
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>yarn.resourcemanager.hostname.rm2<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>hadoop11<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
+
+    <span class="token comment" spellcheck="true">&lt;!--指定zookeeper集群的地址--></span> 
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>yarn.resourcemanager.zk-address<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>hadoop10:2181,hadoop11:2181,hadoop12:2181<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
+
+    <span class="token comment" spellcheck="true">&lt;!--启用自动恢复--></span> 
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>yarn.resourcemanager.recovery.enabled<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>true<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
+
+    <span class="token comment" spellcheck="true">&lt;!--指定resourcemanager的状态信息存储在zookeeper集群--></span> 
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>yarn.resourcemanager.store.class<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>     <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>org.apache.hadoop.yarn.server.resourcemanager.recovery.ZKRMStateStore<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>property</span><span class="token punctuation">></span></span>
+
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>上面配置中声明了两台 resourcemanager 的地址分别是 hadoop10 和 hadoop11。还配置了 zookeeper 集群的地址，配置了自动恢复等。</p>
+<p>在 hadoop10 和 hadoop11 上启动 rm</p>
+<pre class="line-numbers language-bash"><code class="language-bash">yarn-daemon.sh start resourcemanager  <span class="token comment" spellcheck="true"># hadoop10 上执行</span>
+yarn-daemon.sh start resourcemanager  <span class="token comment" spellcheck="true"># hadoop11 上执行</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+<p>访问 <a href="http://hadoop10:8088" target="_blank" rel="noopener">http://hadoop10:8088</a> 和 <a href="http://hadoop11:8088" target="_blank" rel="noopener">http://hadoop11:8088</a> 会发现 <a href="http://hadoop11:8088" target="_blank" rel="noopener">http://hadoop11:8088</a> 会跳转到  <a href="http://hadoop10:8088。所以" target="_blank" rel="noopener">http://hadoop10:8088。所以</a> hadoop10 上的 Yarn 就变成了 active 对外服务。</p>
+<p>将 hadoop10 上的 Yarn 进程杀死会发现只有访问 <a href="http://hadoop11:8088" target="_blank" rel="noopener">http://hadoop11:8088</a> 才能成功，因为 <a href="http://hadoop11:8088" target="_blank" rel="noopener">http://hadoop11:8088</a> 成为了 active。若再次将 hadoop10 上的 yarn 重新启动后，访问 hadoop10 会跳转到 hadoop11.</p>
+<h3 id="压缩"><a href="#压缩" class="headerlink" title="压缩"></a>压缩</h3><h4 id="目的和原则"><a href="#目的和原则" class="headerlink" title="目的和原则"></a>目的和原则</h4><p>压缩的目的：压缩的目的是在 MR 运行期间，提高 MR 运行的效率，压缩可以减少 MR 运行期间的磁盘IO 和网络IO。</p>
+<p>压缩的原则：IO 密集型，多用压缩。计算密集型，CPU 负载过重，少用压缩。</p>
+<p>Hadoop 默认支持的压缩格式有 deflate, bzip2, gzip。需要额外安装的有 lzo, snappy。特点是 bzip2 压缩比最高，压缩速度最慢。snappy 压缩速度最快，压缩比凑合。deflate，gzip 折中。</p>
+<h4 id="常用配置"><a href="#常用配置" class="headerlink" title="常用配置"></a>常用配置</h4><p>压缩常用配置项如下：</p>
+<pre><code>io.compression.codecs: 代表整个Job运行期间，可以使用哪些压缩格式,配置这个参数后，配置的压缩格式会被自动初始化,默认值 deflate,gzip,bzip2
+mapreduce.map.output.compress: map阶段输出的key-value是否采用压缩,默认值 false
+mapreduce.map.output.compress.codec: map阶段输出的key-value采用何种压缩,默认值 deflate
+mapreduce.output.fileoutputformat.compress: job在reduce阶段最终的输出是否采用压缩, 默认值 false
+mapreduce.output.fileoutputformat.compress.codec: job在reduce阶段最终的输出采用何种压缩,默认值deflate
+mapreduce.output.fileoutputformat.compress.type: 如果Job输出的文件以SequenceFile格式，SequenceFile 中的数据，要以何种形式进行压缩。NONE：是否压缩及如何压缩取决于操作系统，RECORD(默认)：每个key-value对作为一个单位，压缩一次。BLOCK：SequenceFile中的block，SequenceFile中的block默认为64K,每个block压缩一次！
+</code></pre><h4 id="压缩场景"><a href="#压缩场景" class="headerlink" title="压缩场景"></a>压缩场景</h4><p>什么时候需要考虑压缩：</p>
+<ol>
+<li>Mapper 的输入: 主要考虑每个文件的大小，如果文件过大，需要使用可以切片的压缩格式。</li>
+<li>Reducer 的输出： reducer 的输出主要考虑，输出之后，是否需要下一个 Job 继续处理，如果需要被下个 Job 继续处理，且单个文件过大，也要使用可以切片的压缩格式。</li>
+<li>shuffle阶段：能加速即可</li>
+</ol>
+<h3 id="调度器"><a href="#调度器" class="headerlink" title="调度器"></a>调度器</h3><h4 id="FIFO调度器"><a href="#FIFO调度器" class="headerlink" title="FIFO调度器"></a>FIFO调度器</h4><p>FIFO 调度器的特点就是单队列，所有的 Job 按照客户端提交的先后顺序，先到先服务。弊端是如果当前队列中有一个大的 Job，非常消耗资源，那么这个 Job 之后的其他 Job 都需要付额外的等待时间。造成集群的资源利用率不足。</p>
+<h4 id="容量调度器"><a href="#容量调度器" class="headerlink" title="容量调度器"></a>容量调度器</h4><p>容量调度器的本质是多个 FIFO 的队列组成，Hadoop 默认使用就是容量调度器。</p>
+<p>特点是每个队列可以配置一定的容量，空闲的资源可以匀给其他队列临时使用。可以配置每个job使用的容量的限制，防止一个大的 job 独占所有资源。可以配置每个用户可以使用的容量限制，防止当个用户占用所有资源。</p>
+<h4 id="公平调度器"><a href="#公平调度器" class="headerlink" title="公平调度器"></a>公平调度器</h4><p>公平调度器的设置和容量调度器大致相同，也是多条队列，每天队列都可以设置一定的容量，每个 Job，用户可以设置容量。区别在于公平调度器在调度策略上，采用最大最小公平算法，来调度 Job，这个算法会保证同一个队列中，所有已经提交，未运行结束的 Job，获取到队列中的资源是平等的。</p>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Hadoop/" rel="tag"># Hadoop</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2020/08/20/5. MapReduce-2/" rel="next" title="5. MapReduce-2">
+                <i class="fa fa-chevron-left"></i> 5. MapReduce-2
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2020/08/25/7. Hive-1/" rel="prev" title="7. Hive-1">
+                7. Hive-1 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">Rex</p>
+              <p class="site-description motion-element" itemprop="description"></p>
+          </div>
+
+          <nav class="site-state motion-element">
+
+            
+              <div class="site-state-item site-state-posts">
+              
+                <a href="/archives/">
+              
+                  <span class="site-state-item-count">297</span>
+                  <span class="site-state-item-name">日志</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-categories">
+                <a href="/categories/index.html">
+                  <span class="site-state-item-count">30</span>
+                  <span class="site-state-item-name">分类</span>
+                </a>
+              </div>
+            
+
+            
+              
+              
+              <div class="site-state-item site-state-tags">
+                <a href="/tags/index.html">
+                  <span class="site-state-item-count">148</span>
+                  <span class="site-state-item-name">标签</span>
+                </a>
+              </div>
+            
+
+          </nav>
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+
+          
+          
+
+          
+          
+            <div class="links-of-blogroll motion-element links-of-blogroll-block">
+              <div class="links-of-blogroll-title">
+                <i class="fa  fa-fw fa-link"></i>
+                Links
+              </div>
+              <ul class="links-of-blogroll-list">
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://www.cnblogs.com/rexyan/" title="CSDN博客" target="_blank">CSDN博客</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://rexyan.github.io" title="rexyan.github.io" target="_blank">rexyan.github.io</a>
+                  </li>
+                
+              </ul>
+            </div>
+          
+
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#Zookeeper-集群搭建"><span class="nav-number">1.</span> <span class="nav-text">Zookeeper 集群搭建</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Hadoop-HA"><span class="nav-number">2.</span> <span class="nav-text">Hadoop HA</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#HDFS-HA"><span class="nav-number">2.1.</span> <span class="nav-text">HDFS HA</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#元数据同步过程"><span class="nav-number">2.1.1.</span> <span class="nav-text">元数据同步过程</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#搭建过程"><span class="nav-number">2.1.2.</span> <span class="nav-text">搭建过程</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#启动过程"><span class="nav-number">2.1.3.</span> <span class="nav-text">启动过程</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#手动故障转移"><span class="nav-number">2.1.4.</span> <span class="nav-text">手动故障转移</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#自动故障转移"><span class="nav-number">2.1.5.</span> <span class="nav-text">自动故障转移</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#自动故障转移配置"><span class="nav-number">2.1.6.</span> <span class="nav-text">自动故障转移配置</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#YARN-HA"><span class="nav-number">2.2.</span> <span class="nav-text">YARN HA</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#压缩"><span class="nav-number">3.</span> <span class="nav-text">压缩</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#目的和原则"><span class="nav-number">3.1.</span> <span class="nav-text">目的和原则</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#常用配置"><span class="nav-number">3.2.</span> <span class="nav-text">常用配置</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#压缩场景"><span class="nav-number">3.3.</span> <span class="nav-text">压缩场景</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#调度器"><span class="nav-number">4.</span> <span class="nav-text">调度器</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#FIFO调度器"><span class="nav-number">4.1.</span> <span class="nav-text">FIFO调度器</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#容量调度器"><span class="nav-number">4.2.</span> <span class="nav-text">容量调度器</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#公平调度器"><span class="nav-number">4.3.</span> <span class="nav-text">公平调度器</span></a></li></ol></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2017 &mdash; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a class="theme-link" target="_blank" href="https://hexo.io">Hexo</a> 强力驱动</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 &mdash; <a class="theme-link" target="_blank" href="https://github.com/iissnan/hexo-theme-next">NexT.Gemini</a> v5.1.4</div>
+
+
+
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+    <span class="site-uv">
+      本站访客数
+      <span class="busuanzi-value" id="busuanzi_value_site_uv"></span>
+      人次
+    </span>
+  
+
+  
+    <span class="site-pv">
+      本站总访问量
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+      次
+    </span>
+  
+</div>
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.4"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.4"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.4"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.4"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.4"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url);
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
