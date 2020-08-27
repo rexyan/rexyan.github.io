@@ -348,6 +348,296 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2020/08/27/8. Hive-2/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2020/08/27/8. Hive-2/" itemprop="url">8. Hive-2</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2020-08-27T17:44:57+08:00">
+                2020-08-27
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Java-大数据进阶/" itemprop="url" rel="index">
+                    <span itemprop="name">Java 大数据进阶</span>
+                  </a>
+                </span>
+
+                
+                
+                  ， 
+                
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Java-大数据进阶/Hadoop/" itemprop="url" rel="index">
+                    <span itemprop="name">Hadoop</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="分区表"><a href="#分区表" class="headerlink" title="分区表"></a>分区表</h3><p>创建表的时候可以使用 PARTITIONED BY 来创建分区表。分区表实际上就是对应一个 HDFS 文件系统上的独立的文件夹，该文件夹下是该分区所有的数据文件。Hive 中的分区就是分目录，把一个大的数据集根据业务需要分割成小的数据集。在查询时通过 WHERE 子句中的表达式选择查询所需要的指定的分区，这样的查询效率会提高很多。</p>
+<pre><code>CREATE [EXTERNAL] TABLE [IF NOT EXISTS] table_name 
+[(col_name data_type [COMMENT col_comment], ...)]   //表中的字段信息
+[COMMENT table_comment]  //表的注释
+
+[PARTITIONED BY (col_name data_type [COMMENT col_comment], ...)] 
+[CLUSTERED BY (col_name, col_name, ...) 
+[SORTED BY (col_name [ASC|DESC], ...)] INTO num_buckets BUCKETS] 
+
+[ROW FORMAT row_format]   // 表中数据每行的格式，定义数据字段的分隔符，集合元素的分隔符等
+[STORED AS file_format]   //表中的数据要以哪种文件格式来存储，默认为TEXTFILE（文本文件）
+[LOCATION hdfs_path]  //表在hdfs上的位置
+</code></pre><h4 id="分区表的创建方式"><a href="#分区表的创建方式" class="headerlink" title="分区表的创建方式"></a>分区表的创建方式</h4><h5 id="直接使用-create-创建分区表"><a href="#直接使用-create-创建分区表" class="headerlink" title="直接使用 create 创建分区表"></a>直接使用 create 创建分区表</h5><pre class="line-numbers language-sql"><code class="language-sql"><span class="token keyword">create</span> external <span class="token keyword">table</span> <span class="token keyword">if</span> <span class="token operator">not</span> <span class="token keyword">exists</span> <span class="token keyword">default</span><span class="token punctuation">.</span>deptpart1<span class="token punctuation">(</span>
+deptno <span class="token keyword">int</span><span class="token punctuation">,</span>
+dname string<span class="token punctuation">,</span>
+loc <span class="token keyword">int</span>
+<span class="token punctuation">)</span>
+PARTITIONED <span class="token keyword">BY</span><span class="token punctuation">(</span>area string<span class="token punctuation">)</span>
+<span class="token keyword">row</span> format delimited <span class="token keyword">fields</span> <span class="token keyword">terminated by</span> <span class="token string">'\t'</span><span class="token punctuation">;</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>创建数据</p>
+<p>partition_data1</p>
+<pre><code>1       测试    1
+2       dev     2
+3       data    3
+4       test    4
+</code></pre><p>partition_data2</p>
+<pre><code>5       测试    5
+6       dev     6
+7       data    7
+8       test    8
+</code></pre><p>加载数据到分区表中</p>
+<pre class="line-numbers language-shell"><code class="language-shell">load data local inpath '/home/rexyan/test_file/partition_data1' into table default.deptpart1 partition(area='shanghai');
+
+load data local inpath '/home/rexyan/test_file/partition_data2' into table default.deptpart1 partition(area='beijing');
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+<p>上面命令会将数据放在不同的分区中，partition_data1 的数据放在分区 area=’shanghai’ 中，partition_data2 的数据放在 area=’beijing’ 中。查询数据时会发现字段中默认增加了一列 area，area 的值就是分区的值。可以使用where 条件过滤该列的值。在 hdfs 中，会发现 deptpart1 目录下有 area=’shanghai’ 和 area=’beijing’ 两个分区目录。</p>
+<pre><code>hive (default)&gt; select * from deptpart1;
+OK
+deptpart1.deptno        deptpart1.dname deptpart1.loc   deptpart1.area
+5                           测试            5               beijing
+6                           dev            6                 beijing
+7                           data           7                 beijing
+8                           test           8                 beijing
+1                           测试             1               shanghai
+2                           dev            2                 shanghai
+3                           data           3                 shanghai
+4                           test           4                 shanghai
+Time taken: 0.201 seconds, Fetched: 8 row(s)
+</code></pre><h5 id="使用-alter-增加分区字段"><a href="#使用-alter-增加分区字段" class="headerlink" title="使用 alter  增加分区字段"></a>使用 alter  增加分区字段</h5><p>创建普通表后或者在目前分区表的基础上使用 alter 增加分区字段</p>
+<pre class="line-numbers language-sql"><code class="language-sql">hive <span class="token punctuation">(</span><span class="token keyword">default</span><span class="token punctuation">)</span><span class="token operator">></span> <span class="token keyword">alter</span> <span class="token keyword">table</span> deptpart1 <span class="token keyword">add</span> <span class="token keyword">partition</span><span class="token punctuation">(</span>area<span class="token operator">=</span><span class="token string">"shandong"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<pre><code>hive (default)&gt; show partitions deptpart1;  # 查看添加的分区
+OK
+partition
+area=beijing
+area=shandong
+area=shanghai
+Time taken: 0.183 seconds, Fetched: 3 row(s)
+</code></pre><h5 id="使用-load-直接加载数据"><a href="#使用-load-直接加载数据" class="headerlink" title="使用 load 直接加载数据"></a>使用 load 直接加载数据</h5><p>使用 load 命令向分区加载数据，如果分区不存在，load 时自动帮我们生成分区</p>
+<p>创建一张分区表</p>
+<pre class="line-numbers language-sql"><code class="language-sql"><span class="token keyword">create</span> external <span class="token keyword">table</span> <span class="token keyword">if</span> <span class="token operator">not</span> <span class="token keyword">exists</span> <span class="token keyword">default</span><span class="token punctuation">.</span>deptpart2<span class="token punctuation">(</span>
+deptno <span class="token keyword">int</span><span class="token punctuation">,</span>
+dname string<span class="token punctuation">,</span>
+loc <span class="token keyword">int</span>
+<span class="token punctuation">)</span>
+PARTITIONED <span class="token keyword">BY</span><span class="token punctuation">(</span>area string<span class="token punctuation">)</span>
+<span class="token keyword">row</span> format delimited <span class="token keyword">fields</span> <span class="token keyword">terminated by</span> <span class="token string">'\t'</span><span class="token punctuation">;</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>使用 load 命令加载数据，将加载时指定分区，因为上面刚创建的表是没有分区 area=’jiangshu’ 和 area=’wuhan’ 的，使用下面方式导入后就能直接创建分区，并将数据导入。</p>
+<pre class="line-numbers language-shell"><code class="language-shell">load data local inpath '/home/rexyan/test_file/partition_data1' into table default.deptpart2 partition(area='jiangshu');
+
+load data local inpath '/home/rexyan/test_file/partition_data2' into table default.deptpart2 partition(area='wuhan');
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+<h5 id="修复分区命令"><a href="#修复分区命令" class="headerlink" title="修复分区命令"></a>修复分区命令</h5><p>创建一张分区表，直接将数据上传到 hdfs 目录下，这时使用 hive 是查询不了数的，需要使用命令修复分区自动生成分区的元数据。</p>
+<p>创建分区表</p>
+<pre class="line-numbers language-sql"><code class="language-sql"><span class="token keyword">create</span> external <span class="token keyword">table</span> <span class="token keyword">if</span> <span class="token operator">not</span> <span class="token keyword">exists</span> <span class="token keyword">default</span><span class="token punctuation">.</span>deptpart3<span class="token punctuation">(</span>
+deptno <span class="token keyword">int</span><span class="token punctuation">,</span>
+dname string<span class="token punctuation">,</span>
+loc <span class="token keyword">int</span>
+<span class="token punctuation">)</span>
+PARTITIONED <span class="token keyword">BY</span><span class="token punctuation">(</span>area string<span class="token punctuation">)</span>
+<span class="token keyword">row</span> format delimited <span class="token keyword">fields</span> <span class="token keyword">terminated by</span> <span class="token string">'\t'</span><span class="token punctuation">;</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>上传数据到 hdfs</p>
+<pre class="line-numbers language-shell"><code class="language-shell">[rexyan@hadoop10 ~]$ hadoop fs -mkdir -p /hive/deptpart3/area=guiyang
+[rexyan@hadoop10 ~]$ hadoop fs -mkdir -p /hive/deptpart3/area=guangxi
+[rexyan@hadoop10 ~]$ hadoop fs -put test_file/partition_data1 /hive/deptpart3/area=guiyang
+[rexyan@hadoop10 ~]$ hadoop fs -put test_file/partition_data2 /hive/deptpart3/area=guangxi
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+<p>修复分区</p>
+<pre><code>hive (default)&gt; msck repair table deptpart3;  # 修复分区
+OK
+Partitions not in metastore:    deptpart3:area=guangxi  deptpart3:area=guiyang
+Repair: Added partition to metastore deptpart3:area=guangxi
+Repair: Added partition to metastore deptpart3:area=guiyang
+Time taken: 0.395 seconds, Fetched: 3 row(s)
+</code></pre><h3 id="分桶表"><a href="#分桶表" class="headerlink" title="分桶表"></a>分桶表</h3><p>建表时指定了 CLUSTERED BY，这个表就为分桶表，分桶本质上也是为了分散数据，在分桶后，可以结合 hive 提供的抽样查询，只查询指定桶的数据。在分桶时，也可以指定将每个桶的数据根据一定的规则来排序，如果需要排序，那么可以在 CLUSTERED BY 后根 SORTED BY</p>
+<p>创建分桶表</p>
+<pre class="line-numbers language-sql"><code class="language-sql"><span class="token keyword">create</span> <span class="token keyword">table</span> stu_buck<span class="token punctuation">(</span>id <span class="token keyword">int</span><span class="token punctuation">,</span> name string<span class="token punctuation">)</span>
+<span class="token keyword">clustered</span> <span class="token keyword">by</span><span class="token punctuation">(</span>id<span class="token punctuation">)</span>  <span class="token comment" spellcheck="true">-- 根据 id 进行分桶</span>
+SORTED <span class="token keyword">BY</span> <span class="token punctuation">(</span>id <span class="token keyword">desc</span><span class="token punctuation">)</span>  <span class="token comment" spellcheck="true">--根据 id 进行排序</span>
+<span class="token keyword">into</span> <span class="token number">4</span> buckets  <span class="token comment" spellcheck="true">-- 分 4 个桶</span>
+<span class="token keyword">row</span> format delimited <span class="token keyword">fields</span> <span class="token keyword">terminated by</span> <span class="token string">'\t'</span><span class="token punctuation">;</span>  <span class="token comment" spellcheck="true">-- 指定数据之间分隔符为 '\t'</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>向分桶表导入数据时，必须运行 MR 程序，才能实现分桶操作，之前使用的 load 操作只是相当于执行的 put 操作，无法满足分桶表导入数据，必须使用 insert into (hive 会自动转换为 MR 程序运行)。</p>
+<p>在导入数据前还需要打开强制分桶开关和强制排序开关</p>
+<pre><code>打开强制分桶开关： set hive.enforce.bucketing=true;
+打开强制排序开关： set hive.enforce.sorting=true;
+</code></pre><p>插入数据除了使用 insert into 一条条的插入外，还可以使用查询插入的方式，即查询一张表的结果，并将这正表的数据插入到分桶表中。这里使用查询插入的方式实现。</p>
+<pre class="line-numbers language-sql"><code class="language-sql"><span class="token keyword">create</span> <span class="token keyword">table</span> stu_buck_tmp<span class="token punctuation">(</span>id <span class="token keyword">int</span><span class="token punctuation">,</span> name string<span class="token punctuation">)</span>  <span class="token comment" spellcheck="true">-- 创建普通表 stu_buck_tmp</span>
+<span class="token keyword">row</span> format delimited <span class="token keyword">fields</span> <span class="token keyword">terminated by</span> <span class="token string">'\t'</span><span class="token punctuation">;</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+<p>将数据加载到表 stu_buck_tmp 中</p>
+<pre class="line-numbers language-shell"><code class="language-shell">[rexyan@hadoop10 test_file]$ hadoop fs -put ~/test_file/stu_buck_tmp_data /hive/stu_buck_tmp
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>将数据从 stu_buck_tmp 中查出插入到 stu_buck 中</p>
+<pre class="line-numbers language-sql"><code class="language-sql"><span class="token keyword">insert</span> <span class="token keyword">into</span> <span class="token keyword">table</span> stu_buck <span class="token keyword">select</span> <span class="token operator">*</span> <span class="token keyword">from</span> stu_buck_tmp<span class="token punctuation">;</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>因为 stu_buck 表分桶数量是 4， 所以会看到在插入数据的时候有 4 个 reduce task 执行，查看 hdfs 结构会看到在 stu_buck 下有四个数据文件，每个代表一个桶，每个里面存放一部分数据，且数据都是按照 hash 取模的方式分配的，且数据是倒序存在的。</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5sOpFy8xoP8XtuRSh.AcDOkdikJpgpMA1yDQUAJcBMQyevdQWYEWo6NEPVnjCK8VZu*Ou6m*INeVWXTW59AAais!/mnull&amp;bo=9gNkAvYDZAIDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5sOpFy8xoP8XtuRSh.AcDOl7EzdQFyS*Sh9XwYZGMZ7nnaxlUJ5*W7fFWNSZntsWG8ixgjo5jVbnclvDWeQBEV0!/mnull&amp;bo=9APsAPQD7AADCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<h3 id="抽样查询"><a href="#抽样查询" class="headerlink" title="抽样查询"></a>抽样查询</h3><p>抽样查询的表必须是分桶表，语法格式为 <code>select * from 分桶表 tablesample(bucket x out of y on 分桶表分桶字段);</code> 以上面创建的分桶表为例，查询示例如下</p>
+<pre class="line-numbers language-sql"><code class="language-sql"><span class="token keyword">select</span> <span class="token operator">*</span> <span class="token keyword">from</span> stu_buck tablesample<span class="token punctuation">(</span>bucket <span class="token number">1</span> <span class="token keyword">out</span> <span class="token keyword">of</span> <span class="token number">2</span> <span class="token keyword">on</span> id<span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment" spellcheck="true">--代表从第1桶(0号桶)开始抽，每隔2桶抽一次，一共抽2桶（4/2，4为总桶数，2为每次抽取桶的间隔数）。即最后抽取的桶为 0号桶，1号桶</span>
+
+<span class="token keyword">select</span> <span class="token operator">*</span> <span class="token keyword">from</span> stu_buck tablesample<span class="token punctuation">(</span>bucket <span class="token number">1</span> <span class="token keyword">out</span> <span class="token keyword">of</span> <span class="token number">1</span> <span class="token keyword">on</span> id<span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment" spellcheck="true">--代表从第1桶(0号桶)开始抽，每个1桶抽一次，一共抽4桶（4/1，4为总桶数，1为每次抽取桶的间隔数）。即最后抽取的桶为 0号桶，1号桶，2号桶，3号桶</span>
+
+<span class="token keyword">select</span> <span class="token operator">*</span> <span class="token keyword">from</span> stu_buck tablesample<span class="token punctuation">(</span>bucket <span class="token number">2</span> <span class="token keyword">out</span> <span class="token keyword">of</span> <span class="token number">4</span> <span class="token keyword">on</span> id<span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment" spellcheck="true">--代表从第2桶(1号桶)开始抽，每个4桶抽一次，一共抽1桶（4/4，4为总桶数，4为每次抽取桶的间隔数）。即最后抽取的桶为 1号桶</span>
+
+<span class="token keyword">select</span> <span class="token operator">*</span> <span class="token keyword">from</span> stu_buck tablesample<span class="token punctuation">(</span>bucket <span class="token number">2</span> <span class="token keyword">out</span> <span class="token keyword">of</span> <span class="token number">8</span> <span class="token keyword">on</span> id<span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment" spellcheck="true">--代表从第2桶(1号桶)开始抽，每个8桶抽一次，一共抽0.5桶（4/8，4为总桶数，8为每次抽取桶的间隔数）。即最后抽取的桶为 1号桶的一半</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h3 id="数据导入"><a href="#数据导入" class="headerlink" title="数据导入"></a>数据导入</h3><h4 id="load"><a href="#load" class="headerlink" title="load"></a>load</h4><p>将数据直接加载到表目录中，语法:<code>load data [local] inpath 路径 into table 表名 partition(xx=xx)</code>，local 参数的作用是将本地文件系统的文件上传到 hdfs 中。不加 local 代表着，文件在 hdfs 上，并且将文件从 hdfs 上将源文件移动到目标目录。</p>
+<h4 id="insert"><a href="#insert" class="headerlink" title="insert"></a>insert</h4><p>insert 的方式会运行 MR 程序，通过程序将数据输出到表目录。在某些场景, 必须使用 insert 的方式来导入数据：</p>
+<ol>
+<li>向分桶表插入数据</li>
+<li>如果指定表中的数据，不是以纯文本（TextFile）形式存储，需要使用 insert 方式导入</li>
+</ol>
+<p>语法：<code>insert into/overwrite table 表名 select xxx/values(),(),()</code> 可以使用 insert into 或者 insert overwrite 两种方式来插入数据，insert into 代表向表中追加新的数据，insert overwrite 代表先清空表中所有的数据，再向表中添加新的数据。后面数据的来源方式可以自己写在 values 中，也可以使用 select 来将查询结果进行插入。</p>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://yanrs.me/2020/08/25/7. Hive-1/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -584,7 +874,7 @@ mysql> SET PASSWORD=PASSWORD('123456');
 <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>configuration</span><span class="token punctuation">></span></span>
 <span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
 <p>手动创建库 metastore，注意编码要使用 latin1。再次进入 hive 交互终端，就可以看到在 mysql 的 metastore 库中创建了很多表，hive 中创建的表的信息都存储在 tbls 表中，通过 db_id 和 dbs 表中的库进行外键约束，hive 中库的信息都存储在 dbs 表中，hive 中的字段信息存在 column_v2 表中，通过 CD_ID 和表的主键进行外键约束。</p>
-<h3 id="常见属性配置"><a href="#常见属性配置" class="headerlink" title="常见属性配置"></a>常见属性配置</h3><p>Default 数据仓库的最原始位置是在hdfs上的 /user/hive/warehouse 路径下，如果某张表属于 default 数据库，直接在数据仓库目录下创建一个文件夹。修改 default 数据仓库原始位置可以在 hive-site.xml 文件中添加如下信息。其中 value 就是存储数据的地方，该路径为 hdfs 的路径</p>
+<h3 id="常见属性配置"><a href="#常见属性配置" class="headerlink" title="常见属性配置"></a>常见属性配置</h3><p>Default 数据仓库的最原始位置是在hdfs上的 /user/hive/warehouse 路径下，如果某张表属于 default 数据库，直接在数据仓库目录下创建一个文件夹。修改 default 数据仓库原始位置可以在 hive-site.xml 文件中添加如下信息。其中 value 就是存储数据的地方，该路径为 hdfs 的路径。</p>
 <pre class="line-numbers language-xml"><code class="language-xml"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>property</span><span class="token punctuation">></span></span>
     <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>name</span><span class="token punctuation">></span></span>hive.metastore.warehouse.dir<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>name</span><span class="token punctuation">></span></span>
     <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>value</span><span class="token punctuation">></span></span>/hive<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>value</span><span class="token punctuation">></span></span>
@@ -688,20 +978,119 @@ dfs -ls /user;   # 执行 hdfs 命令
 </thead>
 <tbody>
 <tr>
-<td>STRUCT</td>
+<td>struct</td>
 <td>和c语言中的struct类似，都可以通过“点”符号访问元素内容。例如，如果某个列的数据类型是STRUCT{first STRING, last STRING},那么第1个元素可以通过字段.first来引用。</td>
 </tr>
 <tr>
-<td>MAP</td>
+<td>map</td>
 <td>MAP是一组键-值对元组集合，使用数组表示法可以访问数据。例如，如果某个列的数据类型是MAP，其中键-&gt;值对是’first’-&gt;’John’和’last’-&gt;’Doe’，那么可以通过字段名[‘last’]获取最后一个元素</td>
 </tr>
 <tr>
-<td>ARRAY</td>
+<td>array</td>
 <td>数组是一组具有相同类型和名称的变量的集合。这些变量称为数组的元素，每个数组元素都有一个编号，编号从零开始。例如，数组值为[‘John’,  ‘Doe’]，那么第2个元素可以通过数组名[1]进行引用。</td>
 </tr>
 </tbody>
 </table>
-<h3 id="管理表和外部表"><a href="#管理表和外部表" class="headerlink" title="管理表和外部表"></a>管理表和外部表</h3>
+<h4 id="创表示例"><a href="#创表示例" class="headerlink" title="创表示例"></a>创表示例</h4><p>例如有如下两条数据</p>
+<pre><code>songsong,bingbing_lili,xiao song:18_xiaoxiao song:19,hui long guan_beijing
+yangyang,caicai_susu,xiao yang:18_xiaoxiao yang:19,chao yang_beijing
+</code></pre><p>数据期待的 json 格式如下 ( Map和 Struct 的区别: Struct 中属性名是不变的, Map 中 key 可以变化的)</p>
+<pre class="line-numbers language-json"><code class="language-json"><span class="token punctuation">{</span>
+    <span class="token property">"name"</span><span class="token operator">:</span> <span class="token string">"songsong"</span><span class="token punctuation">,</span>
+    <span class="token property">"friends"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"bingbing"</span> <span class="token punctuation">,</span> <span class="token string">"lili"</span><span class="token punctuation">]</span> <span class="token punctuation">,</span>       //列表Array<span class="token punctuation">,</span> 
+    <span class="token property">"children"</span><span class="token operator">:</span> <span class="token punctuation">{</span>                      //键值Map<span class="token punctuation">,</span>
+        <span class="token property">"xiao song"</span><span class="token operator">:</span> <span class="token number">18</span> <span class="token punctuation">,</span>
+        <span class="token property">"xiaoxiao song"</span><span class="token operator">:</span> <span class="token number">19</span>
+    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+    <span class="token property">"address"</span><span class="token operator">:</span> <span class="token punctuation">{</span>                      //结构Struct<span class="token punctuation">,</span>
+        <span class="token property">"street"</span><span class="token operator">:</span> <span class="token string">"hui long guan"</span> <span class="token punctuation">,</span>
+        <span class="token property">"city"</span><span class="token operator">:</span> <span class="token string">"beijing"</span> 
+    <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>根据上面需求，建表语句如下</p>
+<pre class="line-numbers language-sql"><code class="language-sql"><span class="token keyword">create</span> <span class="token keyword">table</span> people<span class="token punctuation">(</span>
+name string<span class="token punctuation">,</span>   <span class="token comment" spellcheck="true">-- name 字段，类型为 string</span>
+friends array<span class="token operator">&lt;</span>string<span class="token operator">></span><span class="token punctuation">,</span>   <span class="token comment" spellcheck="true">-- friends 字段，类型为 array，array 中存储 string 类型数据</span>
+children map<span class="token operator">&lt;</span>string<span class="token punctuation">,</span><span class="token keyword">int</span><span class="token operator">></span><span class="token punctuation">,</span>  <span class="token comment" spellcheck="true">-- children 字段，类型为 map，key 为 string，value 为 int 类型数据</span>
+address struct<span class="token operator">&lt;</span>street:string<span class="token punctuation">,</span>city:string<span class="token operator">></span><span class="token punctuation">)</span>  <span class="token comment" spellcheck="true">-- address 字段，类型为 struct。有两个属性 street city</span>
+<span class="token keyword">row</span> format delimited <span class="token keyword">fields</span> <span class="token keyword">terminated by</span> <span class="token string">','</span>  <span class="token comment" spellcheck="true">-- 指定数据字段之间使用 “,” 进行分割</span>
+collection items <span class="token keyword">terminated by</span> <span class="token string">'_'</span>  <span class="token comment" spellcheck="true">-- 字段中得数据使用 '_' 进行分割</span>
+map <span class="token keyword">keys</span> <span class="token keyword">terminated by</span> <span class="token string">':'</span>  <span class="token comment" spellcheck="true">-- map 中的 key 和 value 使用 ':' 进行分割</span>
+<span class="token keyword">lines</span> <span class="token keyword">terminated by</span> <span class="token string">'\n'</span><span class="token punctuation">;</span>  <span class="token comment" spellcheck="true">-- 每行数据使用换行进行分割</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>将数据上传至 hdfs 指定目录下</p>
+<pre class="line-numbers language-shell"><code class="language-shell">[rexyan@hadoop10 test_file]$ hadoop fs -put create_table_test_data_file /hive/people
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>在 hive 中查询，得到如下结果</p>
+<pre class="line-numbers language-sql"><code class="language-sql">hive <span class="token punctuation">(</span><span class="token keyword">default</span><span class="token punctuation">)</span><span class="token operator">></span> <span class="token keyword">select</span> <span class="token operator">*</span> <span class="token keyword">from</span> people<span class="token punctuation">;</span>
+OK
+people<span class="token punctuation">.</span>name     people<span class="token punctuation">.</span>friends  people<span class="token punctuation">.</span>children people<span class="token punctuation">.</span>address
+songsong        <span class="token punctuation">[</span><span class="token string">"bingbing"</span><span class="token punctuation">,</span><span class="token string">"lili"</span><span class="token punctuation">]</span>     {<span class="token string">"xiao song"</span>:<span class="token number">18</span><span class="token punctuation">,</span><span class="token string">"xiaoxiao song"</span>:<span class="token number">19</span>}     {<span class="token string">"street"</span>:<span class="token string">"hui long guan"</span><span class="token punctuation">,</span><span class="token string">"city"</span>:<span class="token string">"beijing"</span>}
+yangyang        <span class="token punctuation">[</span><span class="token string">"caicai"</span><span class="token punctuation">,</span><span class="token string">"susu"</span><span class="token punctuation">]</span>       {<span class="token string">"xiao yang"</span>:<span class="token number">18</span><span class="token punctuation">,</span><span class="token string">"xiaoxiao yang"</span>:<span class="token number">19</span>}     {<span class="token string">"street"</span>:<span class="token string">"chao yang"</span><span class="token punctuation">,</span><span class="token string">"city"</span>:<span class="token string">"beijing"</span>}
+Time taken: <span class="token number">0.749</span> seconds<span class="token punctuation">,</span> Fetched: <span class="token number">2</span> <span class="token keyword">row</span><span class="token punctuation">(</span>s<span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>可以看到 friends 列的值是 array 类型，children 是以 map 类型，address 是 struct 类型。</p>
+<p>获取 friends 中的第一个值</p>
+<pre class="line-numbers language-sql"><code class="language-sql">hive <span class="token punctuation">(</span><span class="token keyword">default</span><span class="token punctuation">)</span><span class="token operator">></span> <span class="token keyword">select</span> friends<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span> <span class="token keyword">from</span> people<span class="token punctuation">;</span>
+OK
+_c0
+bingbing
+caicai
+Time taken: <span class="token number">0.166</span> seconds<span class="token punctuation">,</span> Fetched: <span class="token number">2</span> <span class="token keyword">row</span><span class="token punctuation">(</span>s<span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>获取 children 中指定 key 的值</p>
+<pre class="line-numbers language-sql"><code class="language-sql">hive <span class="token punctuation">(</span><span class="token keyword">default</span><span class="token punctuation">)</span><span class="token operator">></span> <span class="token keyword">select</span> children<span class="token punctuation">[</span><span class="token string">"xiao song"</span><span class="token punctuation">]</span> <span class="token keyword">from</span> people<span class="token punctuation">;</span>
+OK
+_c0
+<span class="token number">18</span>
+<span class="token boolean">NULL</span>
+Time taken: <span class="token number">0.186</span> seconds<span class="token punctuation">,</span> Fetched: <span class="token number">2</span> <span class="token keyword">row</span><span class="token punctuation">(</span>s<span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>获取 address 中某个属性的值</p>
+<pre class="line-numbers language-sql"><code class="language-sql">hive <span class="token punctuation">(</span><span class="token keyword">default</span><span class="token punctuation">)</span><span class="token operator">></span> <span class="token keyword">select</span> address<span class="token punctuation">.</span>city <span class="token keyword">from</span> people<span class="token punctuation">;</span>
+OK
+city
+beijing
+beijing
+Time taken: <span class="token number">0.163</span> seconds<span class="token punctuation">,</span> Fetched: <span class="token number">2</span> <span class="token keyword">row</span><span class="token punctuation">(</span>s<span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h3 id="库操作"><a href="#库操作" class="headerlink" title="库操作"></a>库操作</h3><h4 id="增"><a href="#增" class="headerlink" title="增"></a>增</h4><pre><code>CREATE (DATABASE|SCHEMA) [IF NOT EXISTS] database_name  // 库名
+[COMMENT database_comment]  // 库的注释说明
+[LOCATION hdfs_path]        // 库在hdfs上的路径
+[WITH DBPROPERTIES (property_name=property_value, ...)]; // 库的属性
+</code></pre><p>例如创建一个库 mydb2，指定 hdfs 路径位置，并且设置库的属性值</p>
+<pre class="line-numbers language-shell"><code class="language-shell">create database  if not exists mydb2 comment 'this is my db' location 'hdfs://hadoop101:9000/mydb2' with dbproperties('ownner'='jack','tel'='12345','department'='IT');
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<h4 id="删"><a href="#删" class="headerlink" title="删"></a>删</h4><pre><code>drop database 库名 // 只能删除空库
+drop database 库名 cascade // 删除非空库
+</code></pre><h4 id="改"><a href="#改" class="headerlink" title="改"></a>改</h4><pre><code>use 库名  // 切换使用的库        
+dbproperties  // 修改库的属性值
+例如：alter database mydb2 set dbproperties(&#39;ownner&#39;=&#39;tom&#39;,&#39;empid&#39;=&#39;10001&#39;); 同名的属性值会覆盖，之前没有的属性会新增
+</code></pre><h4 id="查"><a href="#查" class="headerlink" title="查"></a>查</h4><pre><code>show databases: 查看当前所有的库
+show tables in database: 查看库中所有的表
+desc database 库名： 查看库的描述信息
+desc database extended 库名： 查看库的详细描述信息
+</code></pre><h3 id="表操作"><a href="#表操作" class="headerlink" title="表操作"></a>表操作</h3><h4 id="增-1"><a href="#增-1" class="headerlink" title="增"></a>增</h4><pre><code>CREATE [EXTERNAL] TABLE [IF NOT EXISTS] table_name 
+[(col_name data_type [COMMENT col_comment], ...)]   //表中的字段信息
+[COMMENT table_comment]  //表的注释
+
+[PARTITIONED BY (col_name data_type [COMMENT col_comment], ...)] 
+[CLUSTERED BY (col_name, col_name, ...) 
+[SORTED BY (col_name [ASC|DESC], ...)] INTO num_buckets BUCKETS] 
+
+[ROW FORMAT row_format]   // 表中数据每行的格式，定义数据字段的分隔符，集合元素的分隔符等
+[STORED AS file_format]   //表中的数据要以哪种文件格式来存储，默认为TEXTFILE（文本文件）
+[LOCATION hdfs_path]  //表在hdfs上的位置
+</code></pre><p>建表时，如果不带 EXTERNAL ，那么创建的表是一个内部表或者叫做管理表。如果带有 EXTERNAL，那么创建的表是一个外部表。外部表和内部表的区别是内部表(管理表)在执行删除操作时，会将表的元数据(schema, 存在 MySQL 中的)和表位置的数据一起删除，外部表在执行删除表操作时，只删除表的元数据(schema， 存在 MySQL 中的)。在企业中，创建的都是外部表，因为在hive中表是廉价的，数据是珍贵的。</p>
+<p>内部表和外部表的相互转换：<br>将表改为外部表 <code>alter table p1 set tblproperties(&#39;EXTERNAL&#39;=&#39;TRUE&#39;);</code><br>将表改为管理表 <code>alter table p1 set tblproperties(&#39;EXTERNAL&#39;=&#39;FALSE&#39;);</code></p>
+<h4 id="删-1"><a href="#删-1" class="headerlink" title="删"></a>删</h4><pre><code>drop table 表名  // 删除表
+truncate table 表名 // 清空表数据，只能情况管理表
+</code></pre><h4 id="改-1"><a href="#改-1" class="headerlink" title="改"></a>改</h4><pre><code>alter table p1 set tblproperties(属性名=属性值);  // 修改表的属性
+alter table change 旧列名 新列名 新列类型;  // 修改列的名称和类型
+</code></pre><h4 id="查-1"><a href="#查-1" class="headerlink" title="查"></a>查</h4><pre><code>desc  表名  // 查看表的描述
+desc formatted 表名  // 查看表的详细描述
+</code></pre>
           
         
       
@@ -1076,6 +1465,10 @@ mapreduce.output.fileoutputformat.compress.type: 如果Job输出的文件以Sequ
 <h4 id="容量调度器"><a href="#容量调度器" class="headerlink" title="容量调度器"></a>容量调度器</h4><p>容量调度器的本质是多个 FIFO 的队列组成，Hadoop 默认使用就是容量调度器。</p>
 <p>特点是每个队列可以配置一定的容量，空闲的资源可以匀给其他队列临时使用。可以配置每个job使用的容量的限制，防止一个大的 job 独占所有资源。可以配置每个用户可以使用的容量限制，防止当个用户占用所有资源。</p>
 <h4 id="公平调度器"><a href="#公平调度器" class="headerlink" title="公平调度器"></a>公平调度器</h4><p>公平调度器的设置和容量调度器大致相同，也是多条队列，每天队列都可以设置一定的容量，每个 Job，用户可以设置容量。区别在于公平调度器在调度策略上，采用最大最小公平算法，来调度 Job，这个算法会保证同一个队列中，所有已经提交，未运行结束的 Job，获取到队列中的资源是平等的。</p>
+<h3 id="Hadoop的优化"><a href="#Hadoop的优化" class="headerlink" title="Hadoop的优化"></a>Hadoop的优化</h3><h4 id="小文件的优化"><a href="#小文件的优化" class="headerlink" title="小文件的优化"></a>小文件的优化</h4><p>源头上处理，在上传到集群之前，提前处理小文件<br>小文件已经在 HDFS 存在，可以使用 hadoop archieve 进行归档<br>在运行 MR 时，可以使用 CombineTextInputFormat 将多个小文件规划到一个切片中<br>小文件过多，可以开启 JVM 重用</p>
+<h4 id="MR-的优化"><a href="#MR-的优化" class="headerlink" title="MR 的优化"></a>MR 的优化</h4><p>合理设置 MapTask 和 ReduceTask 的数量</p>
+<p>避免数据倾斜。如果 Map 端的数据发生倾斜，那么在切片时，注意每片数据尽量均匀，防止有些不可切片的数据。Reduce 端的数据倾斜，提前对数据进行抽样调查，统计出大致的分布范围，根据分布范围，合理编写Partitioner，让每个分区的数据尽量均衡。</p>
+<p>优化磁盘 IO 和网络 IO。可以启用 combiner。启动压缩。调大 MapTask 缓冲区的大小，减少溢写次数。调大MapTask 中 merge 阶段一次合并的片段数，减少合并花费的时间。调大 reduceTask 中 shuffle 线程可以使用的内存，减少溢写次数。调大 reduceTask 中，input.buffer 的大小，提前缓存部分数据到 buffer 中。</p>
 
           
         
@@ -4322,298 +4715,6 @@ start-all.sh
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2020/07/12/1. Hadoop 伪分布式/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2020/07/12/1. Hadoop 伪分布式/" itemprop="url">1. Hadoop 伪分布式</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2020-07-12T22:41:57+08:00">
-                2020-07-12
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Java-大数据进阶/" itemprop="url" rel="index">
-                    <span itemprop="name">Java 大数据进阶</span>
-                  </a>
-                </span>
-
-                
-                
-                  ， 
-                
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Java-大数据进阶/Hadoop/" itemprop="url" rel="index">
-                    <span itemprop="name">Hadoop</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="Hadoop-中的组件"><a href="#Hadoop-中的组件" class="headerlink" title="Hadoop 中的组件"></a>Hadoop 中的组件</h3><h4 id="1-x-版本"><a href="#1-x-版本" class="headerlink" title="1.x 版本"></a>1.x 版本</h4><p>HDFS  负责大数据的存储，Common: HDFS和MR共有的常用的工具包模块，MapReduce:  负责计算，负责计算资源的申请的调度！</p>
-<h4 id="2-x-版本"><a href="#2-x-版本" class="headerlink" title="2.x 版本"></a>2.x 版本</h4><p>HDFS（框架）:负责大数据的存储<br>YARN（框架）： 负责大数据的资源调度</p>
-<p>MR(编程模型)： 使用 Hadoop制定的 编程要求，编写程序，完成大数据的计算！</p>
-<h4 id="区别"><a href="#区别" class="headerlink" title="区别"></a>区别</h4><p>1.x 和2.x 的区别是将资源调度和管理进行分离！由统一的资源调度平台 YARN 进行大数据计算资源的调度！提升了Hadoop的通用性！Hadoop搭建的集群中的计算资源，不仅可以运行Hadoop中的MR程序！也可以运行其他计算框架的程序！在hadoop不久之后，由于MR的低效性，出现了许多更为高效的计算框架！例如： Tez，Storm, Spark，Flink</p>
-<h3 id="HDFS"><a href="#HDFS" class="headerlink" title="HDFS"></a>HDFS</h3><p>负责大数据的存储，包含以下进程：</p>
-<ol>
-<li><strong>Namenode</strong> (必须存在，且1个)： 负责文件，名称等元数据(属性信息-文件名，大小，文件切分了多少块(block)，创建和修改时间等)的存储！Namenode 主要是接受客户端的请求，接受DN的请求！向DN分配任务！</li>
-<li><strong>Datanode</strong> (必须存在，可以N个)： 负责文件中数据的存储！主要负责接受NM分配的任务！负责数据块(block) 的管理(读，写)。</li>
-<li><strong>SecondaryNamenode</strong> (不一定存在，可以是N个):  负责辅助 NameNode工作！</li>
-</ol>
-<p>HDFS 的运行模式有两种，一种是本地，另一种是分布式。可以在 core-default.xml 中进行配置，如果是 fs.defaultFS=file:///（默认） 那么就是本地模式，如果是 fs.defaultFS=hdfs:// 那么就是分布式模式。</p>
-<h3 id="MapReduce"><a href="#MapReduce" class="headerlink" title="MapReduce"></a>MapReduce</h3><p>MapReduce(编程规范)： 程序中有 Mapper (简单处理)和 Reducer (合并)。遵循MapReduce的编程规范，编写的程序，打包后，称为一个 Job(任务)，Job 需要提交到 YARN上，向 YARN 申请计算资源，运行Job中的Task(进程)，Job 会先创建一个进程 MRAppMaster(mapreduce 应用管理者)，由 MRAppMaster 向 YARN 申请，MRAppMaster 负责监控 Job中各个Task运行情况，进行容错管理！</p>
-<p>MapReduce 也有两种运行模式。如果配置是 mapreduce.framework.name=local（默认）那么是本地运行，如果是 mapreduce.framework.name=yarn，那么就是在 yarn 上运行。</p>
-<h3 id="YARN"><a href="#YARN" class="headerlink" title="YARN"></a>YARN</h3><p>YARN负责集群中所有计算资源的管理和调度！常见进程：</p>
-<ol>
-<li><p><strong>ResourceManager</strong> (1个):   负责整个集群所有资源的管理！主要负责接受客户端的提交 Job 的请求！负责向NM分配任务！负责接受NM上报的信息！</p>
-</li>
-<li><p><strong>NodeManager</strong> (N个):  负责单台计算机所有资源的管理！负责和 RM进行通信，上报本机中的可用资源！负责领取 RM 分配的任务！负责为 Job 中的每个 Task 分配计算资源！</p>
-<p>为了防止当前Task在使用这些资源期间，被其他的task抢占资源！将计算资源，封装到一个Container中，在Container中的资源，会被暂时隔离！无法被其他进程所抢占！当前Task运行结束后，当前Container中的资源会被释放！允许其他task来使用！</p>
-</li>
-</ol>
-<h3 id="Hadoop-的安装"><a href="#Hadoop-的安装" class="headerlink" title="Hadoop 的安装"></a>Hadoop 的安装</h3><h4 id="安装-JDK"><a href="#安装-JDK" class="headerlink" title="安装 JDK"></a>安装 JDK</h4><p>上传 jdk-8u121-linux-x64.tar.gz 到 /opt/soft 目录，并进行解压到 /opt/module 下。编辑 /etc/profile，在最后添加如下信息</p>
-<pre><code>JAVA_HOME=/opt/module/jdk1.8.0_121
-PATH=$PATH:$JAVA_HOME/bin
-
-export JAVA_HOME PATH
-</code></pre><h4 id="配置-HOST-映射"><a href="#配置-HOST-映射" class="headerlink" title="配置 HOST 映射"></a>配置 HOST 映射</h4><p>在 Hadoop 中启动多种不同类型的进程，例如 NN,DN，RM,NM，这些进程需要进行通信！在通信时，常用主机名进行通信，所以需要配置集群中所有机器的host映射。编辑  /etc/hosts 文件，添加以下记录，hadoop10 是当前机器的主机名。</p>
-<pre><code>192.168.1.10 hadoop10
-</code></pre><h4 id="创建并使用普通用户"><a href="#创建并使用普通用户" class="headerlink" title="创建并使用普通用户"></a>创建并使用普通用户</h4><p>创建 rexyan 用户</p>
-<pre><code>useradd rexyan
-passwd rexyan
-</code></pre><p>赋予管理员权限, 编辑  /etc/sudoers  文件，在 root 下面添加 rexyan 用户不需要密码登录</p>
-<pre><code>root    ALL=(ALL)       ALL
-rexyan  ALL=(ALL)       NOPASSWD: ALL
-</code></pre><p>将 /opt/module/ /opt/soft/ 两个目录的权限改为 rexyan 用户</p>
-<pre><code>sudo chown -R rexyan:rexyan /opt/module/ /opt/soft/
-</code></pre><h4 id="关闭防火墙"><a href="#关闭防火墙" class="headerlink" title="关闭防火墙"></a>关闭防火墙</h4><p>关闭防火墙，并设置开机不启动</p>
-<pre><code>sudo service iptables stop
-sudo chkconfig iptables off
-</code></pre><h4 id="安装-Hadoop"><a href="#安装-Hadoop" class="headerlink" title="安装 Hadoop"></a>安装 Hadoop</h4><p>将在 linux 编译后的 jar 包上传到 /opt/soft 下, 并解压到 /opt/module 目录下</p>
-<pre><code>tar zxvf hadoop-2.7.2.tar.gz -C /opt/module/
-</code></pre><p>添加环境变量</p>
-<pre><code>
-JAVA_HOME=/opt/module/jdk1.8.0_121
-HADOOP_HOME=/opt/module/hadoop-2.7.2
-PATH=$PATH:$JAVA_HOME/bin:$HADOOP_HOME/bin:$HADOOP_HOME/sbin
-
-export JAVA_HOME PATH HADOOP_HOME
-</code></pre><p>执行 hadoop version 验证是否安装成功</p>
-<pre><code>hadoop version 
-</code></pre><h3 id="Hadoop-的配置文件"><a href="#Hadoop-的配置文件" class="headerlink" title="Hadoop 的配置文件"></a>Hadoop 的配置文件</h3><p>Hadoop 有 4 个默认的配置文件, 在 HADOOP_HOME/share/ 下的 jar 包中</p>
-<pre><code>core-default.xml： 设置hadoop最核心的参数！
-hdfs-default.xml   保存的是hdfs相关的参数！
-mapred-default.xml: MR程序在运行时，需要使用的参数！
-yarn-default.xml: yarn在启动时，需要的参数！
-</code></pre><p>用户可以自定义 4 个自定义配置文件</p>
-<pre><code>core-site.xml： 用户自定义的hadoop最核心的参数！
-hdfs-site.xml   用户自定义的hdfs相关的参数！
-mapred-site.xml: 用户自定义的MR程序在运行时，需要使用的参数！
-yarn-site.xml: 用户自定义的yarn在启动时，需要的参数！
-</code></pre><p>用户自定义的配置文件，可以覆盖默认配置文件中同名的参数的值。Hadoop在启动时，先加载4个默认的配置文件，再加载用户自定义的配置文件，如果用户自定义的配置文中有和4个默认配置文件中门的参数，可以覆盖之前已经加载的值！</p>
-<p>在使用 hadoop 命令时可以自定义配置文件的目录：  hadoop –config 配置文件的目录，如果没有配置，默认读取  HADOOP_HOME/etc/hadoop 中对应的配置文件。</p>
-<h3 id="HDFS-本地模式的使用"><a href="#HDFS-本地模式的使用" class="headerlink" title="HDFS 本地模式的使用"></a>HDFS 本地模式的使用</h3><p>HDFS 默认是本地模式的，在 rexyan 用户家目录中新建 hello 文件，并上传到本地的 hdfs</p>
-<pre><code>hadoop fs -put /home/rexyan/hello /opt/module/
-</code></pre><p>上面的命令的意思是将 /home/rexyan/hello 文件，上传到 hdfs 的 /opt/module/ 路径下</p>
-<p>还可以进行文件的下载，例如将 hdfs 上的/opt/module/hello  文件下载到 /tmp/hello  中</p>
-<pre><code>hadoop fs -get /opt/module/hello  /tmp/hello 
-</code></pre><h3 id="HDFS-分布式模式的使用"><a href="#HDFS-分布式模式的使用" class="headerlink" title="HDFS 分布式模式的使用"></a>HDFS 分布式模式的使用</h3><p>修改 /opt/module/hadoop-2.7.2/etc/hadoop/core-site.xml  配置文件，配置 HDFS 为分布式模式，并配置 NameNode 的地址和端口信息。并且指定 hadoop 运行时产生的临时文件的存储位置。</p>
-<pre><code>&lt;configuration&gt;
-  &lt;properties&gt;
-    &lt;name&gt;fs.defaultFS&lt;/name&gt;
-    &lt;value&gt;hdfs://hadoop10:9000&lt;/value&gt;
-  &lt;/properties&gt;
-
-  &lt;properties&gt;
-    &lt;name&gt;hadoop.tmp.dir&lt;/name&gt;
-    &lt;value&gt;/opt/module/hadoop-2.7.2/data/tmp&lt;/value&gt;
-  &lt;/properties&gt;
-&lt;/configuration&gt;
-</code></pre><p>上面将 hadoop 的临时文件改为了 /opt/module/hadoop-2.7.2/data/tmp，需要格式化 namenode，目的的是生成 /opt/module/hadoop-2.7.2/data/tmp目录，在目录下生成其他文件。</p>
-<pre><code>hadoop namenode -format
-</code></pre><p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjOWOo.8VuNj2AeyYjrx4B8Zh8K3CIbwoMwG.o4E0zvwz9d5Fy*c0owracPwJ.yW2hw!!/mnull&amp;bo=jQeAAtYMQAQDCbo!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-<p>使用 tree 命令查看 /opt/module/hadoop-2.7.2/data/tmp目录，发现下面已经生成了一些文件</p>
-<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjJhML4KVLCbGHFRA4T69PozJvCPOWgJY0gPTxCpcSZmPwOkJmSC4q3h5179Yzif*xg!!/mnull&amp;bo=OgzoAToM6AEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-<p>启动 NameNode 和 DataNode, 并使用 jps 命令查看启动状态。如果启动失败，可以在 /opt/module/hadoop-2.7.2/logs 目录下查看失败日志。</p>
-<pre><code>hadoop-deamon.sh start namenode
-hadoop-deamon.sh start datanode
-</code></pre><p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjO.KHOapPd4QntIdO9WieGPiTz4Q.oOi9VrcJnDEpa1FhYW*LC1ycqQu4ZiB85ovdg!!/mnull&amp;bo=zAreAMwK3gADCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-<p>NameNode 启动之后，可以使用 web 页面来访问，地址就是机器所在的地址 + 50070 端口，即 <a href="http://192.168.1.10:50070/" target="_blank" rel="noopener">http://192.168.1.10:50070/</a> 能访问到以下界面就说明 namenode 没有什么问题了。</p>
-<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjPVNjwZkWOe988s2BjmrCQpD1bzlnM1SO*EFUTT.V1Tu*MXfxDIC4unxe4wdruHDmg!!/mnull&amp;bo=oAQhA6AEIQMDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-<p>namenode 启动完成之后，就可以启动 datanode</p>
-<pre><code>hadoop-daemon.sh start datanode 
-</code></pre><p>可以使用 jps 或者网页查询是否启动成功</p>
-<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjGvywXWsIpJApJ.En5.d46JGtemrbJCENyv6l9DwtCS3aytLqlCLuJZmwDFMjLCH0Q!!/mnull&amp;bo=vgwSAb4MEgEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjHigVlAJ3v.*Jbb0TlqijWXv6AbI1JxPb7uZTlAhjUHHd1lJnZi8sYU6KDaqDIJ1Zg!!/mnull&amp;bo=XAWVAVwFlQEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-<p>如果 namenode 和 datanode 都启动成功了，那么就说明 hdfs 的配置没有什么问题了，可以上传一个文件试试</p>
-<pre><code>hadoop fs -put hello /
-</code></pre><p>在网页上也就能看到上传的文件了</p>
-<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjBpZdKpVebpVNTEZ5hc4x65vxmAyaXRKSiUdP9*k9zYpROpRYMsLxWQsv*nbns*Tzw!!/mnull&amp;bo=GAeAAtgJeAMDCRs!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-<p>现在 NN 和 DN 都在同一台机器，且只有一个 DN 节点，我们称这样的分布式为伪分布式。</p>
-<h3 id="MapReduce-本地模式的使用"><a href="#MapReduce-本地模式的使用" class="headerlink" title="MapReduce 本地模式的使用"></a>MapReduce 本地模式的使用</h3><p>在 /opt/module/hadoop-2.7.2/share/hadoop/mapreduce 目录下，hadoop 提供了 mapreduce 的示例 jar 包程序。如下命令表示，运行 hadoop-mapreduce-examples-2.7.2.jar 这个 jar 包，并且执行 wordcount 单词统计功能，统计 hdfs 上 / 下面的所有文件，将统计结果存放到 hdfs 的 /wc 中</p>
-<pre><code> hadoop jar hadoop-mapreduce-examples-2.7.2.jar wordcount / /wc
-</code></pre><p>执行结束后就能看到 wc 结果文件</p>
-<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjNVfvjl5Yg30PS6mv7kpR2Q8.Nkv5ze*gNfxFt50YbY*SfoOXigWaWZ8EYYDzxUfPQ!!/mnull&amp;bo=KgoKAioKCgIDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-<p>或者执行 hadoop fs -cat /wc/part-r-0000 命令查看 part-r-0000 是生成目录下的块文件，真正存放数据的地方</p>
-<pre><code>hadoop fs -cat /wc/part-r-0000 
-</code></pre><p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjN*6a0qN7JarEshXe.Iv3nmG3TmDiXHvKJ9YxKvHFJbSUQ3yCJzMihDZCTjQwjtMhg!!/mnull&amp;bo=dAvcAHQL3AADCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-<h3 id="MapReduce-在-Yarn-上的使用"><a href="#MapReduce-在-Yarn-上的使用" class="headerlink" title="MapReduce 在 Yarn 上的使用"></a>MapReduce 在 Yarn 上的使用</h3><p>在 yarn 上运行 MapReduce，需要配置 MapReduce 的运行模式为 yarn。复制一个示例的配置文件，并将名字改为 mapred-site.xml。编辑 mapred-site.xml 文件，配置如下内容</p>
-<pre><code>cd /opt/module/hadoop-2.7.2/etc/hadoop
-cp mapred-site.xml.template mapred-site.xml
-</code></pre><pre><code>&lt;configuration&gt;
-  &lt;property&gt;
-    &lt;name&gt;mapreduce.framework.name&lt;/name&gt;
-    &lt;value&gt;yarn&lt;/value&gt;
-  &lt;/property&gt;
-&lt;/configuration&gt;
-</code></pre><p>上面我们配置了在 yarn 上运行 MapReduce，所以我们需要配置和启动 yarn（RM 和 NM）。编辑 yarn-site.xml 配置如下内容。配置文件代表了在 hadoop10 这台机器上运行 yarn 的 ResourceManager 程序，并指定 nodemanager 获取数据的方式。</p>
-<pre><code>&lt;configuration&gt;
-    &lt;!-- 获取数据的方式 --&gt;
-    &lt;property&gt;
-        &lt;name&gt;yarn.nodemanager.aux-services&lt;/name&gt;
-        &lt;value&gt;mapreduce_shuffle&lt;/value&gt;
-    &lt;/property&gt;
-
-    &lt;!-- 指定YARN的ResourceManager的地址 --&gt;
-    &lt;property&gt;
-        &lt;name&gt;yarn.resourcemanager.hostname&lt;/name&gt;
-        &lt;value&gt;hadoop10&lt;/value&gt;
-    &lt;/property&gt;
-&lt;/configuration&gt;
-</code></pre><p>启动 RM 和 NM 进程</p>
-<pre><code>yarn-daemon.sh start resourcemanager
-yarn-daemon.sh start nodemanager
-</code></pre><p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjAXw2f3g2EKZbhfEApCLSiDNRE.zMvqYIeNmjYuDP*GfwUsud5DAHTg67q6Z6oWshg!!/mnull&amp;bo=RAzEAUQMxAEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-<p>还可以通过 yarn 的网页来判断 yarn 是否启动成功 <a href="http://192.168.1.10:8088/cluster" target="_blank" rel="noopener">http://192.168.1.10:8088/cluster</a></p>
-<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjNqBLTm4EAbFRlBXjZdt9s5EKjBMTAfgUiM5tX*KBDFj70qK1uCPXp5Bfr0vO2H1QQ!!/mnull&amp;bo=5QmAAhQNTgMDCRY!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-<p>启动 yarn 之后，再次提交任务，那么就不在是本地运行了。</p>
-<pre><code>hadoop jar hadoop-mapreduce-examples-2.7.2.jar wordcount /hello /wc2
-</code></pre><p>查看结果数据</p>
-<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjKhEri1tqbDwYAFi3BseSEgc4ra*lGM2dVe.gNxWxqU42Nb1RSKcdn8aPjH2xDMpTQ!!/mnull&amp;bo=1ArOANQKzgADCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
   </section>
 
   
@@ -4664,7 +4765,7 @@ yarn-daemon.sh start nodemanager
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">297</span>
+                  <span class="site-state-item-count">298</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>

@@ -348,6 +348,299 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2019/06/28/元类/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2019/06/28/元类/" itemprop="url">元类</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-06-28T10:25:57+08:00">
+                2019-06-28
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Python-进阶/" itemprop="url" rel="index">
+                    <span itemprop="name">Python 进阶</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <p>元类注册子类：</p>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">import</span> json
+
+registry <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token punctuation">}</span>
+
+
+<span class="token keyword">def</span> <span class="token function">register_class</span><span class="token punctuation">(</span>target_class<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    registry<span class="token punctuation">[</span>target_class<span class="token punctuation">.</span>__name__<span class="token punctuation">]</span> <span class="token operator">=</span> target_class
+
+
+<span class="token keyword">class</span> <span class="token class-name">Meta</span><span class="token punctuation">(</span>type<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__new__</span><span class="token punctuation">(</span>cls<span class="token punctuation">,</span> <span class="token operator">*</span>args<span class="token punctuation">,</span> <span class="token operator">**</span>kwargs<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token triple-quoted-string string">"""
+        1. cls 为当前准备创建对象的类
+        2. args 中第一个参数为类的名字
+        3. args 中第二个参数为类继承的父类集合
+        4. args 中第三个参数为类的方法集合
+        :param args:
+        :param kwargs:
+        :return:
+        """</span>
+        cls <span class="token operator">=</span> type<span class="token punctuation">.</span>__new__<span class="token punctuation">(</span>cls<span class="token punctuation">,</span> <span class="token operator">*</span>args<span class="token punctuation">,</span> <span class="token operator">**</span>kwargs<span class="token punctuation">)</span>
+        register_class<span class="token punctuation">(</span>cls<span class="token punctuation">)</span>
+        <span class="token keyword">return</span> cls
+
+
+<span class="token keyword">class</span> <span class="token class-name">Serializable</span><span class="token punctuation">(</span>object<span class="token punctuation">,</span> metaclass<span class="token operator">=</span>Meta<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> <span class="token operator">*</span>args<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        self<span class="token punctuation">.</span>args <span class="token operator">=</span> args
+
+    <span class="token keyword">def</span> <span class="token function">serialize</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> json<span class="token punctuation">.</span>dumps<span class="token punctuation">(</span>
+            <span class="token punctuation">{</span>
+                <span class="token string">"class"</span><span class="token punctuation">:</span> self<span class="token punctuation">.</span>__class__<span class="token punctuation">.</span>__name__<span class="token punctuation">,</span>
+                <span class="token string">"args"</span><span class="token punctuation">:</span> self<span class="token punctuation">.</span>args
+            <span class="token punctuation">}</span>
+        <span class="token punctuation">)</span>
+
+
+<span class="token keyword">def</span> <span class="token function">deserialize</span><span class="token punctuation">(</span>data<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    params <span class="token operator">=</span> json<span class="token punctuation">.</span>loads<span class="token punctuation">(</span>data<span class="token punctuation">)</span>
+    name <span class="token operator">=</span> params<span class="token punctuation">[</span><span class="token string">"class"</span><span class="token punctuation">]</span>
+    target_class <span class="token operator">=</span> registry<span class="token punctuation">[</span>name<span class="token punctuation">]</span>
+    <span class="token keyword">return</span> target_class<span class="token punctuation">(</span><span class="token operator">*</span>params<span class="token punctuation">[</span><span class="token string">"args"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+
+
+<span class="token keyword">class</span> <span class="token class-name">Point2D</span><span class="token punctuation">(</span>Serializable<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> x<span class="token punctuation">,</span> y<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        super<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>__init__<span class="token punctuation">(</span>x<span class="token punctuation">,</span> y<span class="token punctuation">)</span>
+        self<span class="token punctuation">.</span>x <span class="token operator">=</span> x
+        self<span class="token punctuation">.</span>y <span class="token operator">=</span> y
+
+    <span class="token keyword">def</span> <span class="token function">__repr__</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> f<span class="token string">"Point2D:{self.x, self.y}"</span>
+
+
+<span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">"__main__"</span><span class="token punctuation">:</span>
+    point <span class="token operator">=</span> Point2D<span class="token punctuation">(</span><span class="token number">5</span><span class="token punctuation">,</span> <span class="token number">3</span><span class="token punctuation">)</span>
+    serializePoint2D <span class="token operator">=</span> <span class="token punctuation">(</span>point<span class="token punctuation">.</span>serialize<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span>point<span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span>serializePoint2D<span class="token punctuation">)</span>
+    obj <span class="token operator">=</span> deserialize<span class="token punctuation">(</span>serializePoint2D<span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span>obj<span class="token punctuation">)</span>
+
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>元类注解类的属性：</p>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">class</span> <span class="token class-name">Field</span><span class="token punctuation">(</span>object<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> name<span class="token punctuation">,</span> internal_name<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        self<span class="token punctuation">.</span>name <span class="token operator">=</span> name
+        self<span class="token punctuation">.</span>internal_name <span class="token operator">=</span> internal_name
+
+
+<span class="token keyword">class</span> <span class="token class-name">Meta</span><span class="token punctuation">(</span>type<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__new__</span><span class="token punctuation">(</span>meta<span class="token punctuation">,</span> name<span class="token punctuation">,</span> bases<span class="token punctuation">,</span> class_dict<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">for</span> key<span class="token punctuation">,</span> value <span class="token keyword">in</span> class_dict<span class="token punctuation">.</span>items<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+            <span class="token keyword">if</span> isinstance<span class="token punctuation">(</span>value<span class="token punctuation">,</span> Field<span class="token punctuation">)</span><span class="token punctuation">:</span>
+                value<span class="token punctuation">.</span>name <span class="token operator">=</span> key
+                value<span class="token punctuation">.</span>internal_name <span class="token operator">=</span> <span class="token string">"_"</span> <span class="token operator">+</span> key
+        cls <span class="token operator">=</span> type<span class="token punctuation">.</span>__new__<span class="token punctuation">(</span>meta<span class="token punctuation">,</span> name<span class="token punctuation">,</span> bases<span class="token punctuation">,</span> class_dict<span class="token punctuation">)</span>
+        <span class="token keyword">return</span> cls
+
+
+<span class="token keyword">class</span> <span class="token class-name">DataBase</span><span class="token punctuation">(</span>object<span class="token punctuation">,</span> metaclass<span class="token operator">=</span>Meta<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">pass</span>
+
+
+<span class="token comment" spellcheck="true"># apply</span>
+<span class="token keyword">class</span> <span class="token class-name">UserTable</span><span class="token punctuation">(</span>DataBase<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    name <span class="token operator">=</span> Field<span class="token punctuation">(</span>name<span class="token operator">=</span><span class="token string">"user_name"</span><span class="token punctuation">,</span> internal_name<span class="token operator">=</span><span class="token string">"user_name"</span><span class="token punctuation">)</span>
+    age <span class="token operator">=</span> Field<span class="token punctuation">(</span>name<span class="token operator">=</span><span class="token string">"user_age"</span><span class="token punctuation">,</span> internal_name<span class="token operator">=</span><span class="token string">"user_gae"</span><span class="token punctuation">)</span>
+
+
+<span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">"__main__"</span><span class="token punctuation">:</span>
+    user <span class="token operator">=</span> UserTable<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span>user<span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span>user<span class="token punctuation">.</span>name<span class="token punctuation">)</span>
+    user<span class="token punctuation">.</span>name <span class="token operator">=</span> <span class="token string">"zhangsan"</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span>user<span class="token punctuation">.</span>__dict__<span class="token punctuation">)</span>
+
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>元类强制子类实现某方法</p>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">class</span> <span class="token class-name">Meta</span><span class="token punctuation">(</span>type<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__new__</span><span class="token punctuation">(</span>cls<span class="token punctuation">,</span> name<span class="token punctuation">,</span> bases<span class="token punctuation">,</span> class_dict<span class="token punctuation">,</span> <span class="token operator">**</span>kwargs<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">if</span> name <span class="token operator">!=</span> <span class="token string">"Base"</span> <span class="token operator">and</span> <span class="token string">"foo"</span> <span class="token operator">not</span> <span class="token keyword">in</span> class_dict<span class="token punctuation">:</span>
+            <span class="token keyword">raise</span> TypeError<span class="token punctuation">(</span><span class="token string">"需要重写 foo 方法！"</span><span class="token punctuation">)</span>
+        cls <span class="token operator">=</span> type<span class="token punctuation">.</span>__new__<span class="token punctuation">(</span>cls<span class="token punctuation">,</span> name<span class="token punctuation">,</span> bases<span class="token punctuation">,</span> class_dict<span class="token punctuation">,</span> <span class="token operator">**</span>kwargs<span class="token punctuation">)</span>
+        <span class="token keyword">return</span> cls
+
+
+<span class="token keyword">class</span> <span class="token class-name">Base</span><span class="token punctuation">(</span>object<span class="token punctuation">,</span> metaclass<span class="token operator">=</span>Meta<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token comment" spellcheck="true"># 继承 Base 的子类需要重写此方法</span>
+    <span class="token keyword">def</span> <span class="token function">foo</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token keyword">return</span> self<span class="token punctuation">.</span>foo<span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+
+<span class="token keyword">class</span> <span class="token class-name">Apply</span><span class="token punctuation">(</span>Base<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">pass</span>
+
+    <span class="token comment" spellcheck="true"># def foo(self):</span>
+    <span class="token comment" spellcheck="true">#     pass</span>
+
+
+<span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">"__main__"</span><span class="token punctuation">:</span>
+    apply <span class="token operator">=</span> Apply<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span>apply<span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>统计一个类的所有子类</p>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">class</span> <span class="token class-name">Meta</span><span class="token punctuation">(</span>type<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>cls<span class="token punctuation">,</span> name<span class="token punctuation">,</span> bases<span class="token punctuation">,</span> namespace<span class="token punctuation">,</span> <span class="token operator">**</span>kwargs<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        super<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>__init__<span class="token punctuation">(</span>name<span class="token punctuation">,</span> bases<span class="token punctuation">,</span> namespace<span class="token punctuation">,</span> <span class="token operator">**</span>kwargs<span class="token punctuation">)</span>
+        <span class="token keyword">if</span> <span class="token operator">not</span> hasattr<span class="token punctuation">(</span>cls<span class="token punctuation">,</span> <span class="token string">'registory'</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+            <span class="token comment" spellcheck="true"># this is the base class</span>
+            cls<span class="token punctuation">.</span>registory <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token punctuation">}</span>
+        <span class="token keyword">else</span><span class="token punctuation">:</span>
+            <span class="token comment" spellcheck="true"># this is the subclass</span>
+            cls<span class="token punctuation">.</span>registory<span class="token punctuation">[</span>name<span class="token punctuation">.</span>lower<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">]</span> <span class="token operator">=</span> cls
+
+
+<span class="token keyword">class</span> <span class="token class-name">Fruit</span><span class="token punctuation">(</span>object<span class="token punctuation">,</span> metaclass<span class="token operator">=</span>Meta<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">pass</span>
+
+
+<span class="token keyword">class</span> <span class="token class-name">Apple</span><span class="token punctuation">(</span>Fruit<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">pass</span>
+
+
+<span class="token keyword">class</span> <span class="token class-name">Orange</span><span class="token punctuation">(</span>Fruit<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">pass</span>
+
+
+<span class="token keyword">print</span><span class="token punctuation">(</span>Fruit<span class="token punctuation">.</span>registory<span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://yanrs.me/2019/06/22/StatefulSet/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -3008,458 +3301,6 @@ FIELDS<span class="token punctuation">:</span>
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2019/05/19/K8s 应用存活和容器启动结束钩子/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2019/05/19/K8s 应用存活和容器启动结束钩子/" itemprop="url">K8s 应用存活和容器启动结束钩子</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-05-19T17:35:57+08:00">
-                2019-05-19
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Kubernetes/" itemprop="url" rel="index">
-                    <span itemprop="name">Kubernetes</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <p>Pod 正常里面的 Docker 服务不一定正常。Docker 服务正常，Docker 里面的服务不一定正常。所以如何正确的监测这些状态，成为了应用健康很重要的关键。 livenessProbe, 用来判定容器是否正常。readinessProbe 用来判定容器中的服务是否正常。这两种探测非常重要，一定要利用探测来证明容器正常后才能接入 Service。不然用户可能会访问失败。同时设置 readinessProbe 有助于在滚动更新时候判断容器中服务的状态，保证应用能提供健康的服务。livenessProbe，readinessProbe 和 postStart，preStop 都支持三种方式的探测，分别是 exec 执行系统命令，tcp socket 和 http get 请求。</p>
-<h3 id="livenessProbe"><a href="#livenessProbe" class="headerlink" title="livenessProbe"></a>livenessProbe</h3><pre><code>kubectl explain pods.spec.containers.livenessProbe
-</code></pre><p>livenessProbe 支持三种存活状态的检测，分别是 tcp，exec，http get。下面演示两种</p>
-<h4 id="exec-存活探测"><a href="#exec-存活探测" class="headerlink" title="exec 存活探测"></a>exec 存活探测</h4><p>创建一个 yaml 文件，内容如下：</p>
-<pre><code>vim liveness-exec.yaml
-</code></pre><pre class="line-numbers language-yaml"><code class="language-yaml"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> v1
-<span class="token key atrule">kind</span><span class="token punctuation">:</span> Pod
-<span class="token key atrule">metadata</span><span class="token punctuation">:</span>
-  <span class="token key atrule">name</span><span class="token punctuation">:</span> liveness<span class="token punctuation">-</span>exec<span class="token punctuation">-</span>pod      
-  <span class="token key atrule">namespace</span><span class="token punctuation">:</span> default
-<span class="token key atrule">spec</span><span class="token punctuation">:</span>
-  <span class="token key atrule">containers</span><span class="token punctuation">:</span>
-  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> liveness<span class="token punctuation">-</span>exec<span class="token punctuation">-</span>container
-    <span class="token key atrule">image</span><span class="token punctuation">:</span> busybox<span class="token punctuation">:</span>latest
-    <span class="token key atrule">imagePullPolicy</span><span class="token punctuation">:</span> IfNotPresent <span class="token comment" spellcheck="true"># 镜像拉取规则，此处为不存在才拉取</span>
-    <span class="token key atrule">command</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"/bin/sh"</span><span class="token punctuation">,</span> <span class="token string">"-c"</span><span class="token punctuation">,</span> <span class="token string">"touch /tmp/healthy; sleep 30; rm -rf /tmp/healthy; sleep 3600"</span><span class="token punctuation">]</span> <span class="token comment" spellcheck="true"># 执行命令，先创建一个 healthy 文件，睡 30s 后进行删除，然后睡 3600s</span>
-    <span class="token key atrule">livenessProbe</span><span class="token punctuation">:</span>  <span class="token comment" spellcheck="true"># 容器健康检查探测，用来判定容器是否正常。还有一个是 readiness 用来判定容器中的服务是否正常</span>
-      <span class="token key atrule">exec</span><span class="token punctuation">:</span> <span class="token comment" spellcheck="true"># 检查方式为执行命令。另外还支持 TCP socket 探测和 HTTP GET 探测。</span>
-        <span class="token key atrule">command</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"test"</span><span class="token punctuation">,</span> <span class="token string">"-e"</span><span class="token punctuation">,</span> <span class="token string">"/tmp/healthy"</span><span class="token punctuation">]</span>
-      <span class="token key atrule">initialDelaySeconds</span><span class="token punctuation">:</span> <span class="token number">1  </span><span class="token comment" spellcheck="true"># 默认为 0s，表示容器启动后多长时间开启健康监测</span>
-      <span class="token key atrule">periodSeconds</span><span class="token punctuation">:</span> <span class="token number">3  </span><span class="token comment" spellcheck="true"># 默认为 10s，表示每隔多少时间进行一次探测</span>
-      <span class="token key atrule">failureThreshold</span><span class="token punctuation">:</span> <span class="token number">3  </span><span class="token comment" spellcheck="true"># 默认为3次，意思是3次失败才代表失败</span>
-      <span class="token key atrule">successThreshold</span><span class="token punctuation">:</span> <span class="token comment" spellcheck="true"># 默认为1次，意思是1次成功就代表成功</span>
-      <span class="token key atrule">timeoutSeconds</span><span class="token punctuation">:</span> <span class="token number">1 </span><span class="token comment" spellcheck="true"># 超时时间，默认为1s</span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<p>上面的 Pod 创建后，就会创建 /tmp/healthy 文件，并且睡 30s，之后被删除。健康检查的内容是容器启动1s后判断 /tmp/healthy 文件是否存在，且每隔10s进行一次探测，失败3次即认为失败。健康检查失败后就会进行重新启动。下面是 pod 的列表信息，可以看到重启的次数。</p>
-<pre class="line-numbers language-python"><code class="language-python"><span class="token punctuation">[</span>root@k8s001 rexyan<span class="token punctuation">]</span><span class="token comment" spellcheck="true"># kubectl get pods </span>
-NAME                READY   STATUS    RESTARTS   AGE
-liveness<span class="token operator">-</span><span class="token keyword">exec</span><span class="token operator">-</span>pod   <span class="token number">1</span><span class="token operator">/</span><span class="token number">1</span>     Running   <span class="token number">5</span>          6m17s
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
-<p>查看详细信息：</p>
-<pre class="line-numbers language-python"><code class="language-python"><span class="token punctuation">[</span>root@k8s001 rexyan<span class="token punctuation">]</span><span class="token comment" spellcheck="true"># kubectl describe pods liveness-exec-pod</span>
-Name<span class="token punctuation">:</span>               liveness<span class="token operator">-</span><span class="token keyword">exec</span><span class="token operator">-</span>pod
-Namespace<span class="token punctuation">:</span>          default
-Priority<span class="token punctuation">:</span>           <span class="token number">0</span>
-PriorityClassName<span class="token punctuation">:</span>  <span class="token operator">&lt;</span>none<span class="token operator">></span>
-Node<span class="token punctuation">:</span>               k8s002<span class="token operator">/</span><span class="token number">172.20</span><span class="token punctuation">.</span><span class="token number">245.189</span>
-Start Time<span class="token punctuation">:</span>         Sun<span class="token punctuation">,</span> <span class="token number">19</span> May <span class="token number">2019</span> <span class="token number">16</span><span class="token punctuation">:</span><span class="token number">05</span><span class="token punctuation">:</span><span class="token number">01</span> <span class="token operator">+</span><span class="token number">0800</span>
-Labels<span class="token punctuation">:</span>             <span class="token operator">&lt;</span>none<span class="token operator">></span>
-Annotations<span class="token punctuation">:</span>        <span class="token operator">&lt;</span>none<span class="token operator">></span>
-Status<span class="token punctuation">:</span>             Running
-IP<span class="token punctuation">:</span>                 <span class="token number">10.244</span><span class="token punctuation">.</span><span class="token number">2.2</span>
-Containers<span class="token punctuation">:</span>
-  liveness<span class="token operator">-</span><span class="token keyword">exec</span><span class="token operator">-</span>container<span class="token punctuation">:</span>
-    Container ID<span class="token punctuation">:</span>  docker<span class="token punctuation">:</span><span class="token operator">//</span>b6d08991993bb306f32b58f7bcc71651ac2b68d1021a05634bcae6832bbbe169
-    Image<span class="token punctuation">:</span>         busybox<span class="token punctuation">:</span>latest
-    Image ID<span class="token punctuation">:</span>      docker<span class="token operator">-</span>pullable<span class="token punctuation">:</span><span class="token operator">//</span>docker<span class="token punctuation">.</span>io<span class="token operator">/</span>busybox@sha256<span class="token punctuation">:</span><span class="token number">4b6ad3a68d34da29bf7c8ccb5d355ba8b4babcad1f99798204e7abb43e54ee3d</span>
-    Port<span class="token punctuation">:</span>          <span class="token operator">&lt;</span>none<span class="token operator">></span>
-    Host Port<span class="token punctuation">:</span>     <span class="token operator">&lt;</span>none<span class="token operator">></span>
-    Command<span class="token punctuation">:</span>
-      <span class="token operator">/</span>bin<span class="token operator">/</span>sh
-      <span class="token operator">-</span>c
-      touch <span class="token operator">/</span>tmp<span class="token operator">/</span>healthy<span class="token punctuation">;</span> sleep <span class="token number">30</span><span class="token punctuation">;</span> rm <span class="token operator">-</span>rf <span class="token operator">/</span>tmp<span class="token operator">/</span>healthy<span class="token punctuation">;</span> sleep <span class="token number">3600</span>
-    State<span class="token punctuation">:</span>          Waiting
-      Reason<span class="token punctuation">:</span>       CrashLoopBackOff
-    Last State<span class="token punctuation">:</span>     Terminated
-      Reason<span class="token punctuation">:</span>       Error
-      Exit Code<span class="token punctuation">:</span>    <span class="token number">137</span>
-      Started<span class="token punctuation">:</span>      Sun<span class="token punctuation">,</span> <span class="token number">19</span> May <span class="token number">2019</span> <span class="token number">16</span><span class="token punctuation">:</span><span class="token number">10</span><span class="token punctuation">:</span><span class="token number">48</span> <span class="token operator">+</span><span class="token number">0800</span>
-      Finished<span class="token punctuation">:</span>     Sun<span class="token punctuation">,</span> <span class="token number">19</span> May <span class="token number">2019</span> <span class="token number">16</span><span class="token punctuation">:</span><span class="token number">11</span><span class="token punctuation">:</span><span class="token number">57</span> <span class="token operator">+</span><span class="token number">0800</span>
-    Ready<span class="token punctuation">:</span>          <span class="token boolean">False</span>
-    Restart Count<span class="token punctuation">:</span>  <span class="token number">5</span>
-    Liveness<span class="token punctuation">:</span>       <span class="token keyword">exec</span> <span class="token punctuation">[</span>test <span class="token operator">-</span>e <span class="token operator">/</span>tmp<span class="token operator">/</span>healthy<span class="token punctuation">]</span> delay<span class="token operator">=</span>1s timeout<span class="token operator">=</span>1s period<span class="token operator">=</span>3s <span class="token comment" spellcheck="true">#success=1 #failure=3</span>
-    Environment<span class="token punctuation">:</span>    <span class="token operator">&lt;</span>none<span class="token operator">></span>
-    Mounts<span class="token punctuation">:</span>
-      <span class="token operator">/</span>var<span class="token operator">/</span>run<span class="token operator">/</span>secrets<span class="token operator">/</span>kubernetes<span class="token punctuation">.</span>io<span class="token operator">/</span>serviceaccount <span class="token keyword">from</span> default<span class="token operator">-</span>token<span class="token operator">-</span>vckdx <span class="token punctuation">(</span>ro<span class="token punctuation">)</span>
-Conditions<span class="token punctuation">:</span>
-  Type              Status
-  Initialized       <span class="token boolean">True</span> 
-  Ready             <span class="token boolean">False</span> 
-  ContainersReady   <span class="token boolean">False</span> 
-  PodScheduled      <span class="token boolean">True</span> 
-Volumes<span class="token punctuation">:</span>
-  default<span class="token operator">-</span>token<span class="token operator">-</span>vckdx<span class="token punctuation">:</span>
-    Type<span class="token punctuation">:</span>        Secret <span class="token punctuation">(</span>a volume populated by a Secret<span class="token punctuation">)</span>
-    SecretName<span class="token punctuation">:</span>  default<span class="token operator">-</span>token<span class="token operator">-</span>vckdx
-    Optional<span class="token punctuation">:</span>    false
-QoS Class<span class="token punctuation">:</span>       BestEffort
-Node<span class="token operator">-</span>Selectors<span class="token punctuation">:</span>  <span class="token operator">&lt;</span>none<span class="token operator">></span>
-Tolerations<span class="token punctuation">:</span>     node<span class="token punctuation">.</span>kubernetes<span class="token punctuation">.</span>io<span class="token operator">/</span><span class="token operator">not</span><span class="token operator">-</span>ready<span class="token punctuation">:</span>NoExecute <span class="token keyword">for</span> 300s
-                 node<span class="token punctuation">.</span>kubernetes<span class="token punctuation">.</span>io<span class="token operator">/</span>unreachable<span class="token punctuation">:</span>NoExecute <span class="token keyword">for</span> 300s
-Events<span class="token punctuation">:</span>
-  Type     Reason     Age                    From               Message
-  <span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span>     <span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span>     <span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span>                   <span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span>               <span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span>
-  Normal   Scheduled  7m16s                  default<span class="token operator">-</span>scheduler  Successfully assigned default<span class="token operator">/</span>liveness<span class="token operator">-</span><span class="token keyword">exec</span><span class="token operator">-</span>pod to k8s002
-  Normal   Pulling    7m16s                  kubelet<span class="token punctuation">,</span> k8s002    Pulling image <span class="token string">"busybox:latest"</span>
-  Normal   Pulled     7m14s                  kubelet<span class="token punctuation">,</span> k8s002    Successfully pulled image <span class="token string">"busybox:latest"</span>
-  Normal   Killing    4m17s <span class="token punctuation">(</span>x3 over 6m35s<span class="token punctuation">)</span>  kubelet<span class="token punctuation">,</span> k8s002    Container liveness<span class="token operator">-</span><span class="token keyword">exec</span><span class="token operator">-</span>container failed liveness probe<span class="token punctuation">,</span> will be restarted
-  Normal   Created    3m47s <span class="token punctuation">(</span>x4 over 7m14s<span class="token punctuation">)</span>  kubelet<span class="token punctuation">,</span> k8s00    <span class="token number">2</span>    Created container liveness<span class="token operator">-</span><span class="token keyword">exec</span><span class="token operator">-</span>container
-  Normal   Started    3m47s <span class="token punctuation">(</span>x4 over 7m13s<span class="token punctuation">)</span>  kubelet<span class="token punctuation">,</span> k8s002    Started container liveness<span class="token operator">-</span><span class="token keyword">exec</span><span class="token operator">-</span>container
-  Normal   Pulled     3m47s <span class="token punctuation">(</span>x3 over 6m5s<span class="token punctuation">)</span>   kubelet<span class="token punctuation">,</span> k8s002    Container image <span class="token string">"busybox:latest"</span> already present on machine
-  Warning  Unhealthy  2m5s <span class="token punctuation">(</span>x13 over 6m41s<span class="token punctuation">)</span>  kubelet<span class="token punctuation">,</span> k8s002    Liveness probe failed<span class="token punctuation">:</span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<p>在 Containers 中可以看到刚才配置的健康检查的信息</p>
-<pre><code>Restart Count:  5
-Liveness:       exec [test -e /tmp/healthy] delay=1s timeout=1s period=3s #success=1 #failure=3
-</code></pre><h4 id="http-get-存活探测"><a href="#http-get-存活探测" class="headerlink" title="http get 存活探测"></a>http get 存活探测</h4><pre class="line-numbers language-yaml"><code class="language-yaml"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> v1
-<span class="token key atrule">kind</span><span class="token punctuation">:</span> Pod
-<span class="token key atrule">metadata</span><span class="token punctuation">:</span>
-  <span class="token key atrule">name</span><span class="token punctuation">:</span> liveness<span class="token punctuation">-</span>http<span class="token punctuation">-</span>pod
-  <span class="token key atrule">namespace</span><span class="token punctuation">:</span> default
-<span class="token key atrule">spec</span><span class="token punctuation">:</span>
-  <span class="token key atrule">containers</span><span class="token punctuation">:</span>
-  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> liveness<span class="token punctuation">-</span>http<span class="token punctuation">-</span>get<span class="token punctuation">-</span>container
-    <span class="token key atrule">image</span><span class="token punctuation">:</span> ikubernetes/myapp<span class="token punctuation">:</span>v1
-    <span class="token key atrule">imagePullPolicy</span><span class="token punctuation">:</span> IfNotPresent 
-    <span class="token key atrule">ports</span><span class="token punctuation">:</span>
-    <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> http
-      <span class="token key atrule">containerPort</span><span class="token punctuation">:</span> <span class="token number">80</span>
-    <span class="token key atrule">livenessProbe</span><span class="token punctuation">:</span> 
-      <span class="token key atrule">httpGet</span><span class="token punctuation">:</span>
-        <span class="token key atrule">port</span><span class="token punctuation">:</span> http
-        <span class="token key atrule">path</span><span class="token punctuation">:</span> /index.html
-      <span class="token key atrule">initialDelaySeconds</span><span class="token punctuation">:</span> <span class="token number">1  </span>
-      <span class="token key atrule">periodSeconds</span><span class="token punctuation">:</span> <span class="token number">3  </span>
-      <span class="token key atrule">failureThreshold</span><span class="token punctuation">:</span> <span class="token number">3  </span>
-      <span class="token key atrule">successThreshold</span><span class="token punctuation">:</span> <span class="token number">1</span>
-      <span class="token key atrule">timeoutSeconds</span><span class="token punctuation">:</span> <span class="token number">1                  </span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<p>查看容器状态</p>
-<pre class="line-numbers language-python"><code class="language-python"><span class="token punctuation">[</span>root@k8s001 rexyan<span class="token punctuation">]</span><span class="token comment" spellcheck="true"># kubectl get pods </span>
-NAME                READY   STATUS             RESTARTS   AGE
-liveness<span class="token operator">-</span><span class="token keyword">exec</span><span class="token operator">-</span>pod   <span class="token number">0</span><span class="token operator">/</span><span class="token number">1</span>     CrashLoopBackOff   <span class="token number">9</span>          23m
-liveness<span class="token operator">-</span>http<span class="token operator">-</span>pod   <span class="token number">1</span><span class="token operator">/</span><span class="token number">1</span>     Running            <span class="token number">0</span>          104s
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
-<p>查看详细信息</p>
-<pre class="line-numbers language-python"><code class="language-python"><span class="token punctuation">[</span>root@k8s001 rexyan<span class="token punctuation">]</span><span class="token comment" spellcheck="true"># kubectl describe pods liveness-http-pod</span>
-Name<span class="token punctuation">:</span>               liveness<span class="token operator">-</span>http<span class="token operator">-</span>pod
-Namespace<span class="token punctuation">:</span>          default
-Priority<span class="token punctuation">:</span>           <span class="token number">0</span>
-PriorityClassName<span class="token punctuation">:</span>  <span class="token operator">&lt;</span>none<span class="token operator">></span>
-Node<span class="token punctuation">:</span>               k8s003<span class="token operator">/</span><span class="token number">172.20</span><span class="token punctuation">.</span><span class="token number">245.191</span>
-Start Time<span class="token punctuation">:</span>         Sun<span class="token punctuation">,</span> <span class="token number">19</span> May <span class="token number">2019</span> <span class="token number">16</span><span class="token punctuation">:</span><span class="token number">27</span><span class="token punctuation">:</span><span class="token number">15</span> <span class="token operator">+</span><span class="token number">0800</span>
-Labels<span class="token punctuation">:</span>             <span class="token operator">&lt;</span>none<span class="token operator">></span>
-Annotations<span class="token punctuation">:</span>        <span class="token operator">&lt;</span>none<span class="token operator">></span>
-Status<span class="token punctuation">:</span>             Running
-IP<span class="token punctuation">:</span>                 <span class="token number">10.244</span><span class="token punctuation">.</span><span class="token number">1.3</span>
-Containers<span class="token punctuation">:</span>
-  liveness<span class="token operator">-</span>http<span class="token operator">-</span>get<span class="token operator">-</span>container<span class="token punctuation">:</span>
-    Container ID<span class="token punctuation">:</span>   docker<span class="token punctuation">:</span><span class="token operator">//</span><span class="token number">9cb65d175dc8263f54891b597e3a5f4a334f20c4ab636d532887cabfeb7cff3c</span>
-    Image<span class="token punctuation">:</span>          ikubernetes<span class="token operator">/</span>myapp<span class="token punctuation">:</span>v1
-    Image ID<span class="token punctuation">:</span>       docker<span class="token operator">-</span>pullable<span class="token punctuation">:</span><span class="token operator">//</span>docker<span class="token punctuation">.</span>io<span class="token operator">/</span>ikubernetes<span class="token operator">/</span>myapp@sha256<span class="token punctuation">:</span><span class="token number">9c3dc30b5219788b2b8a4b065f548b922a34479577befb54b03330999d30d513</span>
-    Port<span class="token punctuation">:</span>           <span class="token number">80</span><span class="token operator">/</span>TCP
-    Host Port<span class="token punctuation">:</span>      <span class="token number">0</span><span class="token operator">/</span>TCP
-    State<span class="token punctuation">:</span>          Running
-      Started<span class="token punctuation">:</span>      Sun<span class="token punctuation">,</span> <span class="token number">19</span> May <span class="token number">2019</span> <span class="token number">16</span><span class="token punctuation">:</span><span class="token number">27</span><span class="token punctuation">:</span><span class="token number">18</span> <span class="token operator">+</span><span class="token number">0800</span>
-    Ready<span class="token punctuation">:</span>          <span class="token boolean">True</span>
-    Restart Count<span class="token punctuation">:</span>  <span class="token number">0</span>
-    Liveness<span class="token punctuation">:</span>       http<span class="token operator">-</span>get http<span class="token punctuation">:</span><span class="token operator">//</span><span class="token punctuation">:</span>http<span class="token operator">/</span>index<span class="token punctuation">.</span>html delay<span class="token operator">=</span>1s timeout<span class="token operator">=</span>1s period<span class="token operator">=</span>3s <span class="token comment" spellcheck="true">#success=1 #failure=3</span>
-    Environment<span class="token punctuation">:</span>    <span class="token operator">&lt;</span>none<span class="token operator">></span>
-    Mounts<span class="token punctuation">:</span>
-      <span class="token operator">/</span>var<span class="token operator">/</span>run<span class="token operator">/</span>secrets<span class="token operator">/</span>kubernetes<span class="token punctuation">.</span>io<span class="token operator">/</span>serviceaccount <span class="token keyword">from</span> default<span class="token operator">-</span>token<span class="token operator">-</span>vckdx <span class="token punctuation">(</span>ro<span class="token punctuation">)</span>
-Conditions<span class="token punctuation">:</span>
-  Type              Status
-  Initialized       <span class="token boolean">True</span> 
-  Ready             <span class="token boolean">True</span> 
-  ContainersReady   <span class="token boolean">True</span> 
-  PodScheduled      <span class="token boolean">True</span> 
-Volumes<span class="token punctuation">:</span>
-  default<span class="token operator">-</span>token<span class="token operator">-</span>vckdx<span class="token punctuation">:</span>
-    Type<span class="token punctuation">:</span>        Secret <span class="token punctuation">(</span>a volume populated by a Secret<span class="token punctuation">)</span>
-    SecretName<span class="token punctuation">:</span>  default<span class="token operator">-</span>token<span class="token operator">-</span>vckdx
-    Optional<span class="token punctuation">:</span>    false
-QoS Class<span class="token punctuation">:</span>       BestEffort
-Node<span class="token operator">-</span>Selectors<span class="token punctuation">:</span>  <span class="token operator">&lt;</span>none<span class="token operator">></span>
-Tolerations<span class="token punctuation">:</span>     node<span class="token punctuation">.</span>kubernetes<span class="token punctuation">.</span>io<span class="token operator">/</span><span class="token operator">not</span><span class="token operator">-</span>ready<span class="token punctuation">:</span>NoExecute <span class="token keyword">for</span> 300s
-                 node<span class="token punctuation">.</span>kubernetes<span class="token punctuation">.</span>io<span class="token operator">/</span>unreachable<span class="token punctuation">:</span>NoExecute <span class="token keyword">for</span> 300s
-Events<span class="token punctuation">:</span>
-  Type    Reason     Age    From               Message
-  <span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span>    <span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span>     <span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span>   <span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span>               <span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span>
-  Normal  Scheduled  2m58s  default<span class="token operator">-</span>scheduler  Successfully assigned default<span class="token operator">/</span>liveness<span class="token operator">-</span>http<span class="token operator">-</span>pod to k8s003
-  Normal  Pulling    2m58s  kubelet<span class="token punctuation">,</span> k8s003    Pulling image <span class="token string">"ikubernetes/myapp:v1"</span>
-  Normal  Pulled     2m55s  kubelet<span class="token punctuation">,</span> k8s003    Successfully pulled image <span class="token string">"ikubernetes/myapp:v1"</span>
-  Normal  Created    2m55s  kubelet<span class="token punctuation">,</span> k8s003    Created container liveness<span class="token operator">-</span>http<span class="token operator">-</span>get<span class="token operator">-</span>container
-  Normal  Started    2m55s  kubelet<span class="token punctuation">,</span> k8s003    Started container liveness<span class="token operator">-</span>http<span class="token operator">-</span>get<span class="token operator">-</span>container
-<span class="token punctuation">[</span>root@k8s001 rexyan<span class="token punctuation">]</span><span class="token comment" spellcheck="true"># </span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<p>在 Containers 中可以看到刚才配置的健康检查的信息</p>
-<pre class="line-numbers language-python"><code class="language-python">Restart Count<span class="token punctuation">:</span>  <span class="token number">0</span>
-Liveness<span class="token punctuation">:</span>       http<span class="token operator">-</span>get http<span class="token punctuation">:</span><span class="token operator">//</span><span class="token punctuation">:</span>http<span class="token operator">/</span>index<span class="token punctuation">.</span>html delay<span class="token operator">=</span>1s timeout<span class="token operator">=</span>1s period<span class="token operator">=</span>3s <span class="token comment" spellcheck="true">#success=1 #failure=3</span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
-<p>现在手动进入容器，删除健康检查的 index.html 页面</p>
-<pre class="line-numbers language-python"><code class="language-python"><span class="token punctuation">[</span>root@k8s001 rexyan<span class="token punctuation">]</span><span class="token comment" spellcheck="true"># kubectl get pods </span>
-NAME                READY   STATUS             RESTARTS   AGE
-liveness<span class="token operator">-</span><span class="token keyword">exec</span><span class="token operator">-</span>pod   <span class="token number">0</span><span class="token operator">/</span><span class="token number">1</span>     CrashLoopBackOff   <span class="token number">11</span>         28m
-liveness<span class="token operator">-</span>http<span class="token operator">-</span>pod   <span class="token number">1</span><span class="token operator">/</span><span class="token number">1</span>     Running            <span class="token number">0</span>          6m4s
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
-<pre class="line-numbers language-python"><code class="language-python"><span class="token punctuation">[</span>root@k8s001 rexyan<span class="token punctuation">]</span><span class="token comment" spellcheck="true"># kubectl exec -it liveness-http-pod -- /bin/sh </span>
-<span class="token operator">/</span> <span class="token comment" spellcheck="true"># rm -f /usr/share/nginx/html/index.html</span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
-<p>再次看 pod 的状态就会发现 pod 已经重启了一次，重启之后删除的文件就回来了，所以就不会再重启了。</p>
-<pre class="line-numbers language-python"><code class="language-python"><span class="token punctuation">[</span>root@k8s001 rexyan<span class="token punctuation">]</span><span class="token comment" spellcheck="true"># kubectl get pods </span>
-NAME                READY   STATUS             RESTARTS   AGE
-liveness<span class="token operator">-</span><span class="token keyword">exec</span><span class="token operator">-</span>pod   <span class="token number">0</span><span class="token operator">/</span><span class="token number">1</span>     CrashLoopBackOff   <span class="token number">11</span>         30m
-liveness<span class="token operator">-</span>http<span class="token operator">-</span>pod   <span class="token number">1</span><span class="token operator">/</span><span class="token number">1</span>     Running            <span class="token number">1</span>          8m12s
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
-<h3 id="redinessProbe"><a href="#redinessProbe" class="headerlink" title="redinessProbe"></a>redinessProbe</h3><pre><code>kubectl explain pods.spec.containers.readinessProbe
-</code></pre><p>redinessProbe 也支持三种存活状态的检测，分别是 tcp，exec，http get，下面演示一种。</p>
-<h4 id="http-get-存活探测-1"><a href="#http-get-存活探测-1" class="headerlink" title="http get 存活探测"></a>http get 存活探测</h4><pre class="line-numbers language-yaml"><code class="language-yaml"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> v1
-<span class="token key atrule">kind</span><span class="token punctuation">:</span> Pod
-<span class="token key atrule">metadata</span><span class="token punctuation">:</span>
-  <span class="token key atrule">name</span><span class="token punctuation">:</span> readiness<span class="token punctuation">-</span>http<span class="token punctuation">-</span>pod
-  <span class="token key atrule">namespace</span><span class="token punctuation">:</span> default
-<span class="token key atrule">spec</span><span class="token punctuation">:</span>
-  <span class="token key atrule">containers</span><span class="token punctuation">:</span>
-  <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> readiness<span class="token punctuation">-</span>http<span class="token punctuation">-</span>get<span class="token punctuation">-</span>container
-    <span class="token key atrule">image</span><span class="token punctuation">:</span> ikubernetes/myapp<span class="token punctuation">:</span>v1
-    <span class="token key atrule">imagePullPolicy</span><span class="token punctuation">:</span> IfNotPresent 
-    <span class="token key atrule">ports</span><span class="token punctuation">:</span>
-    <span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> http
-      <span class="token key atrule">containerPort</span><span class="token punctuation">:</span> <span class="token number">80</span>
-    <span class="token key atrule">readinessProbe</span><span class="token punctuation">:</span>
-      <span class="token key atrule">httpGet</span><span class="token punctuation">:</span>
-        <span class="token key atrule">port</span><span class="token punctuation">:</span> http
-        <span class="token key atrule">path</span><span class="token punctuation">:</span> /index.html
-      <span class="token key atrule">initialDelaySeconds</span><span class="token punctuation">:</span> <span class="token number">1  </span>
-      <span class="token key atrule">periodSeconds</span><span class="token punctuation">:</span> <span class="token number">3  </span>
-      <span class="token key atrule">failureThreshold</span><span class="token punctuation">:</span> <span class="token number">3  </span>
-      <span class="token key atrule">successThreshold</span><span class="token punctuation">:</span> <span class="token number">1</span>
-      <span class="token key atrule">timeoutSeconds</span><span class="token punctuation">:</span> <span class="token number">1</span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<pre class="line-numbers language-python"><code class="language-python"><span class="token punctuation">[</span>root@k8s001 rexyan<span class="token punctuation">]</span><span class="token comment" spellcheck="true"># kubectl create -f readiness-http-get.yaml </span>
-pod<span class="token operator">/</span>readiness<span class="token operator">-</span>http<span class="token operator">-</span>pod created
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
-<pre class="line-numbers language-python"><code class="language-python"><span class="token punctuation">[</span>root@k8s001 rexyan<span class="token punctuation">]</span><span class="token comment" spellcheck="true"># kubectl get pods </span>
-NAME                 READY   STATUS    RESTARTS   AGE
-liveness<span class="token operator">-</span>http<span class="token operator">-</span>pod    <span class="token number">1</span><span class="token operator">/</span><span class="token number">1</span>     Running   <span class="token number">1</span>          26m
-readiness<span class="token operator">-</span>http<span class="token operator">-</span>pod   <span class="token number">1</span><span class="token operator">/</span><span class="token number">1</span>     Running   <span class="token number">0</span>          5s
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
-<p>之后进入容器删除 index.html </p>
-<pre class="line-numbers language-python"><code class="language-python"><span class="token punctuation">[</span>root@k8s001 rexyan<span class="token punctuation">]</span><span class="token comment" spellcheck="true"># kubectl exec -it readiness-http-pod -- /bin/sh </span>
-<span class="token operator">/</span> <span class="token comment" spellcheck="true"># rm -f /usr/share/nginx/html/index.html </span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
-<p>查看 pod 的信息, 可以看到 readiness-http-pod READY 个数变成了 0。READY 中 / 前面是值表示 pod 中容器就绪的数量，后面的是 pod 中容器的总个数。</p>
-<pre class="line-numbers language-python"><code class="language-python"><span class="token punctuation">[</span>root@k8s001 rexyan<span class="token punctuation">]</span><span class="token comment" spellcheck="true"># kubectl get pods </span>
-NAME                 READY   STATUS    RESTARTS   AGE
-liveness<span class="token operator">-</span>http<span class="token operator">-</span>pod    <span class="token number">1</span><span class="token operator">/</span><span class="token number">1</span>     Running   <span class="token number">1</span>          30m
-readiness<span class="token operator">-</span>http<span class="token operator">-</span>pod   <span class="token number">0</span><span class="token operator">/</span><span class="token number">1</span>     Running   <span class="token number">0</span>          3m43s
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
-<p>进入容器，重新写信息到 nginx 的 index 文件中</p>
-<pre class="line-numbers language-python"><code class="language-python"><span class="token punctuation">[</span>root@k8s001 rexyan<span class="token punctuation">]</span><span class="token comment" spellcheck="true"># kubectl exec -it readiness-http-pod -- /bin/sh </span>
-<span class="token operator">/</span> <span class="token comment" spellcheck="true"># echo "hi k8s" >> /usr/share/nginx/html/index.html </span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
-<p>重新查看 pod 的信息，就可以看到 pod 的 READY 状态已经从 0 变成1了</p>
-<pre class="line-numbers language-python"><code class="language-python"><span class="token punctuation">[</span>root@k8s001 rexyan<span class="token punctuation">]</span><span class="token comment" spellcheck="true"># kubectl get pods </span>
-NAME                 READY   STATUS    RESTARTS   AGE
-liveness<span class="token operator">-</span>http<span class="token operator">-</span>pod    <span class="token number">1</span><span class="token operator">/</span><span class="token number">1</span>     Running   <span class="token number">1</span>          38m
-readiness<span class="token operator">-</span>http<span class="token operator">-</span>pod   <span class="token number">1</span><span class="token operator">/</span><span class="token number">1</span>     Running   <span class="token number">0</span>          11m
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
-<p>查看详细的 pod 信息</p>
-<pre class="line-numbers language-python"><code class="language-python"><span class="token punctuation">[</span>root@k8s001 rexyan<span class="token punctuation">]</span><span class="token comment" spellcheck="true"># kubectl describe pods readiness-http-pod </span>
-Name<span class="token punctuation">:</span>               readiness<span class="token operator">-</span>http<span class="token operator">-</span>pod
-Namespace<span class="token punctuation">:</span>          default
-Priority<span class="token punctuation">:</span>           <span class="token number">0</span>
-PriorityClassName<span class="token punctuation">:</span>  <span class="token operator">&lt;</span>none<span class="token operator">></span>
-Node<span class="token punctuation">:</span>               k8s002<span class="token operator">/</span><span class="token number">172.20</span><span class="token punctuation">.</span><span class="token number">245.189</span>
-Start Time<span class="token punctuation">:</span>         Sun<span class="token punctuation">,</span> <span class="token number">19</span> May <span class="token number">2019</span> <span class="token number">16</span><span class="token punctuation">:</span><span class="token number">54</span><span class="token punctuation">:</span><span class="token number">04</span> <span class="token operator">+</span><span class="token number">0800</span>
-Labels<span class="token punctuation">:</span>             <span class="token operator">&lt;</span>none<span class="token operator">></span>
-Annotations<span class="token punctuation">:</span>        <span class="token operator">&lt;</span>none<span class="token operator">></span>
-Status<span class="token punctuation">:</span>             Running
-IP<span class="token punctuation">:</span>                 <span class="token number">10.244</span><span class="token punctuation">.</span><span class="token number">2.3</span>
-Containers<span class="token punctuation">:</span>
-  readiness<span class="token operator">-</span>http<span class="token operator">-</span>get<span class="token operator">-</span>container<span class="token punctuation">:</span>
-    Container ID<span class="token punctuation">:</span>   docker<span class="token punctuation">:</span><span class="token operator">//</span><span class="token number">2989185e07600a552f6a57ecc3e813156002e2218701da07da8b2efbfaf7c966</span>
-    Image<span class="token punctuation">:</span>          ikubernetes<span class="token operator">/</span>myapp<span class="token punctuation">:</span>v1
-    Image ID<span class="token punctuation">:</span>       docker<span class="token operator">-</span>pullable<span class="token punctuation">:</span><span class="token operator">//</span>docker<span class="token punctuation">.</span>io<span class="token operator">/</span>ikubernetes<span class="token operator">/</span>myapp@sha256<span class="token punctuation">:</span><span class="token number">9c3dc30b5219788b2b8a4b065f548b922a34479577befb54b03330999d30d513</span>
-    Port<span class="token punctuation">:</span>           <span class="token number">80</span><span class="token operator">/</span>TCP
-    Host Port<span class="token punctuation">:</span>      <span class="token number">0</span><span class="token operator">/</span>TCP
-    State<span class="token punctuation">:</span>          Running
-      Started<span class="token punctuation">:</span>      Sun<span class="token punctuation">,</span> <span class="token number">19</span> May <span class="token number">2019</span> <span class="token number">16</span><span class="token punctuation">:</span><span class="token number">54</span><span class="token punctuation">:</span><span class="token number">07</span> <span class="token operator">+</span><span class="token number">0800</span>
-    Ready<span class="token punctuation">:</span>          <span class="token boolean">True</span>
-    Restart Count<span class="token punctuation">:</span>  <span class="token number">0</span>
-    Readiness<span class="token punctuation">:</span>      http<span class="token operator">-</span>get http<span class="token punctuation">:</span><span class="token operator">//</span><span class="token punctuation">:</span>http<span class="token operator">/</span>index<span class="token punctuation">.</span>html delay<span class="token operator">=</span>1s timeout<span class="token operator">=</span>1s period<span class="token operator">=</span>3s <span class="token comment" spellcheck="true">#success=1 #failure=3</span>
-    Environment<span class="token punctuation">:</span>    <span class="token operator">&lt;</span>none<span class="token operator">></span>
-    Mounts<span class="token punctuation">:</span>
-      <span class="token operator">/</span>var<span class="token operator">/</span>run<span class="token operator">/</span>secrets<span class="token operator">/</span>kubernetes<span class="token punctuation">.</span>io<span class="token operator">/</span>serviceaccount <span class="token keyword">from</span> default<span class="token operator">-</span>token<span class="token operator">-</span>vckdx <span class="token punctuation">(</span>ro<span class="token punctuation">)</span>
-Conditions<span class="token punctuation">:</span>
-  Type              Status
-  Initialized       <span class="token boolean">True</span> 
-  Ready             <span class="token boolean">True</span> 
-  ContainersReady   <span class="token boolean">True</span> 
-  PodScheduled      <span class="token boolean">True</span> 
-Volumes<span class="token punctuation">:</span>
-  default<span class="token operator">-</span>token<span class="token operator">-</span>vckdx<span class="token punctuation">:</span>
-    Type<span class="token punctuation">:</span>        Secret <span class="token punctuation">(</span>a volume populated by a Secret<span class="token punctuation">)</span>
-    SecretName<span class="token punctuation">:</span>  default<span class="token operator">-</span>token<span class="token operator">-</span>vckdx
-    Optional<span class="token punctuation">:</span>    false
-QoS Class<span class="token punctuation">:</span>       BestEffort
-Node<span class="token operator">-</span>Selectors<span class="token punctuation">:</span>  <span class="token operator">&lt;</span>none<span class="token operator">></span>
-Tolerations<span class="token punctuation">:</span>     node<span class="token punctuation">.</span>kubernetes<span class="token punctuation">.</span>io<span class="token operator">/</span><span class="token operator">not</span><span class="token operator">-</span>ready<span class="token punctuation">:</span>NoExecute <span class="token keyword">for</span> 300s
-                 node<span class="token punctuation">.</span>kubernetes<span class="token punctuation">.</span>io<span class="token operator">/</span>unreachable<span class="token punctuation">:</span>NoExecute <span class="token keyword">for</span> 300s
-Events<span class="token punctuation">:</span>
-  Type     Reason     Age                   From               Message
-  <span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span>     <span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span>     <span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span>                  <span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span>               <span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span><span class="token operator">-</span>
-  Normal   Scheduled  14m                   default<span class="token operator">-</span>scheduler  Successfully assigned default<span class="token operator">/</span>readiness<span class="token operator">-</span>http<span class="token operator">-</span>pod to k8s002
-  Normal   Pulling    14m                   kubelet<span class="token punctuation">,</span> k8s002    Pulling image <span class="token string">"ikubernetes/myapp:v1"</span>
-  Normal   Pulled     14m                   kubelet<span class="token punctuation">,</span> k8s002    Successfully pulled image <span class="token string">"ikubernetes/myapp:v1"</span>
-  Normal   Created    14m                   kubelet<span class="token punctuation">,</span> k8s002    Created container readiness<span class="token operator">-</span>http<span class="token operator">-</span>get<span class="token operator">-</span>container
-  Normal   Started    14m                   kubelet<span class="token punctuation">,</span> k8s002    Started container readiness<span class="token operator">-</span>http<span class="token operator">-</span>get<span class="token operator">-</span>container
-  Warning  Unhealthy  4m4s <span class="token punctuation">(</span>x134 over 10m<span class="token punctuation">)</span>  kubelet<span class="token punctuation">,</span> k8s002    Readiness probe failed<span class="token punctuation">:</span> HTTP probe failed <span class="token keyword">with</span> statuscode<span class="token punctuation">:</span> <span class="token number">404</span>
-<span class="token punctuation">[</span>root@k8s001 rexyan<span class="token punctuation">]</span><span class="token comment" spellcheck="true"># </span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<p>在 Containers 中可以看到刚才配置的健康检查的信息</p>
-<pre class="line-numbers language-python"><code class="language-python">Restart Count<span class="token punctuation">:</span>  <span class="token number">0</span>
-Readiness<span class="token punctuation">:</span>      http<span class="token operator">-</span>get http<span class="token punctuation">:</span><span class="token operator">//</span><span class="token punctuation">:</span>http<span class="token operator">/</span>index<span class="token punctuation">.</span>html delay<span class="token operator">=</span>1s timeout<span class="token operator">=</span>1s period<span class="token operator">=</span>3s <span class="token comment" spellcheck="true">#success=1 #failure=3</span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
-<h3 id="容器启动和结束钩子"><a href="#容器启动和结束钩子" class="headerlink" title="容器启动和结束钩子"></a>容器启动和结束钩子</h3><p>在容器启动后和结束前都有对应的钩子，分别是 postStart 和 preStop</p>
-<h4 id="postStart"><a href="#postStart" class="headerlink" title="postStart"></a>postStart</h4><pre><code> kubectl explain pods.spec.containers.lifecycle.postStart
-</code></pre><p>postStart 有三种执行方式，分别是tcp，exec 和 http get。</p>
-<h4 id="preStop"><a href="#preStop" class="headerlink" title="preStop"></a>preStop</h4><pre><code> kubectl explain pods.spec.containers.lifecycle.preStop
-</code></pre><p>preStop 也有三种执行方式，分别是tcp，exec 和 http get</p>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
   </section>
 
   
@@ -3510,7 +3351,7 @@ Readiness<span class="token punctuation">:</span>      http<span class="token op
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">297</span>
+                  <span class="site-state-item-count">298</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>

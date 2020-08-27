@@ -348,6 +348,199 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2020/05/07/53. 分布式搜索引擎/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2020/05/07/53. 分布式搜索引擎/" itemprop="url">53. 分布式搜索引擎</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2020-05-07T22:30:57+08:00">
+                2020-05-07
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Java-大数据/" itemprop="url" rel="index">
+                    <span itemprop="name">Java 大数据</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="ES-集群"><a href="#ES-集群" class="headerlink" title="ES 集群"></a>ES 集群</h3><p>elasticsearch设计的理念就是分布式搜索引擎，底层其实还是基于lucene的。核心思想就是在多台机器上启动多个es进程实例，组成了一个es集群。</p>
+<p>es 中存储数据的基本单位是索引，比如说你现在要在 es 中存储一些订单数据，你就应该在 es 中创建一个索引，order_idx，所有的订单数据就都写到这个索引里面去，一个索引差不多就是相当于是 mysql 里的一张表。index -&gt; type -&gt; mapping -&gt; document -&gt; field。</p>
+<p>index：mysql 里的一张表</p>
+<p>type：没法跟 mysql 里去对比，一个index里可以有多个 type，每个 type 的字段都是差不多的，但是有一些略微的差别。</p>
+<p>很多情况下，一个 index 里可能就一个 type，但是确实如果说是一个 index 里有多个 type 的情况，你可以认为index是一个类别的表，具体的每个 type 代表了具体的一个mysql中的表，每个 type 有一个 mapping，如果你认为一个type是一个具体的一个表，index 代表了多个 type 的同属于的一个类型，mapping 就是这个 type 的表结构定义。实际上你往 index 里的一个 type 里面写的一条数据，叫做一条 document，一条 document 就代表了mysql 中某个表里的一行给，每个 document 有多个 field，每个 field 就代表了这个 document 中的一个字段的值。接着你搞一个索引，这个索引可以拆分成多个shard，每个shard存储部分数据。这个 shard 的数据实际是有多个备份，就是说每个 shard 都有一个 primary shard，负责写入数据，但是还有几个 replica shard。primary shard 写入数据之后，会将数据同步到其他几个 replica shard 上去。通过这个 replica 的方案，每个 shard 的数据都有多个备份，如果某个机器宕机了，那也没关系。要是master节点宕机了，那么会重新选举一个节点为master 节点。如果是非 master 节点宕机了，那么会由 master 节点，让那个宕机节点上的 primary shard 的身份转移到其他机器上的 replica shard。急着你要是修复了那个宕机机器，重启了之后，master 节点会控制将缺失的 replica shard 分配过去，同步后续修改的数据之类的，让集群恢复正常。</p>
+<h3 id="ES-写数据过程"><a href="#ES-写数据过程" class="headerlink" title="ES 写数据过程"></a>ES 写数据过程</h3><p>1）客户端选择一个 node 发送请求过去，这个 node 就是 coordinating node（协调节点）</p>
+<p>2）coordinating node，对 document 进行路由，将请求转发给对应的 node（primary shard）</p>
+<p>3）实际的 node 上的 primary shard 处理请求，然后将数据同步到 replica node</p>
+<p>4）coordinating node，如果发现 primary node 和所有 replica node 都搞定之后，就返回响应结果给客户端</p>
+<h3 id="ES-读数据过程"><a href="#ES-读数据过程" class="headerlink" title="ES 读数据过程"></a>ES 读数据过程</h3><p>1）客户端发送请求到任意一个 node，成为 coordinate node</p>
+<p>2）coordinate node 对 document 进行路由，将请求转发到对应的 node，此时会使用 round-robin 随机轮询算法，在 primary shard 以及其所有 replica 中随机选择一个，让读请求负载均衡</p>
+<p>3）接收请求的 node 返回 document 给 coordinate node</p>
+<p>4）coordinate node 返回 document 给客户端</p>
+<h3 id="ES-搜索数据过程"><a href="#ES-搜索数据过程" class="headerlink" title="ES 搜索数据过程"></a>ES 搜索数据过程</h3><p>1）客户端发送请求到一个 coordinate node</p>
+<p>2）协调节点将搜索请求转发到所有的 shard 对应的 primary shard 或 replica shard 也可以</p>
+<p>3）query phase：每个 shard 将自己的搜索结果（其实就是一些 doc id），返回给协调节点，由协调节点进行数据的合并、排序、分页等操作，产出最终结果</p>
+<p>4）fetch phase：接着由协调节点，根据doc id去各个节点上拉取实际的 document 数据，最终返回给客户端</p>
+<h3 id="写数据底层原理"><a href="#写数据底层原理" class="headerlink" title="写数据底层原理"></a>写数据底层原理</h3><p>1）先写入 buffer，在 buffer 里的时候数据是搜索不到的；同时将数据写入 translog 日志文件</p>
+<p>2）如果 buffer 快满了，或者到一定时间，就会将 buffer 数据 refresh 到一个新的 segment file 中，但是此时数据不是直接进入 segment file 的磁盘文件的，而是先进入 os cache 的。这个过程就是 refresh。</p>
+<p>3）只要数据进入 os cache，此时就可以让这个 segment file 的数据对外提供搜索了</p>
+<p>4）重复1~3步骤，新的数据不断进入 buffer 和 translog，不断将 buffer 数据写入一个又一个新的 segment file中去，每次 refresh 完 buffer 清空，translog 保留。随着这个过程推进，translo g会变得越来越大。当 translog达到一定长度的时候，就会触发 commit 操作。</p>
+<p>5）当 translog 日志文件大到一定程度的时候，就会执行 commit 操作。commit 操作发生第一步，就是将 buffer中现有数据 refresh 到 os cache 中去，清空 buffer。</p>
+<p>6）将一个 commit point 写入磁盘文件，里面标识着这个 commit point 对应的所有 segment file</p>
+<p>7）强行将 os cache 中目前所有的数据都 fsync 到磁盘文件中去</p>
+<p>8）将现有的 translog 清空，然后再次重启启用一个 translog，此时 commit 操作完成。默认每隔 30 分钟会自动执行一次 commit，但是如果 translog 过大，也会触发 commit。整个 commit 的过程，叫做 flush 操作。我们可以手动执行 flush 操作，就是将所有 os cache 数据刷到磁盘文件中去。</p>
+<p>9）translog 其实也是先写入 os cache 的，默认每隔 5 秒刷一次到磁盘中去，所以默认情况下，可能有5秒的数据会仅仅停留在 buffer 或者 translog 文件的 os cache 中，如果此时机器挂了，会丢失5秒钟的数据。但是这样性能比较好，最多丢5秒的数据。也可以将 translog 设置成每次写操作必须是直接 fsync 到磁盘，但是性能会差很多。</p>
+<p>10）如果是删除操作，commit 的时候会生成一个.del 文件，里面将某个 doc 标识为 deleted 状态，那么搜索的时候根据 .del 文件就知道这个 doc 被删除了 </p>
+<p>11）如果是更新操作，就是将原来的 doc 标识为 deleted 状态，然后新写入一条数据</p>
+<p>12）buffer 每次 refresh 一次，就会产生一个 segment file，所以默认情况下是1秒钟一个segment file，segment file 会越来越多，此时会定期执行merge （所以ES 是准实时的，因为数据 1 秒后写入 segment file 中后才会查询得到）</p>
+<p>13）每次 merge 的时候，会将多个 segment file 合并成一个，同时这里会将标识为 deleted 的 doc 给物理删除掉，然后将新的 segment file 写入磁盘，这里会写一个 commit point，标识所有新的 segment file，然后打开segment file 供搜索使用，同时删除旧的 segment file。</p>
+<p>translog日志文件的作用是什么？</p>
+<p>就是在你执行 commit 操作之前，数据要么是停留在 buffer 中，要么是停留在 os cache 中，无论是 buffer 还是os cache 都是内存，一旦这台机器死了，内存中的数据就全丢了。所以需要将数据对应的操作写入一个专门的日志文件，translog 日志文件中，一旦此时机器宕机，再次重启的时候，es 会自动读取 translog 日志文件中的数据，恢复到内存 buffer 和 os cache 中去。</p>
+<h3 id="性能优化"><a href="#性能优化" class="headerlink" title="性能优化"></a>性能优化</h3><p><strong>性能优化的杀手锏——filesystem cache</strong></p>
+<p>往 es 里写的数据，实际上都写到磁盘文件里去了，磁盘文件里的数据操作系统会自动将里面的数据缓存到 os cache 里面去，es 的搜索引擎严重依赖于底层的 filesystem cache，你如果给 filesystem cache 更多的内存，尽量让内存可以容纳所有的 indx segment file 索引数据文件，那么你搜索的时候就基本都是走内存的，性能会非常高。最佳的情况下，就是你的机器的内存，至少可以容纳你的总数据量的一半。比如 ES 集群共有 360G 内存，那么就最好放不超过 720G 的数据，这样能保证有一半在缓存中。假如一共要在 es 中存储 1T 的数据，那么你的多台机器留个 filesystem cache 的内存加起来综合，至少要到 512G，至少半数的情况下，搜索是走内存的，性能一般可以到几秒钟。</p>
+<p>比如说你现在有一行数据 id name age ….30个字段，但是你现在搜索，只需要根据 id name age 三个字段来搜索，如果你往 es 里写入一行数据所有的字段，就会导致说 70% 的数据是不用来搜索的，结果硬是占据了 es 机器上的 filesystem cache 的空间，单挑数据的数据量越大，就会导致 filesystem cahce 能缓存的数据就越少，仅仅只是写入 es 中要用来检索的少数几个字段就可以了，比如说，就写入 id name age三个字段就可以了，然后你可以把其他的字段数据存在 mysql 里面，我们一般是建议用 es + hbase 的这么一个架构。hbase 的特点是适用于海量数据的在线存储，就是对 hbase 可以写入海量数据，不要做复杂的搜索，就是做很简单的一些根据id或者范围进行查询的这么一个操作就可以了。从 es 中根据 name 和 age 去搜索，拿到的结果可能就 20 个 doc id，然后根据 doc id 到 hbase 里去查询每个 doc id 对应的完整的数据，给查出来，再返回给前端。</p>
+<p><strong>数据预热</strong></p>
+<p>假如说，哪怕是你就按照上述的方案去做了，es集群中每个机器写入的数据量还是超过了filesystem cache一倍，比如说你写入一台机器60g数据，结果filesystem cache就30g，还是有30g数据留在了磁盘上。</p>
+<p>举个例子，就比如说，微博，你可以把一些大v，平时看的人很多的数据给提前你自己后台搞个系统，每隔一会儿，你自己的后台系统去搜索一下热数据，刷到filesystem cache里去，后面用户实际上来看这个热数据的时候，他们就是直接从内存里搜索了，很快。</p>
+<p>电商，你可以将平时查看最多的一些商品，比如说iphone 8，热数据提前后台搞个程序，每隔1分钟自己主动访问一次，刷到filesystem cache里去。</p>
+<p>对于那些你觉得比较热的，经常会有人访问的数据，最好做一个专门的缓存预热子系统，就是对热数据，每隔一段时间，你就提前访问一下，让数据进入filesystem cache里面去。这样期待下次别人访问的时候，一定性能会好一些。</p>
+<p><strong>冷热分离</strong></p>
+<p>es 可以做类似于 mysql 的水平拆分，就是说将大量的访问很少，频率很低的数据，单独写一个索引，然后将访问很频繁的热数据单独写一个索引。你最好是将冷数据写入一个索引中，然后热数据写入另外一个索引中，这样可以确保热数据在被预热之后，尽量都让他们留在 filesystem os cache 里，别让冷数据给冲刷掉。</p>
+<p><strong>document 模型设计</strong></p>
+<p>es里面的复杂的关联查询，复杂的查询语法，尽量别用。尽量都是展开得宽表数据。</p>
+<p><strong>分页性能优化</strong></p>
+<p>es 的分页是较坑的，为啥呢？举个例子吧，假如你每页是 10 条数据，你现在要查询第 100 页，实际上是会把每个 shard 上存储的前 1000 条数据都查到一个协调节点上，如果你有个 5 个 shard，那么就有 5000条数据，接着协调节点对这 5000 条数据进行一些合并、处理，再获取到最终第 100 页的 10 条数据。</p>
+<p>翻页的时候，翻的越深，每个 shard 返回的数据就越多，而且协调节点处理的时间越长。所以用 es 做分页的时候，会发现越翻到后面，就越是慢。</p>
+<p>解决方法：</p>
+<ol>
+<li>不允许深度分页</li>
+<li>使用 scroll api。scroll 的原理实际上是保留一个数据快照，然后在一定时间内，你如果不断的滑动往后翻页的时候，类似于你现在在浏览微博，不断往下刷新翻页。那么就用 scroll 不断通过游标获取下一页数据。因为scroll api 是只能一页一页往后翻的，是不能说，先进入第 10 页，然后去 120 页，回到 58 页，不能随意乱跳页。</li>
+</ol>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://yanrs.me/2020/05/06/52. Redis 分布式缓存/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -5253,239 +5446,6 @@ auth<span class="token punctuation">.</span><span class="token function">userDet
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2020/03/16/46. 日志/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2020/03/16/46. 日志/" itemprop="url">46. 日志</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2020-03-16T23:05:57+08:00">
-                2020-03-16
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Java-大数据/" itemprop="url" rel="index">
-                    <span itemprop="name">Java 大数据</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="历史遗留问题"><a href="#历史遗留问题" class="headerlink" title="历史遗留问题"></a>历史遗留问题</h3><p>市场上存在非常多的日志框架。JUL（java.util.logging）, JCL（Jakarta Commons Logging）,Log4j, Log4j2, Logback (具体框架, springboot使用)、SLF4j、jboss-logging  等。Spring 在框架内部使用JCL。 Log4j 被 apache收购，升级，改为log4j2，框架改动很大，只是借用之名。Log4j, Logback, SLF4j都是同一个作者。</p>
-<table>
-<thead>
-<tr>
-<th>日志门面(规范)</th>
-<th>日志实现</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>JCL （Jakarta Commons Logging）<br>SLF4j (simple Logging Facade for java)<br>jboss-logging</td>
-<td>Log4j<br>JUL(java.util.logging)<br>Log4j2<br>Logback<br></td>
-</tr>
-</tbody>
-</table>
-<p>springboot（slf4j+logback）: Spring（commons-logging）、Hibernate（jboss-logging）、 每个框架使用的日志框架都不一样，由此我们要进行统一管理。</p>
-<p>优先选择 slf4j + logback 或者 slf4j + log4j 的方案。如下图中的第二部分和第三部分。</p>
-<p><img src="http://www.slf4j.org/images/concrete-bindings.png" alt></p>
-<h4 id="解决方法"><a href="#解决方法" class="headerlink" title="解决方法"></a>解决方法</h4><p>方案1：采用 SLF4J + logback 的方式【SLF4J 门面，Logback 是具体实现】 （SpringBoot 底层就是这么实现的，所以优选这个方案）</p>
-<p>方案2：采用 SLF4J + log4j 的方式【SLF4J 门面，log4j 是具体实现】 </p>
-<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjNMbLgzj8GvsEnqPhufHki.uN*gdYtMYSTrkFtCC.Zpf8ts95IP3OLac3d81ABhC6Q!!/mnull&amp;bo=2QhABkoJkAYDCW4!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-<h4 id="替换代码中的-commons-logging-和-jul"><a href="#替换代码中的-commons-logging-和-jul" class="headerlink" title="替换代码中的 commons-logging 和 jul"></a>替换代码中的 commons-logging 和 jul</h4><p>查询所有 pom 文件中的依赖，将 commons-logging 进行排除，然后在 parent 父模块的 pom 中引入 jcl-over-slf4j 进行替换。引入 jul-to-slf4j 进行替换  jul（因为  jul 是 java 自身实现的，所有无法像  commons-logging 一样进行排除）</p>
-<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjBEDxvwB2Of7d6P2jTDS7QYpuJGctvKQwBul55X7MNY3ei9cIjIKPFLpi40CTMrC.A!!/mnull&amp;bo=0gmSBdIJkgUDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-<p>在 parent 中添加 jcl-over-slf4j 和  jul-to-slf4j</p>
-<pre class="line-numbers language-xml"><code class="language-xml"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>properties</span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>jcl.over.slf4j.version</span><span class="token punctuation">></span></span>1.7.25<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>jcl.over.slf4j.version</span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>jul-to-slf4j.version</span><span class="token punctuation">></span></span>1.7.25<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>jul-to-slf4j.version</span><span class="token punctuation">></span></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>properties</span><span class="token punctuation">></span></span>
-
-<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dependency</span><span class="token punctuation">></span></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>groupId</span><span class="token punctuation">></span></span>org.slf4j<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>groupId</span><span class="token punctuation">></span></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>artifactId</span><span class="token punctuation">></span></span>jcl-over-slf4j<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>artifactId</span><span class="token punctuation">></span></span><span class="token comment" spellcheck="true">&lt;!-- 替换commons-logging--></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>version</span><span class="token punctuation">></span></span>${jcl.over.slf4j.version}<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>version</span><span class="token punctuation">></span></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dependency</span><span class="token punctuation">></span></span>
-
-<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dependency</span><span class="token punctuation">></span></span>
-  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>groupId</span><span class="token punctuation">></span></span>org.slf4j<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>groupId</span><span class="token punctuation">></span></span>
-  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>artifactId</span><span class="token punctuation">></span></span>jul-to-slf4j<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>artifactId</span><span class="token punctuation">></span></span><span class="token comment" spellcheck="true">&lt;!-- 替换java.util.logging--></span>
-  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>version</span><span class="token punctuation">></span></span>${jul-to-slf4j.version}<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>version</span><span class="token punctuation">></span></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dependency</span><span class="token punctuation">></span></span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<p>并在 common 模块的 pom 文件中进行依赖的引入，这样所有直接或者间接依赖 common 的项目都有  jcl-over-slf4j 和 jul-to-slf4j 了。</p>
-<pre class="line-numbers language-xml"><code class="language-xml"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dependency</span><span class="token punctuation">></span></span>
-  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>groupId</span><span class="token punctuation">></span></span>org.slf4j<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>groupId</span><span class="token punctuation">></span></span>
-  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>artifactId</span><span class="token punctuation">></span></span>jcl-over-slf4j<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>artifactId</span><span class="token punctuation">></span></span><span class="token comment" spellcheck="true">&lt;!-- 替换commons-logging--></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dependency</span><span class="token punctuation">></span></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dependency</span><span class="token punctuation">></span></span>
-  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>groupId</span><span class="token punctuation">></span></span>org.slf4j<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>groupId</span><span class="token punctuation">></span></span>
-  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>artifactId</span><span class="token punctuation">></span></span>jul-to-slf4j<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>artifactId</span><span class="token punctuation">></span></span><span class="token comment" spellcheck="true">&lt;!-- 替换java.util.logging--></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dependency</span><span class="token punctuation">></span></span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<p>测试</p>
-<pre class="line-numbers language-java"><code class="language-java"><span class="token keyword">package</span> com<span class="token punctuation">.</span>atguigu<span class="token punctuation">.</span>test<span class="token punctuation">;</span>
-
-<span class="token keyword">import</span> <span class="token keyword">static</span> org<span class="token punctuation">.</span>junit<span class="token punctuation">.</span>Assert<span class="token punctuation">.</span>*<span class="token punctuation">;</span>
-
-<span class="token keyword">import</span> org<span class="token punctuation">.</span>junit<span class="token punctuation">.</span>Test<span class="token punctuation">;</span>
-<span class="token keyword">import</span> org<span class="token punctuation">.</span>slf4j<span class="token punctuation">.</span>Logger<span class="token punctuation">;</span>  <span class="token comment" spellcheck="true">// 注意使用的是 slf4j 中的</span>
-<span class="token keyword">import</span> org<span class="token punctuation">.</span>slf4j<span class="token punctuation">.</span>LoggerFactory<span class="token punctuation">;</span>  <span class="token comment" spellcheck="true">// 注意使用的是 slf4j 中的</span>
-
-
-<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">Slf4jTest</span> <span class="token punctuation">{</span>
-
-    <span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token keyword">void</span> <span class="token function">main</span><span class="token punctuation">(</span>String<span class="token punctuation">[</span><span class="token punctuation">]</span> args<span class="token punctuation">)</span> <span class="token punctuation">{</span>
-        Logger log <span class="token operator">=</span> LoggerFactory<span class="token punctuation">.</span><span class="token function">getLogger</span><span class="token punctuation">(</span>Slf4jTest<span class="token punctuation">.</span><span class="token keyword">class</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-        log<span class="token punctuation">.</span><span class="token function">debug</span><span class="token punctuation">(</span><span class="token string">"debug message: id = {}, name = {}"</span><span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">,</span> <span class="token string">"zhangsan"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-        log<span class="token punctuation">.</span><span class="token function">info</span><span class="token punctuation">(</span><span class="token string">"info message: id = {}, name = {}"</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">,</span> <span class="token string">"lisi"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-        log<span class="token punctuation">.</span><span class="token function">warn</span><span class="token punctuation">(</span><span class="token string">"warn message: id = {}, name = {}"</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">,</span> <span class="token string">"lisi"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-        log<span class="token punctuation">.</span><span class="token function">error</span><span class="token punctuation">(</span><span class="token string">"error message: id = {}, name = {}"</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">,</span> <span class="token string">"lisi"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-    <span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<h4 id="logback-xml"><a href="#logback-xml" class="headerlink" title="logback.xml"></a>logback.xml</h4><p>每一个日志的实现框架都有自己的配置文件。使用slf4j以后，配置文件还是做成日志实现框架自己本身的配置文件</p>
-<pre class="line-numbers language-xml"><code class="language-xml"><span class="token prolog">&lt;?xml version="1.0" encoding="UTF-8"?></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>configuration</span><span class="token punctuation">></span></span>
-    <span class="token comment" spellcheck="true">&lt;!-- 指定日志输出的地方, 这里是 Console--></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>appender</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>STDOUT<span class="token punctuation">"</span></span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>ch.qos.logback.core.ConsoleAppender<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>encoder</span><span class="token punctuation">></span></span>
-            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>pattern</span><span class="token punctuation">></span></span>%-4relative [%thread] %-5level %logger{35} - %msg %n<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>pattern</span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>encoder</span><span class="token punctuation">></span></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>appender</span><span class="token punctuation">></span></span>
-    <span class="token comment" spellcheck="true">&lt;!-- 日志：从低到高；只会打印指定级别以后的; additivity表示是否将日志信息反馈给root
-     DEBUG==》INFO===》WARN===》ERROR
-     &lt;logger name="com.atguigu.atcrowdfunding.mapper" level="debug" additivity="false">  
-         &lt;appender-ref ref="STDOUT"/>  
-     &lt;/logger>
-      --></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>root</span> <span class="token attr-name">level</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>DEBUG<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>appender-ref</span> <span class="token attr-name">ref</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>STDOUT<span class="token punctuation">"</span></span> <span class="token punctuation">/></span></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>root</span><span class="token punctuation">></span></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>configuration</span><span class="token punctuation">></span></span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
   </section>
 
   
@@ -5536,7 +5496,7 @@ auth<span class="token punctuation">.</span><span class="token function">userDet
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">297</span>
+                  <span class="site-state-item-count">298</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>
