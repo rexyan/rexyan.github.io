@@ -349,6 +349,324 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2017/11/15/Python使用加上Memcache缓存/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2017/11/15/Python使用加上Memcache缓存/" itemprop="url">Python加上Memcache缓存</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-11-15T18:52:57+08:00">
+                2017-11-15
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Python/" itemprop="url" rel="index">
+                    <span itemprop="name">Python</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="场景"><a href="#场景" class="headerlink" title="场景"></a>场景</h3><p>网站数据太多，速度太慢？某处逻辑反复的调用一个函数。这样的开销是没有必要的。如果我们能将函数的结果保存到内存中，或者某个能快速反应的DB中，那么我们网站的响应速度会得到大大的提高。适用情景：</p>
+<ol>
+<li>某函数参数常不变，但是里面有大量的逻辑需要处理，如果每次运行都需要运行的话，那么将花费大量的时间，那么我们可以采取缓存的方式，将函数的返回值进行缓存，下来执行到此处的时候直接返回即可。</li>
+<li>函数的参数是变化的，但并不是每次都在变。这时我们也可以采取此方式进行优化。</li>
+</ol>
+<h3 id="代码"><a href="#代码" class="headerlink" title="代码"></a>代码</h3><p>缓存源码示例：</p>
+<pre><code># encoding=utf8
+import hashlib
+import os
+import time
+from common.log_utils import getLogger
+log = getLogger(&#39;mem_cache.py&#39;)
+
+__all__ = [&#39;get&#39;, &#39;set&#39;, &#39;memorize&#39;, &#39;memcache_client&#39;]
+
+import memcache
+import settings
+memcache_client = memcache.Client(
+    [&#39;%s:%s&#39; % (settings.MEMCACHE_SERVER, str(settings.MEMCACHE_PORT))])
+
+OBJ_DICT = {}
+OBJ_DICT2 = {}
+OBJ_EXPIRE_DICT = {}
+OBJ_EXPIRE_DICT2 = {}
+DEFAULT_EXPIRE_SECONDS = 300
+DEFAULT_VERSION_EXPIRE_SECONDS = 60 * 60 * 24
+MEMORY_CLEANER_PERIOD = 600
+OBJ_VERSION_DICT = {}
+
+def set(key, value, time=settings.MEMCACHE_EXPIRE_TIME):
+    &quot;&quot;&quot;time为过期时间，以秒为单位&quot;&quot;&quot;
+    return memcache_client.set(str(key), value, time)
+
+def get(key):
+    return memcache_client.get(str(key))
+
+def set_remote_obj_version(key, version):
+    return memcache_client.set(str(key), version, DEFAULT_VERSION_EXPIRE_SECONDS)
+
+def get_remote_obj_version(key):
+    return memcache_client.get(str(key)) or 0
+
+def set_local_obj_version(key, version):
+    OBJ_VERSION_DICT[key] = version
+
+def get_local_obj_version(key):
+    return OBJ_VERSION_DICT.get(key) or 0
+
+def version_expired(key):
+    local_version = get_local_obj_version(key)
+    remote_version = get_remote_obj_version(key)
+    return local_version != remote_version
+
+def delete_all():
+    delete_list = []
+    for key, value in OBJ_DICT.iteritems():
+        delete_list.append(key)
+    memcache_client.delete_multi(delete_list)
+
+def start_memory_cleaner(count_down=MEMORY_CLEANER_PERIOD):
+    while True:
+        time.sleep(count_down)
+        keys_to_remove = []
+        for key, value in OBJ_EXPIRE_DICT.iteritems():
+            if OBJ_EXPIRE_DICT[key] &lt; int(round(time.time())):
+                keys_to_remove.append(key)
+        for key in keys_to_remove:
+            try:
+                del OBJ_DICT[key]
+                del OBJ_EXPIRE_DICT[key]
+                del OBJ_VERSION_DICT[key]
+            except KeyError:
+                pass
+        for key, value in OBJ_EXPIRE_DICT2.iteritems():
+            if OBJ_EXPIRE_DICT2[key] &lt; int(round(time.time())):
+                keys_to_remove.append(key)
+        for key in keys_to_remove:
+            try:
+                del OBJ_DICT[key]
+                del OBJ_EXPIRE_DICT2[key]
+                del OBJ_VERSION_DICT[key]
+            except KeyError:
+                pass
+        log.debug(&#39;%s keys deleted, %s keys remain&#39; %
+                  (len(keys_to_remove), len(OBJ_DICT)),)
+
+memory_cleaner_thread_started = False
+
+def start_memory_cleaner_thread():
+    global memory_cleaner_thread_started
+    import threading
+    if not memory_cleaner_thread_started:
+        threading.Thread(target=start_memory_cleaner, args=(),
+                         name=&#39;memory_cleaner_thread&#39;).start()
+        memory_cleaner_thread_started = True
+
+def memorize(function):
+    &quot;&quot;&quot;内存缓存, 用于不定参数的函数
+    Usage:
+        def xxx(key1,key2,refresh=False)
+            return instance
+        def xxx(key1,key2,key2,x1=xx,x2=yyy)
+            return instance
+    &quot;&quot;&quot;
+    def helper(*args, **kwargs):
+        refresh = False
+        expire = None
+        if &#39;refresh&#39; in kwargs:
+            refresh = kwargs[&#39;refresh&#39;]
+        if &#39;expire&#39; in kwargs:
+            expire = kwargs[&#39;expire&#39;]
+
+        # make cache key
+        args_str = []
+        for arg in args:
+            if isinstance(arg, unicode):
+                args_str.append(arg.encode(&#39;utf-8&#39;))
+            else:
+                args_str.append(str(arg))
+        key = function.__name__ + hashlib.md5(&#39;#&#39;.join(args_str)).hexdigest()
+        # end make cache key
+
+        remote_version = get_remote_obj_version(key)
+        ret_obj = None
+        if refresh:
+            # 1.
+            remote_version += 1
+            set_remote_obj_version(key, remote_version)
+            # #当主动刷新时，直接调用；且主动更新本地缓存（可以不做，只是其他程序调用时进入#3段，重复调用一次再更新本地缓存）
+            # ret_obj = function(*args, **kwargs)
+            # OBJ_DICT[key] = ret_obj
+            # set_local_obj_version(key, remote_version)
+        else:
+            if remote_version == 0:
+                # 2
+                ret_obj = function(*args, **kwargs)
+                OBJ_DICT[key] = ret_obj
+                set_remote_obj_version(key, 1)
+                set_local_obj_version(key, 1)
+            else:
+                local_version = get_local_obj_version(key)
+                if local_version != remote_version:
+                    # 3
+                    ret_obj = function(*args, **kwargs)
+                    OBJ_DICT[key] = ret_obj
+                    set_local_obj_version(key, remote_version)
+                else:
+                    # 4
+                    if key in OBJ_DICT:
+                        # 5
+                        ret_obj = OBJ_DICT[key]
+                    else:
+                        ret_obj = function(*args, **kwargs)
+                        OBJ_DICT[key] = ret_obj
+        return ret_obj
+    return helper
+
+@memorize
+def test(x):
+    x = os.path.join(&quot;D:/dev/project/BI/saic/csvdata&quot;, x)
+    return file(x).read()
+
+@memorize
+def test2(x, ab, refresh=False):
+    x = os.path.join(&quot;D:/dev/project/BI/saic/csvdata&quot;, x)
+    return file(x).read()
+
+if __name__ == &#39;__main__&#39;:
+    x = &#39;utils.py&#39;
+    txt = test2(x, &#39;ss&#39;, refresh=True)
+    txt = test2(x, &#39;ss&#39;)
+
+</code></pre><h3 id="使用"><a href="#使用" class="headerlink" title="使用"></a>使用</h3><p>以Python装饰起为例，使用时直接在函数上加上装饰器即可使用。</p>
+<pre><code>@memorize
+def get_current_df(raw_data_excel, key):
+    current_df = pd.read_hdf(raw_data_excel, key=key)
+    return current_df
+</code></pre>
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://yanrs.me/2017/11/15/jsp/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -1944,218 +2262,6 @@ public void doPost(HttpServletRequest request, HttpServletResponse response) thr
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2017/11/08/原生ServLet/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content="">
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2017/11/08/原生ServLet/" itemprop="url">原生ServLet</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-11-08T15:03:57+08:00">
-                2017-11-08
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category" >
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Java/" itemprop="url" rel="index">
-                    <span itemprop="name">Java</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="创建ServLet"><a href="#创建ServLet" class="headerlink" title="创建ServLet"></a>创建ServLet</h3><ol>
-<li>新建Dynamic Web Project</li>
-<li>在Src下新建包 com.rexyan.servlet，并新建一个类ServerLetTest，让该类实现Servlet接口，并重写所有的方法。</li>
-</ol>
-<p>　用户第一次访问ServLet的时候，服务器会创建一个ServLet的实例，那么ServLet中的init方法就会执行。任何一次请求都会创建一个新的线程访问ServLet中的service的方法。在service内部根据请求方式的不同可以调用对应的get或者post方法。当ServLet中的服务器中移除掉，或者关闭服务器，ServLet的实例就会被销毁，destroy方法就会执行。</p>
-<pre><code>package com.rexyan.servlet;
-
-import java.io.IOException;
-
-import javax.servlet.Servlet;
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-
-public class ServerLetTest implements Servlet {
-    @Override
-    public void init(ServletConfig arg0) throws ServletException {
-        System.out.println(&quot;当创建ServLet对象的时候就会执行我....&quot;);
-    }
-
-    @Override
-    public void service(ServletRequest arg0, ServletResponse arg1) throws ServletException, IOException {
-        System.out.println(&quot;每次请求调用的时候都会执行我.....&quot;);
-        System.out.println(arg0);
-        System.out.println(arg1);
-    }
-
-    @Override
-    public void destroy() {
-        System.out.println(&quot;服务器关闭就会执行我.....&quot;);
-    }
-
-    @Override
-    public ServletConfig getServletConfig() {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
-    public String getServletInfo() {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-}
-
-</code></pre><h3 id="配置web-xml文件"><a href="#配置web-xml文件" class="headerlink" title="配置web.xml文件"></a>配置web.xml文件</h3><pre><code>&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
-&lt;web-app xmlns:xsi=&quot;http://www.w3.org/2001/XMLSchema-instance&quot; xmlns=&quot;http://java.sun.com/xml/ns/javaee&quot; xsi:schemaLocation=&quot;http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd&quot; id=&quot;WebApp_ID&quot; version=&quot;2.5&quot;&gt;
-  &lt;display-name&gt;ServerLet1&lt;/display-name&gt;
-
-  &lt;servlet&gt;
-      &lt;servlet-name&gt;test&lt;/servlet-name&gt;
-      &lt;servlet-class&gt;com.rexyan.servlet.ServerLetTest&lt;/servlet-class&gt;
-  &lt;/servlet&gt;
-
-  &lt;servlet-mapping&gt;
-      &lt;servlet-name&gt;test&lt;/servlet-name&gt;
-      &lt;url-pattern&gt;/test&lt;/url-pattern&gt;
-  &lt;/servlet-mapping&gt;
-
-  &lt;welcome-file-list&gt;
-    &lt;welcome-file&gt;index.html&lt;/welcome-file&gt;
-    &lt;welcome-file&gt;index.htm&lt;/welcome-file&gt;
-    &lt;welcome-file&gt;index.jsp&lt;/welcome-file&gt;
-    &lt;welcome-file&gt;default.html&lt;/welcome-file&gt;
-    &lt;welcome-file&gt;default.htm&lt;/welcome-file&gt;
-    &lt;welcome-file&gt;default.jsp&lt;/welcome-file&gt;
-  &lt;/welcome-file-list&gt;
-&lt;/web-app&gt;
-</code></pre><p>将项目发布后，在浏览器访问，就能测试了。</p>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
   </section>
 
   
@@ -2206,7 +2312,7 @@ public class ServerLetTest implements Servlet {
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">298</span>
+                  <span class="site-state-item-count">299</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>

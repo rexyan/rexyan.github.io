@@ -348,6 +348,214 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2020/01/09/布隆过滤器/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2020/01/09/布隆过滤器/" itemprop="url">布隆过滤器</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2020-01-09T19:38:57+08:00">
+                2020-01-09
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/技术/" itemprop="url" rel="index">
+                    <span itemprop="name">技术</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="概念及优缺点"><a href="#概念及优缺点" class="headerlink" title="概念及优缺点"></a>概念及优缺点</h3><p><a href="https://zhuanlan.zhihu.com/p/43263751" target="_blank" rel="noopener">https://zhuanlan.zhihu.com/p/43263751</a> </p>
+<p><a href="https://www.cnblogs.com/cpselvis/p/6265825.html" target="_blank" rel="noopener">https://www.cnblogs.com/cpselvis/p/6265825.html</a> </p>
+<h3 id="实现"><a href="#实现" class="headerlink" title="实现"></a>实现</h3><pre class="line-numbers language-python"><code class="language-python"><span class="token comment" spellcheck="true">#!/usr/bin/python</span>
+<span class="token comment" spellcheck="true"># -*- coding: utf-8 -*-</span>
+
+<span class="token keyword">import</span> mmh3
+<span class="token keyword">from</span> bitarray <span class="token keyword">import</span> bitarray
+
+<span class="token triple-quoted-string string">"""
+使用murmurhash算法实现简单的Bloom过滤器。
+布隆过滤器用于检查集合中是否存在某个元素，并且在大数据情况下它具有良好的性能。
+它的正率取决于哈希函数和元素数
+"""</span>
+
+BIT_SIZE <span class="token operator">=</span> <span class="token number">5000000</span>
+
+
+<span class="token keyword">class</span> <span class="token class-name">BloomFilter</span><span class="token punctuation">:</span>
+
+    <span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token comment" spellcheck="true"># 初始化bloom过滤器，并将大小和所有位设置为0</span>
+        bit_array <span class="token operator">=</span> bitarray<span class="token punctuation">(</span>BIT_SIZE<span class="token punctuation">)</span>
+        bit_array<span class="token punctuation">.</span>setall<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span>
+
+        self<span class="token punctuation">.</span>bit_array <span class="token operator">=</span> bit_array
+
+    <span class="token keyword">def</span> <span class="token function">add</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> data<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token comment" spellcheck="true"># 添加一个数据，并将位数组中的点设置为1（点数等于哈希函数计数）。</span>
+        <span class="token comment" spellcheck="true"># 这里使用7个哈希函数</span>
+        point_list <span class="token operator">=</span> self<span class="token punctuation">.</span>get_postions<span class="token punctuation">(</span>data<span class="token punctuation">)</span>
+
+        <span class="token keyword">for</span> b <span class="token keyword">in</span> point_list<span class="token punctuation">:</span>
+            self<span class="token punctuation">.</span>bit_array<span class="token punctuation">[</span>b<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token number">1</span>
+
+    <span class="token keyword">def</span> <span class="token function">contains</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> data<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token comment" spellcheck="true"># 检查数据是否在集合中</span>
+        point_list <span class="token operator">=</span> self<span class="token punctuation">.</span>get_postions<span class="token punctuation">(</span>data<span class="token punctuation">)</span>
+        result <span class="token operator">=</span> <span class="token boolean">True</span>
+        <span class="token comment" spellcheck="true"># 当数据全部在的时候才可能存在, 只要存在一个点不存在那么就不存在</span>
+        <span class="token keyword">for</span> b <span class="token keyword">in</span> point_list<span class="token punctuation">:</span>
+            result <span class="token operator">=</span> result <span class="token operator">and</span> self<span class="token punctuation">.</span>bit_array<span class="token punctuation">[</span>b<span class="token punctuation">]</span>
+            <span class="token keyword">if</span> <span class="token operator">not</span> result<span class="token punctuation">:</span>
+                <span class="token keyword">break</span>
+
+        <span class="token keyword">return</span> result
+
+    <span class="token keyword">def</span> <span class="token function">get_postions</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> data<span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token comment" spellcheck="true"># 获取位向量中的点位置</span>
+        point1 <span class="token operator">=</span> mmh3<span class="token punctuation">.</span>hash<span class="token punctuation">(</span>data<span class="token punctuation">,</span> <span class="token number">41</span><span class="token punctuation">)</span> <span class="token operator">%</span> BIT_SIZE
+        point2 <span class="token operator">=</span> mmh3<span class="token punctuation">.</span>hash<span class="token punctuation">(</span>data<span class="token punctuation">,</span> <span class="token number">42</span><span class="token punctuation">)</span> <span class="token operator">%</span> BIT_SIZE
+        point3 <span class="token operator">=</span> mmh3<span class="token punctuation">.</span>hash<span class="token punctuation">(</span>data<span class="token punctuation">,</span> <span class="token number">43</span><span class="token punctuation">)</span> <span class="token operator">%</span> BIT_SIZE
+        point4 <span class="token operator">=</span> mmh3<span class="token punctuation">.</span>hash<span class="token punctuation">(</span>data<span class="token punctuation">,</span> <span class="token number">44</span><span class="token punctuation">)</span> <span class="token operator">%</span> BIT_SIZE
+        point5 <span class="token operator">=</span> mmh3<span class="token punctuation">.</span>hash<span class="token punctuation">(</span>data<span class="token punctuation">,</span> <span class="token number">45</span><span class="token punctuation">)</span> <span class="token operator">%</span> BIT_SIZE
+        point6 <span class="token operator">=</span> mmh3<span class="token punctuation">.</span>hash<span class="token punctuation">(</span>data<span class="token punctuation">,</span> <span class="token number">46</span><span class="token punctuation">)</span> <span class="token operator">%</span> BIT_SIZE
+        point7 <span class="token operator">=</span> mmh3<span class="token punctuation">.</span>hash<span class="token punctuation">(</span>data<span class="token punctuation">,</span> <span class="token number">47</span><span class="token punctuation">)</span> <span class="token operator">%</span> BIT_SIZE
+
+        <span class="token keyword">return</span> <span class="token punctuation">[</span>point1<span class="token punctuation">,</span> point2<span class="token punctuation">,</span> point3<span class="token punctuation">,</span> point4<span class="token punctuation">,</span> point5<span class="token punctuation">,</span> point6<span class="token punctuation">,</span> point7<span class="token punctuation">]</span>
+
+
+<span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">"__main__"</span><span class="token punctuation">:</span>
+    bloom_filter <span class="token operator">=</span> BloomFilter<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    bloom_filter<span class="token punctuation">.</span>add<span class="token punctuation">(</span><span class="token string">"zhangsan"</span><span class="token punctuation">)</span>
+    bloom_filter<span class="token punctuation">.</span>add<span class="token punctuation">(</span><span class="token string">"lisi"</span><span class="token punctuation">)</span>
+
+    <span class="token keyword">print</span><span class="token punctuation">(</span>bloom_filter<span class="token punctuation">.</span>contains<span class="token punctuation">(</span><span class="token string">"wangwu"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token keyword">print</span><span class="token punctuation">(</span>bloom_filter<span class="token punctuation">.</span>contains<span class="token punctuation">(</span><span class="token string">"lisi"</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://yanrs.me/2020/01/09/缓存问题/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -1533,306 +1741,6 @@ page：<span class="token tag"><span class="token tag"><span class="token punctu
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2019/12/31/基金爬虫/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2019/12/31/基金爬虫/" itemprop="url">基金爬虫</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-12-31T15:55:57+08:00">
-                2019-12-31
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/奇淫技巧/" itemprop="url" rel="index">
-                    <span itemprop="name">奇淫技巧</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <p>爬取天天基金网指定基金数据，计算出平均值。可发送到指定邮箱，结合 linux  crontab 更好。</p>
-<pre class="line-numbers language-python"><code class="language-python"><span class="token comment" spellcheck="true"># -*- coding: utf-8 -*-</span>
-
-<span class="token keyword">import</span> datetime
-<span class="token keyword">import</span> smtplib
-<span class="token keyword">from</span> email<span class="token punctuation">.</span>header <span class="token keyword">import</span> Header
-<span class="token keyword">from</span> email<span class="token punctuation">.</span>mime<span class="token punctuation">.</span>text <span class="token keyword">import</span> MIMEText
-
-<span class="token keyword">import</span> requests
-<span class="token keyword">from</span> bs4 <span class="token keyword">import</span> BeautifulSoup
-<span class="token keyword">import</span> re
-<span class="token keyword">import</span> numpy <span class="token keyword">as</span> np
-<span class="token keyword">import</span> pandas <span class="token keyword">as</span> pd
-
-
-<span class="token keyword">def</span> <span class="token function">get_url</span><span class="token punctuation">(</span>url<span class="token punctuation">,</span> params<span class="token operator">=</span>None<span class="token punctuation">,</span> proxies<span class="token operator">=</span>None<span class="token punctuation">)</span><span class="token punctuation">:</span>
-    <span class="token triple-quoted-string string">"""
-    请求页面信息
-    :param url:
-    :param params:
-    :param proxies:
-    :return:
-    """</span>
-    rsp <span class="token operator">=</span> requests<span class="token punctuation">.</span>get<span class="token punctuation">(</span>url<span class="token punctuation">,</span> params<span class="token operator">=</span>params<span class="token punctuation">,</span> proxies<span class="token operator">=</span>proxies<span class="token punctuation">)</span>
-    rsp<span class="token punctuation">.</span>raise_for_status<span class="token punctuation">(</span><span class="token punctuation">)</span>
-    <span class="token keyword">return</span> rsp<span class="token punctuation">.</span>text
-
-
-<span class="token keyword">def</span> <span class="token function">get_fund_data</span><span class="token punctuation">(</span>code<span class="token punctuation">,</span> per<span class="token operator">=</span><span class="token number">10</span><span class="token punctuation">,</span> sdate<span class="token operator">=</span><span class="token string">''</span><span class="token punctuation">,</span> edate<span class="token operator">=</span><span class="token string">''</span><span class="token punctuation">,</span> proxies<span class="token operator">=</span>None<span class="token punctuation">)</span><span class="token punctuation">:</span>
-    <span class="token triple-quoted-string string">"""
-    抓取数据
-    :param code:
-    :param per:
-    :param sdate:
-    :param edate:
-    :param proxies:
-    :return:
-    """</span>
-    url <span class="token operator">=</span> <span class="token string">'http://fund.eastmoney.com/f10/F10DataApi.aspx'</span>
-    params <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token string">'type'</span><span class="token punctuation">:</span> <span class="token string">'lsjz'</span><span class="token punctuation">,</span> <span class="token string">'code'</span><span class="token punctuation">:</span> code<span class="token punctuation">,</span> <span class="token string">'page'</span><span class="token punctuation">:</span> <span class="token number">1</span><span class="token punctuation">,</span> <span class="token string">'per'</span><span class="token punctuation">:</span> per<span class="token punctuation">,</span> <span class="token string">'sdate'</span><span class="token punctuation">:</span> sdate<span class="token punctuation">,</span> <span class="token string">'edate'</span><span class="token punctuation">:</span> edate<span class="token punctuation">}</span>
-    html <span class="token operator">=</span> get_url<span class="token punctuation">(</span>url<span class="token punctuation">,</span> params<span class="token punctuation">,</span> proxies<span class="token punctuation">)</span>
-    soup <span class="token operator">=</span> BeautifulSoup<span class="token punctuation">(</span>html<span class="token punctuation">,</span> <span class="token string">'html.parser'</span><span class="token punctuation">)</span>
-
-    pattern <span class="token operator">=</span> re<span class="token punctuation">.</span>compile<span class="token punctuation">(</span>r<span class="token string">'pages:(.*),'</span><span class="token punctuation">)</span>
-    result <span class="token operator">=</span> re<span class="token punctuation">.</span>search<span class="token punctuation">(</span>pattern<span class="token punctuation">,</span> html<span class="token punctuation">)</span><span class="token punctuation">.</span>group<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span>
-    pages <span class="token operator">=</span> int<span class="token punctuation">(</span>result<span class="token punctuation">)</span>
-
-    heads <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
-    <span class="token keyword">for</span> head <span class="token keyword">in</span> soup<span class="token punctuation">.</span>findAll<span class="token punctuation">(</span><span class="token string">"th"</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-        heads<span class="token punctuation">.</span>append<span class="token punctuation">(</span>head<span class="token punctuation">.</span>contents<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
-    records <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
-    page <span class="token operator">=</span> <span class="token number">1</span>
-    <span class="token keyword">while</span> page <span class="token operator">&lt;=</span> pages<span class="token punctuation">:</span>
-        params <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token string">'type'</span><span class="token punctuation">:</span> <span class="token string">'lsjz'</span><span class="token punctuation">,</span> <span class="token string">'code'</span><span class="token punctuation">:</span> code<span class="token punctuation">,</span> <span class="token string">'page'</span><span class="token punctuation">:</span> page<span class="token punctuation">,</span> <span class="token string">'per'</span><span class="token punctuation">:</span> per<span class="token punctuation">,</span> <span class="token string">'sdate'</span><span class="token punctuation">:</span> sdate<span class="token punctuation">,</span> <span class="token string">'edate'</span><span class="token punctuation">:</span> edate<span class="token punctuation">}</span>
-        html <span class="token operator">=</span> get_url<span class="token punctuation">(</span>url<span class="token punctuation">,</span> params<span class="token punctuation">,</span> proxies<span class="token punctuation">)</span>
-        soup <span class="token operator">=</span> BeautifulSoup<span class="token punctuation">(</span>html<span class="token punctuation">,</span> <span class="token string">'html.parser'</span><span class="token punctuation">)</span>
-
-        <span class="token keyword">for</span> row <span class="token keyword">in</span> soup<span class="token punctuation">.</span>findAll<span class="token punctuation">(</span><span class="token string">"tbody"</span><span class="token punctuation">)</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span>findAll<span class="token punctuation">(</span><span class="token string">"tr"</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-            row_records <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
-            <span class="token keyword">for</span> record <span class="token keyword">in</span> row<span class="token punctuation">.</span>findAll<span class="token punctuation">(</span><span class="token string">'td'</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-                val <span class="token operator">=</span> record<span class="token punctuation">.</span>contents
-
-                <span class="token keyword">if</span> val <span class="token operator">==</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
-                    row_records<span class="token punctuation">.</span>append<span class="token punctuation">(</span>np<span class="token punctuation">.</span>nan<span class="token punctuation">)</span>
-                <span class="token keyword">else</span><span class="token punctuation">:</span>
-                    row_records<span class="token punctuation">.</span>append<span class="token punctuation">(</span>val<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
-            records<span class="token punctuation">.</span>append<span class="token punctuation">(</span>row_records<span class="token punctuation">)</span>
-        page <span class="token operator">=</span> page <span class="token operator">+</span> <span class="token number">1</span>
-    np_records <span class="token operator">=</span> np<span class="token punctuation">.</span>array<span class="token punctuation">(</span>records<span class="token punctuation">)</span>
-    data <span class="token operator">=</span> pd<span class="token punctuation">.</span>DataFrame<span class="token punctuation">(</span><span class="token punctuation">)</span>
-    <span class="token keyword">for</span> col<span class="token punctuation">,</span> col_name <span class="token keyword">in</span> enumerate<span class="token punctuation">(</span>heads<span class="token punctuation">)</span><span class="token punctuation">:</span>
-        data<span class="token punctuation">[</span>col_name<span class="token punctuation">]</span> <span class="token operator">=</span> np_records<span class="token punctuation">[</span><span class="token punctuation">:</span><span class="token punctuation">,</span> col<span class="token punctuation">]</span>
-
-    <span class="token keyword">return</span> data
-
-
-<span class="token keyword">def</span> <span class="token function">send_email</span><span class="token punctuation">(</span>msg<span class="token punctuation">)</span><span class="token punctuation">:</span>
-    <span class="token triple-quoted-string string">"""
-    发送邮件
-    :param to_send:
-    :return:
-    """</span>
-    <span class="token comment" spellcheck="true"># 第三方 SMTP 服务</span>
-    mail_host <span class="token operator">=</span> <span class="token string">"smtp.exmail.qq.com"</span>  <span class="token comment" spellcheck="true"># 设置服务器</span>
-    mail_user <span class="token operator">=</span> <span class="token string">""</span>  <span class="token comment" spellcheck="true"># 用户名</span>
-    mail_pass <span class="token operator">=</span> <span class="token string">""</span>  <span class="token comment" spellcheck="true"># 口令</span>
-
-    sender <span class="token operator">=</span> <span class="token string">''</span>
-    receivers <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token string">''</span><span class="token punctuation">]</span>  <span class="token comment" spellcheck="true"># 接收邮件，可设置为你的QQ邮箱或者其他邮箱</span>
-
-    message <span class="token operator">=</span> MIMEText<span class="token punctuation">(</span>msg<span class="token punctuation">,</span> <span class="token string">'plain'</span><span class="token punctuation">,</span> <span class="token string">'utf-8'</span><span class="token punctuation">)</span>
-    message<span class="token punctuation">[</span><span class="token string">'From'</span><span class="token punctuation">]</span> <span class="token operator">=</span> Header<span class="token punctuation">(</span><span class="token string">"基金每日均值"</span><span class="token punctuation">,</span> <span class="token string">'utf-8'</span><span class="token punctuation">)</span>
-    message<span class="token punctuation">[</span><span class="token string">'To'</span><span class="token punctuation">]</span> <span class="token operator">=</span> Header<span class="token punctuation">(</span><span class="token string">""</span><span class="token punctuation">,</span> <span class="token string">'utf-8'</span><span class="token punctuation">)</span>
-
-    subject <span class="token operator">=</span> <span class="token string">'基金每日均值'</span>
-    message<span class="token punctuation">[</span><span class="token string">'Subject'</span><span class="token punctuation">]</span> <span class="token operator">=</span> Header<span class="token punctuation">(</span>subject<span class="token punctuation">,</span> <span class="token string">'utf-8'</span><span class="token punctuation">)</span>
-
-    <span class="token keyword">try</span><span class="token punctuation">:</span>
-        smtpObj <span class="token operator">=</span> smtplib<span class="token punctuation">.</span>SMTP<span class="token punctuation">(</span><span class="token punctuation">)</span>
-        smtpObj<span class="token punctuation">.</span>connect<span class="token punctuation">(</span>mail_host<span class="token punctuation">,</span> <span class="token number">25</span><span class="token punctuation">)</span>  <span class="token comment" spellcheck="true"># 25 为 SMTP 端口号</span>
-        smtpObj<span class="token punctuation">.</span>login<span class="token punctuation">(</span>mail_user<span class="token punctuation">,</span> mail_pass<span class="token punctuation">)</span>
-        smtpObj<span class="token punctuation">.</span>sendmail<span class="token punctuation">(</span>sender<span class="token punctuation">,</span> receivers<span class="token punctuation">,</span> message<span class="token punctuation">.</span>as_string<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
-        <span class="token keyword">print</span> <span class="token string">"邮件发送成功"</span>
-    <span class="token keyword">except</span> Exception <span class="token keyword">as</span> e<span class="token punctuation">:</span>
-        <span class="token keyword">print</span> <span class="token string">"Error: 无法发送邮件："</span> <span class="token operator">+</span> str<span class="token punctuation">(</span>e<span class="token punctuation">)</span>
-
-
-<span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">"__main__"</span><span class="token punctuation">:</span>
-    report <span class="token operator">=</span> <span class="token string">""</span>
-
-    now <span class="token operator">=</span> datetime<span class="token punctuation">.</span>datetime<span class="token punctuation">.</span>now<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>strftime<span class="token punctuation">(</span><span class="token string">"%Y-%m-%d"</span><span class="token punctuation">)</span>
-    two_day <span class="token operator">=</span> <span class="token punctuation">(</span>datetime<span class="token punctuation">.</span>datetime<span class="token punctuation">.</span>now<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span> datetime<span class="token punctuation">.</span>timedelta<span class="token punctuation">(</span>days<span class="token operator">=</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span>strftime<span class="token punctuation">(</span><span class="token string">"%Y-%m-%d"</span><span class="token punctuation">)</span>
-    three_day <span class="token operator">=</span> <span class="token punctuation">(</span>datetime<span class="token punctuation">.</span>datetime<span class="token punctuation">.</span>now<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span> datetime<span class="token punctuation">.</span>timedelta<span class="token punctuation">(</span>days<span class="token operator">=</span><span class="token number">3</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span>strftime<span class="token punctuation">(</span><span class="token string">"%Y-%m-%d"</span><span class="token punctuation">)</span>
-    week <span class="token operator">=</span> <span class="token punctuation">(</span>datetime<span class="token punctuation">.</span>datetime<span class="token punctuation">.</span>now<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span> datetime<span class="token punctuation">.</span>timedelta<span class="token punctuation">(</span>days<span class="token operator">=</span><span class="token number">5</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span>strftime<span class="token punctuation">(</span><span class="token string">"%Y-%m-%d"</span><span class="token punctuation">)</span>
-    month <span class="token operator">=</span> <span class="token punctuation">(</span>datetime<span class="token punctuation">.</span>datetime<span class="token punctuation">.</span>now<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span> datetime<span class="token punctuation">.</span>timedelta<span class="token punctuation">(</span>days<span class="token operator">=</span><span class="token number">30</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span>strftime<span class="token punctuation">(</span><span class="token string">"%Y-%m-%d"</span><span class="token punctuation">)</span>
-    season <span class="token operator">=</span> <span class="token punctuation">(</span>datetime<span class="token punctuation">.</span>datetime<span class="token punctuation">.</span>now<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span> datetime<span class="token punctuation">.</span>timedelta<span class="token punctuation">(</span>days<span class="token operator">=</span><span class="token number">30</span> <span class="token operator">*</span> <span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span>strftime<span class="token punctuation">(</span><span class="token string">"%Y-%m-%d"</span><span class="token punctuation">)</span>
-    half_year <span class="token operator">=</span> <span class="token punctuation">(</span>datetime<span class="token punctuation">.</span>datetime<span class="token punctuation">.</span>now<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span> datetime<span class="token punctuation">.</span>timedelta<span class="token punctuation">(</span>days<span class="token operator">=</span><span class="token number">30</span> <span class="token operator">*</span> <span class="token number">6</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span>strftime<span class="token punctuation">(</span><span class="token string">"%Y-%m-%d"</span><span class="token punctuation">)</span>
-    year <span class="token operator">=</span> <span class="token punctuation">(</span>datetime<span class="token punctuation">.</span>datetime<span class="token punctuation">.</span>now<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span> datetime<span class="token punctuation">.</span>timedelta<span class="token punctuation">(</span>days<span class="token operator">=</span><span class="token number">365</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span>strftime<span class="token punctuation">(</span><span class="token string">"%Y-%m-%d"</span><span class="token punctuation">)</span>
-    two_year <span class="token operator">=</span> <span class="token punctuation">(</span>datetime<span class="token punctuation">.</span>datetime<span class="token punctuation">.</span>now<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span> datetime<span class="token punctuation">.</span>timedelta<span class="token punctuation">(</span>days<span class="token operator">=</span><span class="token number">365</span> <span class="token operator">*</span> <span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span>strftime<span class="token punctuation">(</span><span class="token string">"%Y-%m-%d"</span><span class="token punctuation">)</span>
-    three_year <span class="token operator">=</span> <span class="token punctuation">(</span>datetime<span class="token punctuation">.</span>datetime<span class="token punctuation">.</span>now<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span> datetime<span class="token punctuation">.</span>timedelta<span class="token punctuation">(</span>days<span class="token operator">=</span><span class="token number">365</span> <span class="token operator">*</span> <span class="token number">3</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span>strftime<span class="token punctuation">(</span><span class="token string">"%Y-%m-%d"</span><span class="token punctuation">)</span>
-
-    fund_list <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token string">"519732"</span><span class="token punctuation">]</span>
-    <span class="token keyword">for</span> fund <span class="token keyword">in</span> fund_list<span class="token punctuation">:</span>
-        <span class="token comment" spellcheck="true"># now_data = get_fund_data(fund, per=49, sdate=now, edate=now)</span>
-        week_data <span class="token operator">=</span> get_fund_data<span class="token punctuation">(</span>fund<span class="token punctuation">,</span> per<span class="token operator">=</span><span class="token number">49</span><span class="token punctuation">,</span> sdate<span class="token operator">=</span>week<span class="token punctuation">,</span> edate<span class="token operator">=</span>now<span class="token punctuation">)</span>
-        two_day_data <span class="token operator">=</span> get_fund_data<span class="token punctuation">(</span>fund<span class="token punctuation">,</span> per<span class="token operator">=</span><span class="token number">49</span><span class="token punctuation">,</span> sdate<span class="token operator">=</span>two_day<span class="token punctuation">,</span> edate<span class="token operator">=</span>now<span class="token punctuation">)</span>
-        three_day_data <span class="token operator">=</span> get_fund_data<span class="token punctuation">(</span>fund<span class="token punctuation">,</span> per<span class="token operator">=</span><span class="token number">49</span><span class="token punctuation">,</span> sdate<span class="token operator">=</span>three_day<span class="token punctuation">,</span> edate<span class="token operator">=</span>now<span class="token punctuation">)</span>
-        month_data <span class="token operator">=</span> get_fund_data<span class="token punctuation">(</span>fund<span class="token punctuation">,</span> per<span class="token operator">=</span><span class="token number">49</span><span class="token punctuation">,</span> sdate<span class="token operator">=</span>month<span class="token punctuation">,</span> edate<span class="token operator">=</span>now<span class="token punctuation">)</span>
-        season_data <span class="token operator">=</span> get_fund_data<span class="token punctuation">(</span>fund<span class="token punctuation">,</span> per<span class="token operator">=</span><span class="token number">49</span><span class="token punctuation">,</span> sdate<span class="token operator">=</span>season<span class="token punctuation">,</span> edate<span class="token operator">=</span>now<span class="token punctuation">)</span>
-        half_year_data <span class="token operator">=</span> get_fund_data<span class="token punctuation">(</span>fund<span class="token punctuation">,</span> per<span class="token operator">=</span><span class="token number">49</span><span class="token punctuation">,</span> sdate<span class="token operator">=</span>half_year<span class="token punctuation">,</span> edate<span class="token operator">=</span>now<span class="token punctuation">)</span>
-        year_data <span class="token operator">=</span> get_fund_data<span class="token punctuation">(</span>fund<span class="token punctuation">,</span> per<span class="token operator">=</span><span class="token number">49</span><span class="token punctuation">,</span> sdate<span class="token operator">=</span>year<span class="token punctuation">,</span> edate<span class="token operator">=</span>now<span class="token punctuation">)</span>
-        two_year_data <span class="token operator">=</span> get_fund_data<span class="token punctuation">(</span>fund<span class="token punctuation">,</span> per<span class="token operator">=</span><span class="token number">49</span><span class="token punctuation">,</span> sdate<span class="token operator">=</span>two_year<span class="token punctuation">,</span> edate<span class="token operator">=</span>now<span class="token punctuation">)</span>
-        three_year_data <span class="token operator">=</span> get_fund_data<span class="token punctuation">(</span>fund<span class="token punctuation">,</span> per<span class="token operator">=</span><span class="token number">49</span><span class="token punctuation">,</span> sdate<span class="token operator">=</span>three_year<span class="token punctuation">,</span> edate<span class="token operator">=</span>now<span class="token punctuation">)</span>
-
-        report <span class="token operator">+=</span> <span class="token triple-quoted-string string">"""
-        """</span> <span class="token operator">+</span>fund<span class="token operator">+</span> <span class="token triple-quoted-string string">"""：
-          2-单位净值: """</span> <span class="token operator">+</span> str<span class="token punctuation">(</span>round<span class="token punctuation">(</span>two_day_data<span class="token punctuation">[</span>u<span class="token string">"单位净值"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>astype<span class="token punctuation">(</span><span class="token string">'float'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>mean<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token triple-quoted-string string">"""
-          2-累计净值："""</span> <span class="token operator">+</span> str<span class="token punctuation">(</span>round<span class="token punctuation">(</span>two_day_data<span class="token punctuation">[</span>u<span class="token string">"累计净值"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>astype<span class="token punctuation">(</span><span class="token string">'float'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>mean<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token triple-quoted-string string">"""
-          3-单位净值："""</span> <span class="token operator">+</span> str<span class="token punctuation">(</span>round<span class="token punctuation">(</span>three_day_data<span class="token punctuation">[</span>u<span class="token string">"单位净值"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>astype<span class="token punctuation">(</span><span class="token string">'float'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>mean<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token operator">+</span> <span class="token triple-quoted-string string">"""
-          3-累计净值："""</span> <span class="token operator">+</span> str<span class="token punctuation">(</span>round<span class="token punctuation">(</span>three_day_data<span class="token punctuation">[</span>u<span class="token string">"累计净值"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>astype<span class="token punctuation">(</span><span class="token string">'float'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>mean<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token triple-quoted-string string">"""
-          周-单位净值："""</span> <span class="token operator">+</span> str<span class="token punctuation">(</span>round<span class="token punctuation">(</span>week_data<span class="token punctuation">[</span>u<span class="token string">"单位净值"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>astype<span class="token punctuation">(</span><span class="token string">'float'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>mean<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token triple-quoted-string string">"""
-          周-累计净值："""</span> <span class="token operator">+</span> str<span class="token punctuation">(</span>round<span class="token punctuation">(</span>week_data<span class="token punctuation">[</span>u<span class="token string">"累计净值"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>astype<span class="token punctuation">(</span><span class="token string">'float'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>mean<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token triple-quoted-string string">"""
-          月-单位净值："""</span> <span class="token operator">+</span> str<span class="token punctuation">(</span>round<span class="token punctuation">(</span>month_data<span class="token punctuation">[</span>u<span class="token string">"单位净值"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>astype<span class="token punctuation">(</span><span class="token string">'float'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>mean<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token triple-quoted-string string">"""
-          月-累计净值："""</span> <span class="token operator">+</span> str<span class="token punctuation">(</span>round<span class="token punctuation">(</span>month_data<span class="token punctuation">[</span>u<span class="token string">"累计净值"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>astype<span class="token punctuation">(</span><span class="token string">'float'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>mean<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token triple-quoted-string string">"""
-          季-单位净值："""</span> <span class="token operator">+</span> str<span class="token punctuation">(</span>round<span class="token punctuation">(</span>season_data<span class="token punctuation">[</span>u<span class="token string">"单位净值"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>astype<span class="token punctuation">(</span><span class="token string">'float'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>mean<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token triple-quoted-string string">"""
-          季-累计净值："""</span> <span class="token operator">+</span> str<span class="token punctuation">(</span>round<span class="token punctuation">(</span>season_data<span class="token punctuation">[</span>u<span class="token string">"累计净值"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>astype<span class="token punctuation">(</span><span class="token string">'float'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>mean<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token triple-quoted-string string">"""
-          半年-单位净值："""</span> <span class="token operator">+</span> str<span class="token punctuation">(</span>round<span class="token punctuation">(</span>half_year_data<span class="token punctuation">[</span>u<span class="token string">"单位净值"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>astype<span class="token punctuation">(</span><span class="token string">'float'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>mean<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token triple-quoted-string string">"""
-          半年-累计净值："""</span> <span class="token operator">+</span> str<span class="token punctuation">(</span>round<span class="token punctuation">(</span>half_year_data<span class="token punctuation">[</span>u<span class="token string">"累计净值"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>astype<span class="token punctuation">(</span><span class="token string">'float'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>mean<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token triple-quoted-string string">"""
-          年-单位净值："""</span> <span class="token operator">+</span> str<span class="token punctuation">(</span>round<span class="token punctuation">(</span>year_data<span class="token punctuation">[</span>u<span class="token string">"单位净值"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>astype<span class="token punctuation">(</span><span class="token string">'float'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>mean<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token triple-quoted-string string">"""
-          年-累计净值："""</span> <span class="token operator">+</span> str<span class="token punctuation">(</span>round<span class="token punctuation">(</span>year_data<span class="token punctuation">[</span>u<span class="token string">"累计净值"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>astype<span class="token punctuation">(</span><span class="token string">'float'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>mean<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token triple-quoted-string string">"""
-          2年-单位净值："""</span> <span class="token operator">+</span> str<span class="token punctuation">(</span>round<span class="token punctuation">(</span>two_year_data<span class="token punctuation">[</span>u<span class="token string">"单位净值"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>astype<span class="token punctuation">(</span><span class="token string">'float'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>mean<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token triple-quoted-string string">"""
-          2年-累计净值："""</span> <span class="token operator">+</span> str<span class="token punctuation">(</span>round<span class="token punctuation">(</span>two_year_data<span class="token punctuation">[</span>u<span class="token string">"累计净值"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>astype<span class="token punctuation">(</span><span class="token string">'float'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>mean<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token triple-quoted-string string">"""
-          3年-单位净值："""</span> <span class="token operator">+</span> str<span class="token punctuation">(</span>round<span class="token punctuation">(</span>three_year_data<span class="token punctuation">[</span>u<span class="token string">"单位净值"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>astype<span class="token punctuation">(</span><span class="token string">'float'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>mean<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token triple-quoted-string string">"""
-          3年-累计净值："""</span> <span class="token operator">+</span> str<span class="token punctuation">(</span>round<span class="token punctuation">(</span>three_year_data<span class="token punctuation">[</span>u<span class="token string">"累计净值"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>astype<span class="token punctuation">(</span><span class="token string">'float'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>mean<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token operator">+</span> <span class="token triple-quoted-string string">"""
-        """</span>
-        <span class="token keyword">print</span> report
-    send_email<span class="token punctuation">(</span>report<span class="token punctuation">)</span>
-
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
   </section>
 
   
@@ -1883,7 +1791,7 @@ page：<span class="token tag"><span class="token tag"><span class="token punctu
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">298</span>
+                  <span class="site-state-item-count">299</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>

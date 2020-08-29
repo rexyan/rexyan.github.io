@@ -348,6 +348,235 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2019/02/24/2. Spark Core 核心 RDD/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2019/02/24/2. Spark Core 核心 RDD/" itemprop="url">2. Spark Core 核心 RDD</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-02-24T20:13:57+08:00">
+                2019-02-24
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Spark/" itemprop="url" rel="index">
+                    <span itemprop="name">Spark</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="RDD"><a href="#RDD" class="headerlink" title="RDD"></a>RDD</h3><p>RDD全称叫做弹性分布式数据集(Resilient Distributed Datasets)，它是一种分布式的内存抽象，表示一个只读的记录分区的集合，它只能通过其他RDD转换而创建，为此，RDD支持丰富的转换操作(如map, join, filter, groupBy等)，通过这种转换操作，新的RDD则包含了如何从其他RDDs衍生所必需的信息，所以说RDDs之间是有依赖关系的。基于RDDs之间的依赖，RDDs会形成一个有向无环图DAG，该DAG描述了整个流式计算的流程，实际执行的时候，RDD是通过血缘关系(Lineage)一气呵成的，即使出现数据分区丢失，也可以通过血缘关系重建分区，总结起来，基于RDD的流式计算任务可描述为：从稳定的物理存储(如分布式文件系统)中加载记录，记录被传入由一组确定性操作构成的DAG，然后写回稳定存储。另外RDD还可以将数据集缓存到内存中，使得在多个操作之间可以重用数据集，基于这个特点可以很方便地构建迭代型应用(图计算、机器学习等)或者交互式数据分析应用。可以说Spark最初也就是实现RDD的一个分布式系统，后面通过不断发展壮大成为现在较为完善的大数据生态系统，简单来讲，Spark-RDD的关系类似于Hadoop-MapReduce关系。</p>
+<h3 id="RDD-特性"><a href="#RDD-特性" class="headerlink" title="RDD 特性"></a>RDD 特性</h3><ol>
+<li>由一系列分区（分片）组成</li>
+<li>对一个 RDD 进行操作，其实就是对一个 RDD 中的所有分区进行操作 </li>
+<li>RDD表示只读的分区的数据集，对RDD进行改动，只能通过RDD的转换操作，由一个RDD得到一个新的RDD，新的RDD包含了从其他RDD衍生所必需的信息。RDDs之间存在依赖，RDD的执行是按照血缘关系延时计算的</li>
+</ol>
+<h3 id="pyspark"><a href="#pyspark" class="headerlink" title="pyspark"></a>pyspark</h3><pre class="line-numbers language-shell"><code class="language-shell">vim ~/.bash_profile 
+
+# 写入
+export PYSPARK_PYTHON=python3.6
+export SPARK_HOME=/home/hadoop/app/spark-2.3.0-bin-2.6.0-cdh5.7.0
+export PATH=$SPARK_HOME/bin:$PATH
+
+# 保存后
+source ~/.bash_profile 
+
+# 启动 pyspark (这样就是 Python 3.6 的版本了，而不是 Python2)
+cd /home/hadoop/app/spark-2.3.0-bin-2.6.0-cdh5.7.0/bin
+./pyspark 
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h3 id="创建-RDD"><a href="#创建-RDD" class="headerlink" title="创建 RDD"></a>创建 RDD</h3><h4 id="将简单的-Python-数据转为-RDD"><a href="#将简单的-Python-数据转为-RDD" class="headerlink" title="将简单的 Python 数据转为 RDD"></a>将简单的 Python 数据转为 RDD</h4><pre class="line-numbers language-python"><code class="language-python"><span class="token operator">>></span><span class="token operator">></span> data <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">,</span> <span class="token number">3</span><span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">,</span> <span class="token number">5</span><span class="token punctuation">]</span>
+<span class="token operator">>></span><span class="token operator">></span> distData <span class="token operator">=</span> sc<span class="token punctuation">.</span>parallelize<span class="token punctuation">(</span>data<span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 这样就创建了一个 RDD。还可以加上第二个参数，表示分区的数量</span>
+<span class="token operator">>></span><span class="token operator">></span> distData<span class="token punctuation">.</span>collect<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 查看整个 RDD，同时可以在网页http://192.168.11.111:4040/stages/ 上看到任务</span>
+<span class="token operator">>></span><span class="token operator">></span> distData<span class="token punctuation">.</span>reduce<span class="token punctuation">(</span><span class="token keyword">lambda</span> a<span class="token punctuation">,</span>b<span class="token punctuation">:</span>a<span class="token operator">+</span>b<span class="token punctuation">)</span>  <span class="token comment" spellcheck="true"># 使用 reduce 进行操作</span>
+
+<span class="token comment" spellcheck="true"># 将一个 RDD 切割成为很多份</span>
+<span class="token operator">>></span><span class="token operator">></span> data <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">,</span> <span class="token number">3</span><span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">,</span> <span class="token number">5</span><span class="token punctuation">]</span>
+<span class="token operator">>></span><span class="token operator">></span> distData <span class="token operator">=</span> sc<span class="token punctuation">.</span>parallelize<span class="token punctuation">(</span>data<span class="token punctuation">,</span> <span class="token number">5</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 切割为 5 份(分区/分片)</span>
+<span class="token operator">>></span><span class="token operator">></span> distData<span class="token punctuation">.</span>collect<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token comment" spellcheck="true"># 查看结果，显示的还是 [1, 2, 3, 4, 5]，但是我们查看网页，就会发现 Tasks 的数量为 5 个了。典型的设置是一个 cpu 设置 2～4 个分区，即最大 1:4</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<h4 id="外部存储数据转换为-RDD"><a href="#外部存储数据转换为-RDD" class="headerlink" title="外部存储数据转换为 RDD"></a>外部存储数据转换为 RDD</h4><p>格式只要是 Hadoop 支持的，这里都支持。例如 本地文件系统，HDFS，Cassnadra，HBase，Amazon S3 ，文件文件，二进制文件等。</p>
+<ul>
+<li>将本地文件转为 RDD</li>
+</ul>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token operator">>></span><span class="token operator">></span> sc<span class="token punctuation">.</span>textFile<span class="token punctuation">(</span><span class="token string">"file:///home/hadoop/data/hello.txt"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>collect<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">[</span><span class="token string">'hello spark'</span><span class="token punctuation">,</span> <span class="token string">'hello pyspark'</span><span class="token punctuation">]</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+<p>除了数据文件路径外，我们还可以传递一个目录，或者进行模式匹配，例如 <code>textFile(&quot;/my/directory&quot;), textFile(&quot;/my/directory/*.txt&quot;), and textFile(&quot;/my/directory/*.gz&quot;)</code> textFile 和 parallelize 一样也支持第二个参数来进行分区，默认情况下，Spark为文件的每个块创建一个分区（HDFS中默认为128MB），也可以通过传递更大的值来请求更多的分区</p>
+<ul>
+<li>hdfs</li>
+</ul>
+<pre class="line-numbers language-shell"><code class="language-shell">在命令行中，将刚刚创建的 hello.txt 推送到 hdfs 中去
+hadoop fs -put hello.txt /  # 推送
+hadoop fs -text /hello.txt  # 读取
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token operator">>></span><span class="token operator">></span> sc<span class="token punctuation">.</span>textFile<span class="token punctuation">(</span><span class="token string">"hdfs://192.168.11.111:8020/hello.txt"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>collect<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token punctuation">[</span><span class="token string">'hello spark'</span><span class="token punctuation">,</span> <span class="token string">'hello pyspark'</span><span class="token punctuation">]</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+<h3 id="开发-pyspark-应用程序"><a href="#开发-pyspark-应用程序" class="headerlink" title="开发 pyspark 应用程序"></a>开发 pyspark 应用程序</h3><p>打开 Pychram 设置环境变量<br><img src="https://ws1.sinaimg.cn/large/005I1iHwly1g0glkncloxj30pn09p0tn.jpg" alt></p>
+<p><img src="https://ws1.sinaimg.cn/large/005I1iHwly1g0gm2bbsijj30rz08h74r.jpg" alt><br>内容为 spark-2.3.0-bin-2.6.0-cdh5.7.0 包中的 python 的目录和 python 的上一级目录</p>
+<p><img src="https://ws1.sinaimg.cn/large/005I1iHwly1g0glps5xlbj30s00c13zl.jpg" alt></p>
+<p>将我们制作的 spark-2.3.0-bin-2.6.0-cdh5.7.0 包中的 python/lib下的 py4j-0.10.6-src.zip 和 pyspark.zip 选中导入。这样就不需要安装 pyspark 和 py4j 包了。</p>
+<p>编写测试程序</p>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token keyword">from</span> pyspark <span class="token keyword">import</span> SparkContext<span class="token punctuation">,</span> SparkConf
+
+<span class="token comment" spellcheck="true"># 创建 SparkConf， 设置 Spark 相关参数信息</span>
+conf <span class="token operator">=</span> SparkConf<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>setAppName<span class="token punctuation">(</span><span class="token string">"spark"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>setMaster<span class="token punctuation">(</span><span class="token string">"local[2]"</span><span class="token punctuation">)</span>
+
+<span class="token comment" spellcheck="true"># 创建 SparkContext</span>
+sc <span class="token operator">=</span> SparkContext<span class="token punctuation">(</span>conf<span class="token operator">=</span>conf<span class="token punctuation">)</span>
+
+data <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">,</span> <span class="token number">3</span><span class="token punctuation">,</span> <span class="token number">4</span><span class="token punctuation">,</span> <span class="token number">5</span><span class="token punctuation">]</span>
+distData <span class="token operator">=</span> sc<span class="token punctuation">.</span>parallelize<span class="token punctuation">(</span>data<span class="token punctuation">)</span>
+<span class="token keyword">print</span><span class="token punctuation">(</span>distData<span class="token punctuation">.</span>collect<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+
+sc<span class="token punctuation">.</span>stop<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>在服务器环境中运行</p>
+<pre class="line-numbers language-shell"><code class="language-shell">mkdir ~/script
+vim /home/hadoop/script/spark_test.py
+
+# 内容如下
+from pyspark import SparkContext, SparkConf
+
+conf = SparkConf()
+
+sc = SparkContext(conf=conf)
+
+data = [1, 2, 3, 4, 5]
+distData = sc.parallelize(data)
+print(distData.collect())
+
+sc.stop()
+
+# 提交 pyspark 应用程序
+cd /home/hadoop/app/spark-2.3.0-bin-2.6.0-cdh5.7.0/bin
+./spark-submit --master local[2] --name spark_test /home/hadoop/script/spark_test.py
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://yanrs.me/2019/02/24/1. Spark 环境安装/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -2075,152 +2304,6 @@ session_factory <span class="token operator">=</span> sessionmaker<span class="t
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2019/01/01/5.函数/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2019/01/01/5.函数/" itemprop="url">函数</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-01-01T22:40:57+08:00">
-                2019-01-01
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Go/" itemprop="url" rel="index">
-                    <span itemprop="name">Go</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          <p>函数可以定一个多个参数，和不定参数，但是没有默认参数。同样函数可以返回多个值，还可以给返回的值定义名字，同时还支持函数中参数为另一个参数，也支持函数参数为一个匿名函数。<br></p>
-          <!--noindex-->
-          <div class="post-button text-center">
-            <a class="btn" href="/2019/01/01/5.函数/#more" rel="contents">
-              阅读全文 &raquo;
-            </a>
-          </div>
-          <!--/noindex-->
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
   </section>
 
   
@@ -2271,7 +2354,7 @@ session_factory <span class="token operator">=</span> sessionmaker<span class="t
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">298</span>
+                  <span class="site-state-item-count">299</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>
