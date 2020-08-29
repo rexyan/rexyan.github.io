@@ -590,7 +590,141 @@ SORTED <span class="token keyword">BY</span> <span class="token punctuation">(</
 <li>如果指定表中的数据，不是以纯文本（TextFile）形式存储，需要使用 insert 方式导入</li>
 </ol>
 <p>语法：<code>insert into/overwrite table 表名 select xxx/values(),(),()</code> 可以使用 insert into 或者 insert overwrite 两种方式来插入数据，insert into 代表向表中追加新的数据，insert overwrite 代表先清空表中所有的数据，再向表中添加新的数据。后面数据的来源方式可以自己写在 values 中，也可以使用 select 来将查询结果进行插入。</p>
-
+<h4 id="import"><a href="#import" class="headerlink" title="import"></a>import</h4><p>不仅可以导入数据还可以顺便导入元数据(表结构)。Import 只能导入 export 导出的内容。</p>
+<p>语法格式为 <code>import external table 表名 from 目录</code> ，使用 import 导入要遵循这些约束，如果向一个新表中导入数据，hive 会根据要导入表的元数据自动创建表。如果向一个已经存在的表导入数据，在导入之前会先检查表的结构和属性是否一致，只有在表的结构和属性一致时，才会执行导入。不管表是否为空，要导入的分区必须是不存在的。</p>
+<h3 id="数据导出"><a href="#数据导出" class="headerlink" title="数据导出"></a>数据导出</h3><h4 id="insert-1"><a href="#insert-1" class="headerlink" title="insert"></a>insert</h4><p>将一条 sql 运算的结果，插入到指定的路径，语法格式为 <code>insert overwrite [local] directory 目录 row format 格式</code>。这里 local 的含义和导入的时候一样，不加 local 代表着将文件导出到 hdfs 上，加上则是导出到文件系统中。</p>
+<h4 id="export"><a href="#export" class="headerlink" title="export"></a>export</h4><p>导出数据和元数据(表结构)，export 会在 hdfs 的导出目录中，生成数据和元数据，并且导出的元数据是和 RDMS无关的。如果是分区表，可以选择将分区表的部分分区进行导出</p>
+<p>语法格式为 <code>export table 表名 [partiton(分区信息) ] to 路径</code></p>
+<h3 id="排序"><a href="#排序" class="headerlink" title="排序"></a>排序</h3><p>Hive 的本质是 MR，MR 中的排序有以下几种：</p>
+<ol>
+<li>全排序：  结果只有一个(只有一个分区)，所有的数据整体有序</li>
+<li>部分排序：  结果有多个(有多个分区)，每个分区内部有序</li>
+<li>二次排序：  在排序时，比较的条件有多个</li>
+</ol>
+<p>在 MR 中，排序在 reduce 之前就已经排好序了，排序是 shuffle 阶段的主要工作。分区是指使用 Partitioner 来进行分区，当 reduceTaskNum&gt;1，使用用户自己定义的分区器，如果没有就使用 HashParitioner，HashParitioner 只根据 key 的 hashcode 来分区。</p>
+<p>Hive 中可以使用以下排序：</p>
+<ol>
+<li>ORDER BY 列名: 全排序</li>
+<li>SORT BY 列名: 部分排序，如果希望自定定义使用哪个字段分区，需要使用 DISTRIBUTE BY</li>
+<li>DISTRIBUTE BY  列名: 指定按照哪个字段分区, 结合 sort by 使用</li>
+<li>CLUSTER BY 列名: 如果分区的字段和排序的字段一致，且是正序排序，那么可以用 CLUSTER BY，即<code>DISTRIBUTE BY 列名 sort by 列名 asc</code>  等价于 <code>CLUSTER BY  列名</code> , CLUSTER BY  后不能写排序方式，只能使用默认的按照 asc 排序。</li>
+</ol>
+<p>操作实例：</p>
+<p>创建表 emp1，并插入数据，数据如下</p>
+<pre class="line-numbers language-sql"><code class="language-sql"><span class="token keyword">create</span> <span class="token keyword">table</span> <span class="token keyword">default</span><span class="token punctuation">.</span>emp1<span class="token punctuation">(</span>
+empno <span class="token keyword">int</span><span class="token punctuation">,</span>
+ename string<span class="token punctuation">,</span>
+job string<span class="token punctuation">,</span>
+mgr <span class="token keyword">int</span><span class="token punctuation">,</span>
+hiredate string<span class="token punctuation">,</span> 
+sal <span class="token keyword">double</span><span class="token punctuation">,</span> 
+comm <span class="token keyword">double</span><span class="token punctuation">,</span>
+deptno <span class="token keyword">int</span><span class="token punctuation">)</span>
+<span class="token keyword">row</span> format delimited <span class="token keyword">fields</span> <span class="token keyword">terminated by</span> <span class="token string">'\t'</span><span class="token punctuation">;</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<pre><code>7369    SMITH   CLERK   7902    1980-12-17      800.00
+207499  ALLEN   SALESMAN        7698    1981-2-20       1600.00 300.00
+307521  WARD    SALESMAN        7698    1981-2-22       1250.00 500.00
+307566  JONES   MANAGER 7839    1981-4-2        2975.00
+207654  MARTIN  SALESMAN        7698    1981-9-28       1250.00 1400.00
+307698  BLAKE   MANAGER 7839    1981-5-1        2850.00
+307782  CLARK   MANAGER 7839    1981-6-9        2450.00
+107788  SCOTT   ANALYST 7566    1987-4-19       3000.00
+207839  KING    PRESIDENT               1981-11-17      5000.00
+107844  TURNER  SALESMAN        7698    1981-9-8        1500.00 0.00
+307876  ADAMS   CLERK   7788    1987-5-23       1100.00
+207900  JAMES   CLERK   7698    1981-12-3       950.00
+307902  FORD    ANALYST 7566    1981-12-3       3000.00
+207934  MILLER  CLERK   7782    1982-1-23       1300.00         10
+</code></pre><p>ORDER BY 查询示例</p>
+<pre class="line-numbers language-sql"><code class="language-sql">
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>结果显示如下</p>
+<pre><code>emp1.empno      emp1.ename      emp1.job        emp1.mgr        emp1.hiredate   emp1.sal        emp1.comm       emp1.deptno
+307902  FORD    ANALYST 7566    1981-12-3       3000.0  NULL    NULL
+307876  ADAMS   CLERK   7788    1987-5-23       1100.0  NULL    NULL
+307782  CLARK   MANAGER 7839    1981-6-9        2450.0  NULL    NULL
+307698  BLAKE   MANAGER 7839    1981-5-1        2850.0  NULL    NULL
+307566  JONES   MANAGER 7839    1981-4-2        2975.0  NULL    NULL
+307521  WARD    SALESMAN        7698    1981-2-22       1250.0  500.0   NULL
+207934  MILLER  CLERK   7782    1982-1-23       1300.0  NULL    10
+207900  JAMES   CLERK   7698    1981-12-3       950.0   NULL    NULL
+207839  KING    PRESIDENT       NULL    1981-11-17      5000.0  NULL    NULL
+207654  MARTIN  SALESMAN        7698    1981-9-28       1250.0  1400.0  NULL
+207499  ALLEN   SALESMAN        7698    1981-2-20       1600.0  300.0   NULL
+107844  TURNER  SALESMAN        7698    1981-9-8        1500.0  0.0     NULL
+107788  SCOTT   ANALYST 7566    1987-4-19       3000.0  NULL    NULL
+7369    SMITH   CLERK   7902    1980-12-17      800.0   NULL    NULL
+7369    SMITH   CLERK   7902    1980-12-17      800.0   NULL    207499
+Time taken: 38.149 seconds, Fetched: 15 row(s)
+</code></pre><p>SORT BY 和 DISTRIBUTE BY  查询示例</p>
+<pre class="line-numbers language-sql"><code class="language-sql"><span class="token keyword">set</span> mapreduce<span class="token punctuation">.</span>job<span class="token punctuation">.</span>reduces<span class="token operator">=</span><span class="token number">3</span><span class="token punctuation">;</span> <span class="token comment" spellcheck="true">-- 设置 reduce task 的数量为 3</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<pre class="line-numbers language-sql"><code class="language-sql"><span class="token keyword">insert</span> overwrite <span class="token keyword">local</span> directory <span class="token string">"/tmp/orderby"</span> <span class="token keyword">ROW</span> FORMAT DELIMITED <span class="token keyword">FIELDS</span> <span class="token keyword">TERMINATED BY</span> <span class="token string">'\t'</span> <span class="token keyword">select</span> <span class="token operator">*</span> <span class="token keyword">from</span> emp1 distribute <span class="token keyword">by</span> mgr sort <span class="token keyword">by</span> empno <span class="token keyword">desc</span><span class="token punctuation">;</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p>上面 HQL 的意思是对 empno 进行降序排序，并且按照 mgr 字段进行分区【如果不加 distribute by，那么就不知道会对哪个字段进行分区】，mgr 字段是 int 类型的，所以会将该列的值 %3 进行分区，所以结果文件为 3 个。因为 mgr 这一列的值 %3 都等于 0，所以只有第一个分区（分区0）有值，其他的两个分区都是空的。</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5s6J6uFGQqPFYcQi.4ATqeY7TmCRiWG2ZXFcmSrIOcw7k1O0fGuWA.rGQIKC5bR1DRkCnHnlQ4R5fJ.Y7*YWN8I!/mnull&amp;bo=.wNZAPsDWQADCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>CLUSTER BY 查询示例</p>
+<pre class="line-numbers language-sql"><code class="language-sql"><span class="token keyword">set</span> mapreduce<span class="token punctuation">.</span>job<span class="token punctuation">.</span>reduces<span class="token operator">=</span><span class="token number">3</span><span class="token punctuation">;</span> <span class="token comment" spellcheck="true">-- 设置 reduce task 的数量为 3</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<pre class="line-numbers language-sql"><code class="language-sql"><span class="token keyword">insert</span> overwrite <span class="token keyword">local</span> directory <span class="token string">"/tmp/orderby"</span> <span class="token keyword">ROW</span> FORMAT DELIMITED <span class="token keyword">FIELDS</span> <span class="token keyword">TERMINATED BY</span> <span class="token string">'\t'</span> <span class="token keyword">select</span> <span class="token operator">*</span> <span class="token keyword">from</span> emp1 cluster <span class="token keyword">by</span> empno<span class="token punctuation">;</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
+<p><code>cluster by empno</code> 相当于 <code>distribute by empno sort by empno desc</code></p>
+<h3 id="函数"><a href="#函数" class="headerlink" title="函数"></a>函数</h3><p>函数有所属库的概念，系统提供的除外。系统提供的函数可以在任意库中使用。</p>
+<pre><code>查看当前库所有的函数：show functions;
+查看函数的使用： desc function 函数名
+查看函数的详细使用： desc function extended 函数名
+</code></pre><p>函数的来源</p>
+<ol>
+<li>系统函数，自带的，直接使用即可</li>
+<li>用户自定义的函数</li>
+</ol>
+<p>函数按照特征分类</p>
+<ol>
+<li>UDF：  用户定义的函数。 一进一出。 输入单个参数，返回单个结果</li>
+<li>UDTF:  用户定义的表生成函数。 一进多出。传入一个参数(集合类型)，返回一个结果集</li>
+<li>UDAF： 用户定义的聚集函数。 多进一出。 传入一列多行的数据，返回一个结果(一列一行) </li>
+</ol>
+<p>常用日期函数（hive 默认解析的日期格式必须是： 2019-11-24 08:09:10）</p>
+<pre><code>unix_timestamp：返回当前或指定时间的时间戳    
+from_unixtime：将时间戳转为日期格式
+current_date：当前日期
+current_timestamp：当前的日期加时间
+* to_date：抽取日期部分
+year：获取年
+month：获取月
+day：获取日
+hour：获取时
+minute：获取分
+second：获取秒
+weekofyear：当前时间是一年中的第几周
+dayofmonth：当前时间是一个月中的第几天
+months_between： 两个日期间的月份，前-后
+add_months：日期加减月
+datediff：两个日期相差的天数，前-后
+date_add：日期加天数
+date_sub：日期减天数
+last_day：日期的当月的最后一天
+date_format格式化日期
+</code></pre><p>常用取整函数</p>
+<pre><code>round： 四舍五入
+ceil：  向上取整
+floor： 向下取整
+</code></pre><p>常用字符串操作函数</p>
+<pre><code>upper： 转大写
+lower： 转小写
+length： 长度
+trim：  前后去空格
+lpad： 向左补齐，到指定长度
+rpad：  向右补齐，到指定长度
+regexp_replace： 使用正则表达式匹配目标字符串，匹配成功后替换。SELECT regexp_replace(&#39;100-200&#39;, &#39;(\d+)&#39;, &#39;num&#39;)=&#39;num-num
+</code></pre><p>集合操作</p>
+<pre><code>size： 集合（map和list）中元素的个数
+map_keys： 返回map中的key
+map_values：返回map中的value
+array_contains：判断array中是否包含某个元素
+sort_array： 将array中的元素排序
+</code></pre>
           
         
       
