@@ -348,6 +348,249 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2019/05/30/K8s Service/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2019/05/30/K8s Service/" itemprop="url">K8s  Service</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-05-30T23:22:57+08:00">
+                2019-05-30
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Kubernetes/" itemprop="url" rel="index">
+                    <span itemprop="name">Kubernetes</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h4 id="Service-的分类"><a href="#Service-的分类" class="headerlink" title="Service 的分类"></a>Service 的分类</h4><p>Service 类型共有四种 ExternalName, ClusterIP（默认，仅用于集群内部）, NodePort（对外）, LoadBalancer（基于云平台的Service）</p>
+<pre><code>[root@k8s001 ~]# kubectl explain svc.spec.type
+KIND:     Service
+VERSION:  v1
+
+FIELD:    type &lt;string&gt;
+
+DESCRIPTION:
+     type determines how the Service is exposed. Defaults to ClusterIP. Valid
+     options are ExternalName, ClusterIP, NodePort, and LoadBalancer.
+     &quot;ExternalName&quot; maps to the specified externalName. &quot;ClusterIP&quot; allocates a
+     cluster-internal IP address for load-balancing to endpoints. Endpoints are
+     determined by the selector or if that is not specified, by manual
+     construction of an Endpoints object. If clusterIP is &quot;None&quot;, no virtual IP
+     is allocated and the endpoints are published as a set of endpoints rather
+     than a stable IP. &quot;NodePort&quot; builds on ClusterIP and allocates a port on
+     every node which routes to the clusterIP. &quot;LoadBalancer&quot; builds on NodePort
+     and creates an external load-balancer (if supported in the current cloud)
+     which routes to the clusterIP. More info:
+     https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
+</code></pre><h4 id="ClusterIP"><a href="#ClusterIP" class="headerlink" title="ClusterIP"></a>ClusterIP</h4><p>资源文件</p>
+<pre class="line-numbers language-yaml"><code class="language-yaml"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> v1
+<span class="token key atrule">kind</span><span class="token punctuation">:</span> Service
+<span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+  <span class="token key atrule">name</span><span class="token punctuation">:</span> redis
+  <span class="token key atrule">namespace</span><span class="token punctuation">:</span> default
+<span class="token key atrule">spec</span><span class="token punctuation">:</span>
+  <span class="token key atrule">selector</span><span class="token punctuation">:</span>
+    <span class="token key atrule">app</span><span class="token punctuation">:</span> redis
+  <span class="token key atrule">type</span><span class="token punctuation">:</span> ClusterIP
+  <span class="token key atrule">ports</span><span class="token punctuation">:</span>
+  <span class="token punctuation">-</span> <span class="token key atrule">port</span><span class="token punctuation">:</span> <span class="token number">6379</span>
+    <span class="token key atrule">targetPort</span><span class="token punctuation">:</span> <span class="token number">6379                   </span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>当 type 为 ClusterIP 时，我们还可以指定 ClusterIP，不过这样要确保指定的 ip 不会冲突。</p>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token punctuation">[</span>root@k8s001 <span class="token operator">~</span><span class="token punctuation">]</span><span class="token comment" spellcheck="true"># kubectl apply -f redis-svc.yaml </span>
+service<span class="token operator">/</span>redis created
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token punctuation">[</span>root@k8s001 <span class="token operator">~</span><span class="token punctuation">]</span><span class="token comment" spellcheck="true"># kubectl get svc </span>
+NAME         TYPE        CLUSTER<span class="token operator">-</span>IP      EXTERNAL<span class="token operator">-</span>IP   PORT<span class="token punctuation">(</span>S<span class="token punctuation">)</span>    AGE
+kubernetes   ClusterIP   <span class="token number">10.96</span><span class="token punctuation">.</span><span class="token number">0.1</span>       <span class="token operator">&lt;</span>none<span class="token operator">></span>        <span class="token number">443</span><span class="token operator">/</span>TCP    47h
+redis        ClusterIP   <span class="token number">10.111</span><span class="token punctuation">.</span><span class="token number">72.202</span>   <span class="token operator">&lt;</span>none<span class="token operator">></span>        <span class="token number">6379</span><span class="token operator">/</span>TCP   8s
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token punctuation">[</span>root@k8s001 <span class="token operator">~</span><span class="token punctuation">]</span><span class="token comment" spellcheck="true"># kubectl describe svc redis</span>
+Name<span class="token punctuation">:</span>              redis
+Namespace<span class="token punctuation">:</span>         default
+Labels<span class="token punctuation">:</span>            <span class="token operator">&lt;</span>none<span class="token operator">></span>
+Annotations<span class="token punctuation">:</span>       kubectl<span class="token punctuation">.</span>kubernetes<span class="token punctuation">.</span>io<span class="token operator">/</span>last<span class="token operator">-</span>applied<span class="token operator">-</span>configuration<span class="token punctuation">:</span>
+                     <span class="token punctuation">{</span><span class="token string">"apiVersion"</span><span class="token punctuation">:</span><span class="token string">"v1"</span><span class="token punctuation">,</span><span class="token string">"kind"</span><span class="token punctuation">:</span><span class="token string">"Service"</span><span class="token punctuation">,</span><span class="token string">"metadata"</span><span class="token punctuation">:</span><span class="token punctuation">{</span><span class="token string">"annotations"</span><span class="token punctuation">:</span><span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">,</span><span class="token string">"name"</span><span class="token punctuation">:</span><span class="token string">"redis"</span><span class="token punctuation">,</span><span class="token string">"namespace"</span><span class="token punctuation">:</span><span class="token string">"default"</span><span class="token punctuation">}</span><span class="token punctuation">,</span><span class="token string">"spec"</span><span class="token punctuation">:</span><span class="token punctuation">{</span><span class="token string">"ports"</span><span class="token punctuation">:</span><span class="token punctuation">[</span><span class="token punctuation">{</span><span class="token string">"port"</span><span class="token punctuation">:</span><span class="token number">6379</span><span class="token punctuation">,</span>"targ<span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+Selector<span class="token punctuation">:</span>          app<span class="token operator">=</span>redis
+Type<span class="token punctuation">:</span>              ClusterIP
+IP<span class="token punctuation">:</span>                <span class="token number">10.111</span><span class="token punctuation">.</span><span class="token number">72.202</span>
+Port<span class="token punctuation">:</span>              <span class="token operator">&lt;</span>unset<span class="token operator">></span>  <span class="token number">6379</span><span class="token operator">/</span>TCP
+TargetPort<span class="token punctuation">:</span>        <span class="token number">6379</span><span class="token operator">/</span>TCP
+Endpoints<span class="token punctuation">:</span>         <span class="token operator">&lt;</span>none<span class="token operator">></span>
+Session Affinity<span class="token punctuation">:</span>  None
+Events<span class="token punctuation">:</span>            <span class="token operator">&lt;</span>none<span class="token operator">></span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>Endpoints 代表后端地址，因为我们有对应的 Pod，所以为 none。</p>
+<h4 id="NodePort"><a href="#NodePort" class="headerlink" title="NodePort"></a>NodePort</h4><p>资源文件</p>
+<pre class="line-numbers language-yaml"><code class="language-yaml"><span class="token key atrule">apiVersion</span><span class="token punctuation">:</span> v1
+<span class="token key atrule">kind</span><span class="token punctuation">:</span> Service
+<span class="token key atrule">metadata</span><span class="token punctuation">:</span>
+  <span class="token key atrule">name</span><span class="token punctuation">:</span> myapp
+  <span class="token key atrule">namespace</span><span class="token punctuation">:</span> default
+<span class="token key atrule">spec</span><span class="token punctuation">:</span>
+  <span class="token key atrule">selector</span><span class="token punctuation">:</span>
+    <span class="token key atrule">app</span><span class="token punctuation">:</span> myapp
+  <span class="token key atrule">type</span><span class="token punctuation">:</span> NodePort
+  <span class="token key atrule">ports</span><span class="token punctuation">:</span>
+  <span class="token punctuation">-</span> <span class="token key atrule">port</span><span class="token punctuation">:</span> <span class="token number">80</span>
+    <span class="token key atrule">targetPort</span><span class="token punctuation">:</span> <span class="token number">80</span>
+    <span class="token key atrule">nodePort</span><span class="token punctuation">:</span> <span class="token number">30080</span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>这里的 port 是 svc 的端口，targetPort 是 Pod 的端口，nodePort 是对外的，节点的端口。当 type 为 NodePort 时候，可以指定 nodePort，比如这里的 30080，不过不建议指定，因为容易冲突。</p>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token punctuation">[</span>root@k8s001 <span class="token operator">~</span><span class="token punctuation">]</span><span class="token comment" spellcheck="true"># kubectl apply -f myapp-svc.yaml </span>
+service<span class="token operator">/</span>myapp created
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span></span></code></pre>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token punctuation">[</span>root@k8s001 <span class="token operator">~</span><span class="token punctuation">]</span><span class="token comment" spellcheck="true"># kubectl get svc </span>
+NAME         TYPE        CLUSTER<span class="token operator">-</span>IP      EXTERNAL<span class="token operator">-</span>IP   PORT<span class="token punctuation">(</span>S<span class="token punctuation">)</span>        AGE
+kubernetes   ClusterIP   <span class="token number">10.96</span><span class="token punctuation">.</span><span class="token number">0.1</span>       <span class="token operator">&lt;</span>none<span class="token operator">></span>        <span class="token number">443</span><span class="token operator">/</span>TCP        <span class="token number">2d</span>
+myapp        NodePort    <span class="token number">10.98</span><span class="token punctuation">.</span><span class="token number">100.188</span>   <span class="token operator">&lt;</span>none<span class="token operator">></span>        <span class="token number">80</span><span class="token punctuation">:</span><span class="token number">30080</span><span class="token operator">/</span>TCP   20s
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span></span></code></pre>
+<pre class="line-numbers language-python"><code class="language-python"><span class="token punctuation">[</span>root@k8s001 <span class="token operator">~</span><span class="token punctuation">]</span><span class="token comment" spellcheck="true"># kubectl describe svc myapp</span>
+Name<span class="token punctuation">:</span>                     myapp
+Namespace<span class="token punctuation">:</span>                default
+Labels<span class="token punctuation">:</span>                   <span class="token operator">&lt;</span>none<span class="token operator">></span>
+Annotations<span class="token punctuation">:</span>              kubectl<span class="token punctuation">.</span>kubernetes<span class="token punctuation">.</span>io<span class="token operator">/</span>last<span class="token operator">-</span>applied<span class="token operator">-</span>configuration<span class="token punctuation">:</span>
+                            <span class="token punctuation">{</span><span class="token string">"apiVersion"</span><span class="token punctuation">:</span><span class="token string">"v1"</span><span class="token punctuation">,</span><span class="token string">"kind"</span><span class="token punctuation">:</span><span class="token string">"Service"</span><span class="token punctuation">,</span><span class="token string">"metadata"</span><span class="token punctuation">:</span><span class="token punctuation">{</span><span class="token string">"annotations"</span><span class="token punctuation">:</span><span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">,</span><span class="token string">"name"</span><span class="token punctuation">:</span><span class="token string">"myapp"</span><span class="token punctuation">,</span><span class="token string">"namespace"</span><span class="token punctuation">:</span><span class="token string">"default"</span><span class="token punctuation">}</span><span class="token punctuation">,</span><span class="token string">"spec"</span><span class="token punctuation">:</span><span class="token punctuation">{</span><span class="token string">"ports"</span><span class="token punctuation">:</span><span class="token punctuation">[</span><span class="token punctuation">{</span><span class="token string">"nodePort"</span><span class="token punctuation">:</span><span class="token number">30080</span><span class="token punctuation">,</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+Selector<span class="token punctuation">:</span>                 app<span class="token operator">=</span>myapp
+Type<span class="token punctuation">:</span>                     NodePort
+IP<span class="token punctuation">:</span>                       <span class="token number">10.98</span><span class="token punctuation">.</span><span class="token number">100.188</span>
+Port<span class="token punctuation">:</span>                     <span class="token operator">&lt;</span>unset<span class="token operator">></span>  <span class="token number">80</span><span class="token operator">/</span>TCP
+TargetPort<span class="token punctuation">:</span>               <span class="token number">80</span><span class="token operator">/</span>TCP
+NodePort<span class="token punctuation">:</span>                 <span class="token operator">&lt;</span>unset<span class="token operator">></span>  <span class="token number">30080</span><span class="token operator">/</span>TCP
+Endpoints<span class="token punctuation">:</span>                <span class="token number">10.244</span><span class="token punctuation">.</span><span class="token number">1.16</span><span class="token punctuation">:</span><span class="token number">80</span><span class="token punctuation">,</span><span class="token number">10.244</span><span class="token punctuation">.</span><span class="token number">1.17</span><span class="token punctuation">:</span><span class="token number">80</span><span class="token punctuation">,</span><span class="token number">10.244</span><span class="token punctuation">.</span><span class="token number">2.11</span><span class="token punctuation">:</span><span class="token number">80</span> <span class="token operator">+</span> <span class="token number">2</span> more<span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+Session Affinity<span class="token punctuation">:</span>         None
+External Traffic Policy<span class="token punctuation">:</span>  Cluster
+Events<span class="token punctuation">:</span>                   <span class="token operator">&lt;</span>none<span class="token operator">></span>
+<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
+<p>我们将之前的标签为 app=myapp 的 Pod 关联上了刚刚创建的 svc，所以这里的 Endpoints 不为空。我们在本机上测试访问一下。通过测试，从本机访问三台机器都可以访问到服务。</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190530220603.png" alt></p>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://yanrs.me/2019/05/26/K8s Pod 控制器/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -3173,297 +3416,6 @@ Hello MyApp <span class="token operator">|</span> Version<span class="token punc
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2019/05/03/使用 Kubeadm 安装 k8s 集群/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2019/05/03/使用 Kubeadm 安装 k8s 集群/" itemprop="url">使用 Kubeadm 安装 k8s 集群</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2019-05-03T23:15:57+08:00">
-                2019-05-03
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Kubernetes/" itemprop="url" rel="index">
-                    <span itemprop="name">Kubernetes</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <p>以 kubeadm 安装的 k8s 集群，都会将 api server，etcd，controller-manager，scheduler，kubulet，kube-proxy 等以 Pod 的方式来启动。手工部署则是运行为系统级守护进程。</p>
-<p>使用 kubeadm 安装 k8s 集群的步骤：</p>
-<ol>
-<li>master, nodes： 安装 kubelet, kubeadm, docker, kubectl</li>
-<li>master：kubeadm init</li>
-<li>nodes：kubeadm join</li>
-</ol>
-<p><img src="https://i.loli.net/2019/05/03/5ccbeb7f8948c.png" alt></p>
-<p>在阿里云上购买三台硅谷的抢占式 ECS 实例</p>
-<p><img src="https://i.loli.net/2019/05/04/5ccd3acda29a8.png" alt></p>
-<h3 id="Master"><a href="#Master" class="headerlink" title="Master"></a>Master</h3><h4 id="修改-SSH-断开时间"><a href="#修改-SSH-断开时间" class="headerlink" title="修改 SSH 断开时间"></a>修改 SSH 断开时间</h4><pre><code>echo export TMOUT=1000000 &gt;&gt; /root/.bash_profile
-cat /root/.bash_profile
-source .bash_profile
-cp /etc/ssh/sshd_config /etc/ssh/sshd_config_bak
-echo ClientAliveInterval=60 &gt;&gt; /etc/ssh/sshd_config
-service sshd restart
-cat /etc/ssh/sshd_config
-service sshd restart
-exit
-</code></pre><h4 id="安装Docker"><a href="#安装Docker" class="headerlink" title="安装Docker"></a>安装Docker</h4><pre class="line-numbers language-shell"><code class="language-shell"> yum -y install docker
-<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-<pre><code>systemctl start docker.service
-</code></pre><h4 id="安装kubeadm，kubelet和kubectl"><a href="#安装kubeadm，kubelet和kubectl" class="headerlink" title="安装kubeadm，kubelet和kubectl"></a>安装kubeadm，kubelet和kubectl</h4><ul>
-<li><code>kubeadm</code>：引导群集的命令。</li>
-<li><code>kubelet</code>：在群集中的所有计算机上运行的组件，并执行诸如启动pod和容器之类的操作。</li>
-<li><code>kubectl</code>：用于与群集通信的命令行util。</li>
-</ul>
-<pre class="line-numbers language-shell"><code class="language-shell">cat <<eof> /etc/yum.repos.d/kubernetes.repo
-[kubernetes]
-name=Kubernetes
-baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
-enabled=1
-gpgcheck=1
-repo_gpgcheck=1
-gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-exclude=kube*
-EOF
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></eof></code></pre>
-<pre class="line-numbers language-shell"><code class="language-shell"># Set SELinux in permissive mode (effectively disabling it)
-setenforce 0
-sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
-<pre class="line-numbers language-shell"><code class="language-shell">yum install -y kubelet kubeadm kubectl --disableexcludes=kubernetes
-<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-<pre class="line-numbers language-shell"><code class="language-shell">systemctl enable --now kubelet
-<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-<h4 id="初始化-Master"><a href="#初始化-Master" class="headerlink" title="初始化 Master"></a>初始化 Master</h4><p>初始化需要指定 –pod-network-cidr，如果 Pod 网络插件采用 Flannel，那么 –pod-network-cidr 的值需要和 Flannel yml 配置文件中的一致。</p>
-<pre class="line-numbers language-shell"><code class="language-shell">[root@iZrj9be8chbky2q6pegw28Z ~]# kubeadm init --apiserver-advertise-address 172.20.245.177 --pod-network-cidr 10.244.0.0/16 --ignore-preflight-errors=All             
-[init] Using Kubernetes version: v1.14.1
-[preflight] Running pre-flight checks
-[preflight] Pulling images required for setting up a Kubernetes cluster
-[preflight] This might take a minute or two, depending on the speed of your internet connection
-[preflight] You can also perform this action in beforehand using 'kubeadm config images pull'
-
-
-[kubelet-start] Writing kubelet environment file with flags to file "/var/lib/kubelet/kubeadm-flags.env"
-[kubelet-start] Writing kubelet configuration to file "/var/lib/kubelet/config.yaml"
-[kubelet-start] Activating the kubelet service
-[certs] Using certificateDir folder "/etc/kubernetes/pki"
-[certs] Generating "etcd/ca" certificate and key
-
-[certs] Generating "etcd/peer" certificate and key
-[certs] etcd/peer serving cert is signed for DNS names [izrj9be8chbky2q6pegw28z localhost] and IPs [172.20.245.177 127.0.0.1 ::1]
-[certs] Generating "apiserver-etcd-client" certificate and key
-[certs] Generating "etcd/server" certificate and key
-[certs] etcd/server serving cert is signed for DNS names [izrj9be8chbky2q6pegw28z localhost] and IPs [172.20.245.177 127.0.0.1 ::1]
-[certs] Generating "etcd/healthcheck-client" certificate and key
-[certs] Generating "front-proxy-ca" certificate and key
-[certs] Generating "front-proxy-client" certificate and key
-[certs] Generating "ca" certificate and key
-[certs] Generating "apiserver" certificate and key
-[certs] apiserver serving cert is signed for DNS names [izrj9be8chbky2q6pegw28z kubernetes kubernetes.default kubernetes.default.svc kubernetes.default.svc.cluster.local] and IPs [10.96.0.1 172.20.245.177]
-[certs] Generating "apiserver-kubelet-client" certificate and key
-[certs] Generating "sa" key and public key
-[kubeconfig] Using kubeconfig folder "/etc/kubernetes"
-[kubeconfig] Writing "admin.conf" kubeconfig file
-[kubeconfig] Writing "kubelet.conf" kubeconfig file
-[kubeconfig] Writing "controller-manager.conf" kubeconfig file
-[kubeconfig] Writing "scheduler.conf" kubeconfig file
-[control-plane] Using manifest folder "/etc/kubernetes/manifests"
-[control-plane] Creating static Pod manifest for "kube-apiserver"
-[control-plane] Creating static Pod manifest for "kube-controller-manager"
-[control-plane] Creating static Pod manifest for "kube-scheduler"
-[etcd] Creating static Pod manifest for local etcd in "/etc/kubernetes/manifests"
-[wait-control-plane] Waiting for the kubelet to boot up the control plane as static Pods from directory "/etc/kubernetes/manifests". This can take up to 4m0s
-[apiclient] All control plane components are healthy after 15.502031 seconds
-[upload-config] storing the configuration used in ConfigMap "kubeadm-config" in the "kube-system" Namespace
-[kubelet] Creating a ConfigMap "kubelet-config-1.14" in namespace kube-system with the configuration for the kubelets in the cluster
-[upload-certs] Skipping phase. Please see --experimental-upload-certs
-[mark-control-plane] Marking the node izrj9be8chbky2q6pegw28z as control-plane by adding the label "node-role.kubernetes.io/master=''"
-[mark-control-plane] Marking the node izrj9be8chbky2q6pegw28z as control-plane by adding the taints [node-role.kubernetes.io/master:NoSchedule]
-[bootstrap-token] Using token: p8qz5z.ctkrg6zbclwmyja9
-[bootstrap-token] Configuring bootstrap tokens, cluster-info ConfigMap, RBAC Roles
-[bootstrap-token] configured RBAC rules to allow Node Bootstrap tokens to post CSRs in order for nodes to get long term certificate credentials
-[bootstrap-token] configured RBAC rules to allow the csrapprover controller automatically approve CSRs from a Node Bootstrap Token
-[bootstrap-token] configured RBAC rules to allow certificate rotation for all node client certificates in the cluster
-[bootstrap-token] creating the "cluster-info" ConfigMap in the "kube-public" namespace
-[addons] Applied essential addon: CoreDNS
-[addons] Applied essential addon: kube-proxy
-
-Your Kubernetes control-plane has initialized successfully!
-
-To start using your cluster, you need to run the following as a regular user:
-
-  mkdir -p $HOME/.kube
-  sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-  sudo chown $(id -u):$(id -g) $HOME/.kube/config
-
-You should now deploy a pod network to the cluster.
-Run "kubectl apply -f [podnetwork].yaml" with one of the options listed at:
-  https://kubernetes.io/docs/concepts/cluster-administration/addons/
-
-Then you can join any number of worker nodes by running the following on each as root:
-
-kubeadm join 172.20.245.177:6443 --token p8qz5z.ctkrg6zbclwmyja9 \
-    --discovery-token-ca-cert-hash sha256:58613d36b9f6ad46f8455e134b626b52bd4992f65c6fbfeb97169905ac2ce92a 
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<p>init 之后查看 docker 镜像，会发现 init 拉取了 kubeadm 所需的镜像。因为 kubeadm 会将 Api Server，etcd 等以 Pod 的方式启动（静态），所有会看到所需的镜像。<br><img src="https://i.loli.net/2019/05/03/5ccc4f3af32b6.png" alt><br><img src="https://i.loli.net/2019/05/03/5ccc4f5279db4.png" alt></p>
-<pre class="line-numbers language-shell"><code class="language-shell">mkdir -p $HOME/.kube
-sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-sudo chown $(id -u):$(id -g) $HOME/.kube/config
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span></span></code></pre>
-<h4 id="获取组件状态信息"><a href="#获取组件状态信息" class="headerlink" title="获取组件状态信息"></a>获取组件状态信息</h4><pre class="line-numbers language-shell"><code class="language-shell">kubectl get cs
-<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-<p><img src="https://i.loli.net/2019/05/03/5ccc4f75bb8ca.png" alt></p>
-<h4 id="获取节点信息"><a href="#获取节点信息" class="headerlink" title="获取节点信息"></a>获取节点信息</h4><p>kubectl get nodes 获取节点信息<br><img src="https://i.loli.net/2019/05/03/5ccc4f904adcb.png" alt><br>查看 nodes 发现master NotReady，我们需要安装一下 flannel 网络插件</p>
-<h4 id="获取名称空间"><a href="#获取名称空间" class="headerlink" title="获取名称空间"></a>获取名称空间</h4><p>kubectl get ns 获取所有的名称空间<br><img src="https://i.loli.net/2019/05/03/5ccc4e22a134f.png" alt></p>
-<h4 id="查看指定名称空间"><a href="#查看指定名称空间" class="headerlink" title="查看指定名称空间"></a>查看指定名称空间</h4><p>kubectl get pods  -n kube-system 查看名称空间为 kube-system（系统级别，默认为 default） 的 pods<br><img src="https://i.loli.net/2019/05/03/5ccc50a63a054.png" alt></p>
-<h4 id="安装-Flannel"><a href="#安装-Flannel" class="headerlink" title="安装 Flannel"></a>安装 Flannel</h4><p><a href="https://github.com/coreos/flannel" target="_blank" rel="noopener">https://github.com/coreos/flannel</a></p>
-<pre class="line-numbers language-shell"><code class="language-shell">kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
-<span aria-hidden="true" class="line-numbers-rows"><span></span></span></code></pre>
-<p><img src="https://i.loli.net/2019/05/03/5ccc509247878.png" alt></p>
-<p>安装之后我们就能看到 Master 从 NotReady 变成了 Ready<br><img src="https://i.loli.net/2019/05/03/5ccc50446c66e.png" alt></p>
-<h3 id="Nodes"><a href="#Nodes" class="headerlink" title="Nodes"></a>Nodes</h3><ol>
-<li>安装 Docker，启动服务</li>
-<li>安装kubeadm，kubelet和kubectl</li>
-<li><p>join。在 Node 上执行上面 init 之后得到的结果，让 Node 加入集群中<br> <img src="https://i.loli.net/2019/05/03/5ccc51c26ed20.png" alt><br> 获取所有 nodes 信息<br>   <img src="https://i.loli.net/2019/05/03/5ccc51fd2b484.png" alt> </p>
-<p> 最后我们将本次实验的 master 中的 docker 镜像下载，这样就能在本地使用 kubeadm 进行安装了，而不必在国外机器进行实验。<br>   <img src="https://i.loli.net/2019/05/03/5ccc555dba8be.png" alt></p>
-</li>
-</ol>
-<pre class="line-numbers language-shell"><code class="language-shell">  docker save -o k8s.gcr.io=kube-proxy:v1.14.1.tar.gz k8s.gcr.io/kube-proxy:v1.14.1   
-  docker save -o k8s.gcr.io=kube-apiserver:v1.14.1.tar.gz k8s.gcr.io/kube-apiserver:v1.14.1
-  docker save -o k8s.gcr.io=kube-apiserver:v1.14.1.tar.gz k8s.gcr.io/kube-apiserver:v1.14.1
-  docker save -o k8s.gcr.io=kube-controller-manager:v1.14.1.tar.gz k8s.gcr.io/kube-controller-manager:v1.14.1
-  docker save -o k8s.gcr.io=kube-scheduler:v1.14.1.tar.gz k8s.gcr.io/kube-scheduler:v1.14.1
-  docker save -o quay.io=coreos=flannel:v0.11.0-amd64.tar.gz quay.io/coreos/flannel:v0.11.0-amd64
-  docker save -o k8s.gcr.io=coredns:1.3.1.tar.gz k8s.gcr.io/coredns:1.3.1 
-  docker save -o k8s.gcr.io=etcd:3.3.10.tar.gz k8s.gcr.io/etcd:3.3.10  
-  docker save -o k8s.gcr.io=pause:3.1.tar.gz k8s.gcr.io/pause:3.1 
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
   </section>
 
   
@@ -3514,7 +3466,7 @@ sudo chown $(id -u):$(id -g) $HOME/.kube/config
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">299</span>
+                  <span class="site-state-item-count">300</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>
@@ -3525,7 +3477,7 @@ sudo chown $(id -u):$(id -g) $HOME/.kube/config
               
               <div class="site-state-item site-state-categories">
                 <a href="/categories/index.html">
-                  <span class="site-state-item-count">30</span>
+                  <span class="site-state-item-count">31</span>
                   <span class="site-state-item-name">分类</span>
                 </a>
               </div>
@@ -3536,7 +3488,7 @@ sudo chown $(id -u):$(id -g) $HOME/.kube/config
               
               <div class="site-state-item site-state-tags">
                 <a href="/tags/index.html">
-                  <span class="site-state-item-count">148</span>
+                  <span class="site-state-item-count">149</span>
                   <span class="site-state-item-name">标签</span>
                 </a>
               </div>

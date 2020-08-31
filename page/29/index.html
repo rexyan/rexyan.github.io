@@ -348,6 +348,343 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/04/27/Python 微信卡券投放/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2018/04/27/Python 微信卡券投放/" itemprop="url">Python 微信卡券投放</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-04-27T17:19:57+08:00">
+                2018-04-27
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/技术/" itemprop="url" rel="index">
+                    <span itemprop="name">技术</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="所需资料"><a href="#所需资料" class="headerlink" title="所需资料"></a>所需资料</h3><ol>
+<li>开发者ID(AppID)</li>
+<li>开发者密码(AppSecret)</li>
+<li>卡券ID</li>
+</ol>
+<h3 id="创建卡券"><a href="#创建卡券" class="headerlink" title="创建卡券"></a>创建卡券</h3><pre><code>见附件
+</code></pre><h3 id="投放卡券（验证可行tornado示例）"><a href="#投放卡券（验证可行tornado示例）" class="headerlink" title="投放卡券（验证可行tornado示例）"></a>投放卡券（验证可行tornado示例）</h3><h4 id="Python代码"><a href="#Python代码" class="headerlink" title="Python代码"></a>Python代码</h4><pre><code>class WechatAuthHandler(BaseHandler):        
+    def get(self):
+        try:
+            appid = settings.WECHAT_APPID
+            app_secret = settings.WECHAT_SECRET
+
+            # 获取access_token（每天2000次数,过期时间7200秒，放入redis缓存）
+            access_token = self.get_access_token(appid, app_secret)
+
+            # 获取通用jssdk需要的ticket（每天2000次数,过期时间7200秒，放入redis缓存）
+            jsapi = self.get_ticket(access_token[&#39;access_token&#39;], &quot;jsapi&quot;)
+
+            # 生成jssdk签名，用于基础jssdk的各种功能调用
+            # 签名生成规则如下：参与签名的字段包括noncestr（随机字符串）, 有效的jsapi_ticket, timestamp（时间戳）, url（当前网页的URL，不包含#及其后面部分） 。
+            # 对所有待签名参数按照字段名的ASCII 码从小到大排序（字典序）后，使用URL键值对的格式（即key1=value1&amp;key2=value2…）拼接成字符串string1。
+            # 这里需要注意的是所有参数名均为小写字符。对string1作sha1加密，字段名和字段值都采用原始值，不进行URL 转义
+
+            jsapi_ticket = jsapi[&#39;ticket&#39;]
+            jsapi_timestamp = self.get_timestamp()
+            jsapi_current_url = self.get_request_url()
+            jsapi_noncestr = self.get_noncestr(&#39;jssdk&#39;)
+            before_string = &quot;jsapi_ticket=%s&amp;noncestr=%s&amp;timestamp=%s&amp;url=%s&quot; % (jsapi_ticket, jsapi_noncestr, jsapi_timestamp, jsapi_current_url)
+
+            # 签名
+            sha = hashlib.sha1(before_string.encode(&#39;utf8&#39;))
+            jsapi_signature = sha.hexdigest()
+
+            # 拼接数据
+            jssdk_data = {
+                &quot;appId&quot;: appid,
+                &quot;timestamp&quot;: str(jsapi_timestamp),
+                &quot;nonceStr&quot;: jsapi_noncestr,
+                &quot;signature&quot;: jsapi_signature,
+            }
+
+            # 生成卡券信息，这些参数用于卡券的功能调用
+            card_noncestr = self.get_noncestr(&#39;card&#39;)
+            card_timestamp = self.get_timestamp()
+            card_id = &quot;pLKpXwKR7TbJEPdHEsnNYLbBc8JE&quot; # 卡券ID
+
+            # 获取卡券专用ticket（每天2000次数,过期时间7200秒，放入redis缓存）
+            card_ticket = self.get_ticket(access_token[&#39;access_token&#39;], &quot;wx_card&quot;)
+            cardapi_ticket = card_ticket[&#39;ticket&#39;]
+
+            # 将 api_ticket、timestamp、card_id、code、openid、nonce_str的value值进行字符串的字典序排序。
+            sorted_param_list = sorted([cardapi_ticket, card_timestamp, card_id, card_noncestr])  
+
+            # 将所有参数字符串拼接成一个字符串进行sha1加密
+            card_string = &quot;&quot;.join([str(x) for x in sorted_param_list])
+            sha_card = hashlib.sha1(card_string.encode(&#39;utf8&#39;))
+            card_signature = sha_card.hexdigest()
+
+            # 拼接数据
+            card_data = {
+                &quot;timestamp&quot;: card_timestamp,
+                &quot;nonce_str&quot;: card_noncestr,
+                &quot;signature&quot;: card_signature
+            }
+            data = {&#39;jssdk&#39;:jssdk_data, &#39;cardId&#39;:card_id, &#39;cardExt&#39;:card_data}
+            self.render(&quot;wechat.html&quot;, data=data)
+            # self.write_json(data=data, status=status)
+        except Exception, e:
+            print e, &quot;出错，调转到结束页面&quot; 
+
+    def get_access_token(self, appid, app_secret):
+        # 获取access_token，由于接口有限制，所以加上缓存
+        wx_access_token_url = &quot;https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&amp;appid=%s&amp;secret=%s&quot; % (appid, app_secret)
+        access_token_string = redis_utils.redis_get(&quot;WECHAT_ACCESS_TOKEN&quot;)
+        if not access_token_string:
+            access_token_string = requests.get(url=wx_access_token_url, timeout=15).content.decode(&#39;utf8&#39;)
+            redis_utils.redis_set(&quot;WECHAT_ACCESS_TOKEN&quot;, access_token_string, 7000) # 过期时间设置为7000，比微信的提前200
+        return  json.loads(access_token_string)
+
+    def get_ticket(self, access_token, ticket_type):
+        # 根据ticket_type不同，调用不同的微信接口，由于接口有限制，所以加上缓存
+        REDIS_KEY = &quot;WECHAT_TICKET&quot;+str.upper(ticket_type)
+        wx_ticket_url = &quot;https://api.weixin.qq.com/cgi-bin/ticket/getticket?access_token=%s&amp;type=%s&quot; % (access_token, ticket_type)
+        ticket_string = redis_utils.redis_get(REDIS_KEY)
+        if not ticket_string:
+            ticket_string = requests.get(url=wx_ticket_url, timeout=15).content.decode(&#39;utf8&#39;)
+            redis_utils.redis_set(REDIS_KEY, ticket_string, 7000) # 过期时间设置为7000，比微信的提前200
+        return json.loads(ticket_string)
+
+    def get_timestamp(self):
+        # 获取时间戳
+        return int(time.time())
+
+    def get_noncestr(self, name):
+        # 产生随机字符串，可能会用于校验，所以缓存120s
+        random_str = str(uuid.uuid1())
+        redis_utils.redis_set(name, random_str, 120)
+        return random_str
+
+    def get_request_url(self):
+        # 根据规则只取#之前的部分
+        return (self.request.protocol+&quot;://&quot;+self.request.host+self.request.uri).split(&quot;#&quot;)[0]
+</code></pre><h4 id="html代码"><a href="#html代码" class="headerlink" title="html代码"></a>html代码</h4><pre><code>&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;UTF-8&quot;&gt;
+&lt;title&gt;问卷网CEM-卡券领取测试&lt;/title&gt;
+&lt;link href=&quot;https://cdn.bootcss.com/bootstrap/4.1.0/css/bootstrap.css&quot; rel=&quot;stylesheet&quot;&gt;
+&lt;script src=&quot;http://res.wx.qq.com/open/js/jweixin-1.0.0.js&quot;&gt;&lt;/script&gt;
+        &lt;script&gt;
+            wx.config({
+                    debug: false,
+                    appId: &quot;{{ data['jssdk']['appId'] }}&quot;,
+                    timestamp: &quot;{{ data['jssdk']['timestamp'] }}&quot;,
+                    nonceStr: &quot;{{ data['jssdk']['nonceStr'] }}&quot;,
+                    signature: &quot;{{ data['jssdk']['signature'] }}&quot;,
+                    jsApiList: [
+                            &#39;addCard&#39;
+                            ]
+                });
+            wx.ready(function(){
+                //添加卡券
+                document.querySelector(&#39;#addCard&#39;).onclick = function () {
+                    wx.addCard({
+                      cardList: [
+                        {
+                          cardId: &quot;{{ data['cardId'] }}&quot;,
+                          cardExt: &#39;{&quot;timestamp&quot;:&quot;{{ data['cardExt']['timestamp'] }}&quot;, &quot;nonce_str&quot;: &quot;{{ data['cardExt']['nonce_str'] }}&quot; , &quot;signature&quot;:&quot;{{ data['cardExt']['signature'] }}&quot;}&#39;
+                        }
+                      ],
+                      success: function (res) {
+                        alert(&#39;已添加卡券：&#39; + JSON.stringify(res.cardList)); 
+                      }
+                    });
+                };
+
+                document.querySelector(&#39;#select_all&#39;).onclick = function () {
+                wx.chooseCard({
+                    shopId: &#39;&#39;, // 门店Id
+                    cardType: &#39;&#39;, // 卡券类型
+                    cardId: &#39;&#39;, // 卡券Id
+                    timestamp: &#39;{{ data['cardExt']['timestamp'] }}&#39;, // 卡券签名时间戳
+                    nonceStr: &#39;{{ data['cardExt']['nonce_str'] }}&#39;, // 卡券签名随机串
+                    signType: &#39;SHA1&#39;, // 签名方式，默认&#39;SHA1&#39;
+                    cardSign: &#39;{{ data['cardExt']['signature'] }}&#39;, // 卡券签名
+                    success: function (res) {
+                    var cardList= res.cardList; // 用户选中的卡券列表信息
+                    alert(cardList)
+                    }
+                });
+                };
+            });
+    &lt;/script&gt;
+&lt;/head&gt;
+&lt;body&gt;
+        &lt;center&gt;&lt;button type=&quot;button&quot; class=&quot;btn btn-primary btn-lg btn-block&quot; style=&quot;margin-top:10%;&quot; id=&quot;addCard&quot;&gt;点我添加卡券&lt;/button&gt;&lt;/center&gt; 
+        &lt;center&gt;&lt;button type=&quot;button&quot; class=&quot;btn btn-primary btn-lg btn-block&quot; style=&quot;margin-top:10%;&quot; id=&quot;select_all&quot;&gt;查看所有卡券&lt;/button&gt;&lt;/center&gt; 
+
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre><h3 id="核销卡券"><a href="#核销卡券" class="headerlink" title="核销卡券"></a>核销卡券</h3><pre><code>见附件
+</code></pre><h3 id="微信登录（未验证flask示例）"><a href="#微信登录（未验证flask示例）" class="headerlink" title="微信登录（未验证flask示例）"></a>微信登录（未验证flask示例）</h3><pre><code>@app.route(&quot;/&quot;)
+def index():
+    appid = &quot;wx*************&quot;
+    redirect_uri = &quot;http%3A%2F%2Fcoupon.abc.com%2Fauthorization&quot;
+    csrf_state = str(random.randint(0, 10000)) + &#39;&#39;.join(random.sample(&#39;abcdefghijk&#39;, 5))
+    session[&quot;csfr_token&quot;] = csrf_state
+    wx_code_url = &quot;https://open.weixin.qq.com/connect/oauth2/authorize?appid=%s&amp;redirect_uri=%s&amp;response_type=code&amp;scope=snsapi_userinfo&amp;state=%s#wechat_redirect&quot; % (appid, redirect_uri, csrf_state)
+    return redirect(wx_code_url)
+
+@app.route(&quot;/authorization&quot;)
+def authorization():
+    page_status = &quot;1&quot;
+    wx_code = request.args.get(&quot;code&quot;)  # Flask 获取 get请求的值用request.args，获取post请求用request.form，获取前端ajax的json数据用request.data，这里的code是微信回调的时候加上去的
+    csrf_state = request.args.get(&quot;state&quot;) # 这个state是微信回调回来的时候带上去的，是之前我们自己生成的随机字符串
+    if session[&quot;csfr_token&quot;] != csrf_state: # 随机字符串的校验，校验失败就跳转首页
+        return redirect(&quot;http://coupon.abc.com&quot;)
+    else:
+        appid = &quot;wx****************&quot;
+        app_secret = &quot;*********************&quot;
+        wx_login_token_url = &quot;https://api.weixin.qq.com/sns/oauth2/access_token?appid=%s&amp;secret=%s&amp;code=%s&amp;grant_type=authorization_code&quot; % (appid, app_secret, wx_code)
+        try:
+            wx_login_token = requests.get(url=wx_login_token_url, timeout=15).json() # 获取一个token
+
+            session[&#39;openid&#39;] = wx_login_token[&#39;openid&#39;] # 微信返回的openid，同时返回了一个授权用的Token，这个授权token是没有次数限制的，区别于基础功能的access_token，这里把openid作为session来全局判断登录状态
+
+            access_token = get_access_token(appid, app_secret)  # 单独写了一个获取基础功能access_tokende 的方法，这个是有次数限制的，每天2000次，用完就gg了，所以需要做特殊的缓存操作，下面会详细说
+            jsapi = get_ticket(access_token[&#39;access_token&#39;], &quot;jsapi&quot;)  # 这个单独的方法是获取通用jssdk需要的ticket方法，ticket的使用也有次数限制，所以也需要做缓存
+
+</code></pre><h3 id="注意事项"><a href="#注意事项" class="headerlink" title="注意事项"></a>注意事项</h3><ol>
+<li>设置IP白名单</li>
+<li>设置jssdk域名白名单</li>
+<li>签名中的本页面的url是包含http的完整信息</li>
+<li>jssdk demo页面 <a href="http://203.195.235.76/jssdk/" target="_blank" rel="noopener">http://203.195.235.76/jssdk/</a></li>
+</ol>
+<h3 id="附件"><a href="#附件" class="headerlink" title="附件"></a>附件</h3><p><a href="http://ovsf3r7sm.bkt.clouddn.com/%E5%8D%A1%E5%88%B8%E7%A4%BA%E4%BE%8B.pdf" target="_blank" rel="noopener">http://ovsf3r7sm.bkt.clouddn.com/%E5%8D%A1%E5%88%B8%E7%A4%BA%E4%BE%8B.pdf</a></p>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/04/27/Python Jieba分词/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -1479,250 +1816,6 @@ doc/*.txt # 会忽略 doc/notes.txt 但不包括 doc/server/arch.txt
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/04/06/Docker6 -- 映射 /">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2018/04/06/Docker6 -- 映射 /" itemprop="url">Docker6 映射</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-04-06T11:33:57+08:00">
-                2018-04-06
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Docker/" itemprop="url" rel="index">
-                    <span itemprop="name">Docker</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <p>Docker允许映射容器内应用的服务端口到本地的宿主主机，还能实现多个容器之间通过容器名来快速访问。</p>
-<h3 id="端口映射"><a href="#端口映射" class="headerlink" title="端口映射"></a>端口映射</h3><h4 id="从外部访问容器"><a href="#从外部访问容器" class="headerlink" title="从外部访问容器"></a>从外部访问容器</h4><p>当容器中运行一些网络应用，要让外部访问这些应用的时候，我们可以通过参数 -P 或者 -p来指定端口。使用大P参数时，Docker会随机映射一个49000-49900的端口到容器内部的端口。</p>
-<pre><code>root@rexyan:/# docker run -d  -P training/webapp python app.py
-d03564d51bdeb439e3c9f140575ab53cd665e47c35efd567a8c20aefc14c2e6d
-root@rexyan:/# docker ps
-CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS                     NAMES
-d03564d51bde        training/webapp     &quot;python app.py&quot;     3 seconds ago       Up 2 seconds        0.0.0.0:32770-&gt;5000/tcp   clever_austin
-root@rexyan:/# 
-</code></pre><p>可以看见将本机的32770端口映射到了容器内的5000端口。我们可以浏览器访问本机IP+32770端口就能看见内容了</p>
-<p>可以使用docker logs来查看访问的信息</p>
-<pre><code>root@rexyan:/# docker logs d03564d51bde
- * Running on http://0.0.0.0:5000/ (Press CTRL+C to quit)
- * Running on http://0.0.0.0:5000/ (Press CTRL+C to quit)
-10.10.10.1 - - [06/Apr/2018 05:41:40] &quot;GET / HTTP/1.1&quot; 200 -
-10.10.10.1 - - [06/Apr/2018 05:41:41] &quot;GET /favicon.ico HTTP/1.1&quot; 404 -
-</code></pre><p>除了使用-P随机生成一个本机端口与容器的应用进行端口映射外，我们还可以使用-p来指定端口</p>
-<pre><code>root@rexyan:/# docker run -d -p 16666:5000 training/webapp python app.py
-30e63bcaf4a3df3708eacd0fb114ce66ce2fb1ee2b103409e1286313e98dda03
-</code></pre><p>将本机16666端口与容器5000进行映射。</p>
-<h4 id="映射所有接口地址"><a href="#映射所有接口地址" class="headerlink" title="映射所有接口地址"></a>映射所有接口地址</h4><p>使用-p默认会绑定本地所有接口上的所有地址，多次使用-p参数，可以绑定多个端口</p>
-<pre><code>root@rexyan:/# docker run -d -p 11111:5000 -p 11112:5000 training/webapp python app.py
-</code></pre><h4 id="映射到指定地址的指定端口"><a href="#映射到指定地址的指定端口" class="headerlink" title="映射到指定地址的指定端口"></a>映射到指定地址的指定端口</h4><pre><code>root@rexyan:/# docker run -d -p 10.10.10.133:10203:5000 training/webapp python app.py 
-</code></pre><h4 id="映射到指定地址的任意端口"><a href="#映射到指定地址的任意端口" class="headerlink" title="映射到指定地址的任意端口"></a>映射到指定地址的任意端口</h4><pre><code>root@rexyan:/# docker run -d -p 10.10.10.133::5000 training/webapp python app.py 
-</code></pre><p>这里会默认分配一个端口出来，相当于-P</p>
-<pre><code>root@rexyan:/# docker ps 
-CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS                          NAMES
-a1b25a3d9236        training/webapp     &quot;python app.py&quot;     2 seconds ago       Up 1 second         10.10.10.133:32769-&gt;5000/tcp   elegant_clarke
-</code></pre><h4 id="查看端口映射配置"><a href="#查看端口映射配置" class="headerlink" title="查看端口映射配置"></a>查看端口映射配置</h4><pre><code>root@rexyan:/# docker port a1b25a3d9236
-5000/tcp -&gt; 10.10.10.133:32769
-</code></pre><p>还可以使用docker inspect + id/名称来查看</p>
-<pre><code>docker inspect a1b25a3d9236
-</code></pre><h3 id="容器互联"><a href="#容器互联" class="headerlink" title="容器互联"></a>容器互联</h3><p>容器互联是一种让多个容器中应用进行快速交互的方式，它会在源和接收容器之间创建连接关系，接收容器可以通过容器名快速访问到源容器。</p>
-<h4 id="自定义容器名称"><a href="#自定义容器名称" class="headerlink" title="自定义容器名称"></a>自定义容器名称</h4><p>创建容器的时候系统会自动创建名称，但是我们可以使用–name来指定自己的容器名称，这里注意容器名称是不能重复的。</p>
-<pre><code>root@rexyan:/# docker run -d -p 12000:5000 --name web  training/webapp python app.py 
-f59bdcfceb9c8913fa77eb90bba2ae54342fde166934097a6ff6279aaab89f28
-root@rexyan:/# docker ps 
-CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS                     NAMES
-f59bdcfceb9c        training/webapp     &quot;python app.py&quot;     3 seconds ago       Up 2 seconds        0.0.0.0:12000-&gt;5000/tcp   web
-</code></pre><p>在创建docker的时候，如果使用-rm 参数，这代表容器终止后会被删除。-rm 参数不能和-d一起使用。</p>
-<h4 id="容器互联-1"><a href="#容器互联-1" class="headerlink" title="容器互联"></a>容器互联</h4><p>新建一个容器</p>
-<pre><code>root@rexyan:/# docker run -d --name db training/postgres
-Unable to find image &#39;training/postgres:latest&#39; locally
-latest: Pulling from training/postgres
-a3ed95caeb02: Pull complete 
-6e71c809542e: Pull complete 
-2978d9af87ba: Pull complete 
-e1bca35b062f: Pull complete 
-500b6decf741: Pull complete 
-74b14ef2151f: Pull complete 
-7afd5ed3826e: Pull complete 
-3c69bb244f5e: Pull complete 
-d86f9ec5aedf: Pull complete 
-010fabf20157: Pull complete 
-Digest: sha256:a945dc6dcfbc8d009c3d972931608344b76c2870ce796da00a827bd50791907e
-Status: Downloaded newer image for training/postgres:latest
-d8d7bec173c29963f34d840547760c0a9629fc71950f2c5592fe7b8c3d8c014b
-</code></pre><p>新建一个web容器，与刚刚新建的db容器进行互联，格式为–link name:alias name是与之连接的容器名称，alias是这个连接的别名。这样做的好处是我们无需使用-p或者-P暴露出容器db的地址，增加了安全性。</p>
-<pre><code>root@rexyan:/# docker run  -d -P --name web --link db:db training/webapp python app.py 
-</code></pre><p>可以从两个方面看出这两个容器是否互联，我们可以进入到创建好的web容器中</p>
-<pre><code>root@rexyan:/# docker exec -it b295295fdd14 /bin/bash 
-</code></pre><p>查看hosts 文件</p>
-<pre><code>root@b295295fdd14:/opt/webapp# cat /etc/hosts 
-127.0.0.1       localhost
-::1     localhost ip6-localhost ip6-loopback
-fe00::0 ip6-localnet
-ff00::0 ip6-mcastprefix
-ff02::1 ip6-allnodes
-ff02::2 ip6-allrouters
-172.17.0.3      db d8d7bec173c2
-172.17.0.2      b295295fdd14
-root@b295295fdd14:/opt/webapp# ping db
-PING db (172.17.0.3) 56(84) bytes of data.
-64 bytes from db (172.17.0.3): icmp_seq=1 ttl=64 time=0.239 ms
-64 bytes from db (172.17.0.3): icmp_seq=2 ttl=64 time=0.132 ms
-64 bytes from db (172.17.0.3): icmp_seq=3 ttl=64 time=0.131 ms 
-</code></pre><p>我们看见了172.17.0.2对应是是自己的容器id，172.17.0.3对应带了名称为db的容器，容器id为d8d7bec173c2。我们可以在当前web容器中ping db容器，直接使用ping db 可以ping通，说明两个的网络是互通的。</p>
-<p>第二种方式是使用env来查看web容器的环境变量，创建一个临时的web4容器，并关联db，查看env</p>
-<pre><code>root@rexyan:/# docker run --rm --name web4 --link db:db training/webapp env 
-PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-HOSTNAME=fc701885a079
-DB_PORT=tcp://172.17.0.3:5432
-DB_PORT_5432_TCP=tcp://172.17.0.3:5432
-DB_PORT_5432_TCP_ADDR=172.17.0.3
-DB_PORT_5432_TCP_PORT=5432
-DB_PORT_5432_TCP_PROTO=tcp
-DB_NAME=/web4/db
-DB_ENV_PG_VERSION=9.3
-HOME=/root
-root@rexyan:/# 
-</code></pre><p>上面的内容中DB_开头的环境变量是提供web4容器与db容器连接使用的。</p>
-<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><pre><code>docker run -d -P training/webapp python app.py     # 创建一个容器，并且关联一个本地随机端口
-docker logs d03564d51bde    # 查看id为d03564d51bde容器的log信息
-docker run -d -p 16666:5000 training/webapp python app.py   # 创建容器，指定本地端口16666和容器5000端口进行网络互联
-docker run -d -p 11111:5000 -p 11112:5000 training/webapp python app.py   # 创建容器，指定两个本地两个端口与容器进行网络互联
-docker run -d -p 10.10.10.133:10203:5000 training/webapp python app.py  # 创建容器，指定ip和端口与容器进行网络互联
-docker run -d -p 10.10.10.133::5000 training/webapp python app.py   # 创建容器，指定ip与容器进行网络互联，端口会随机分配一个，和-P一样
-docker port a1b25a3d9236    # 查看容器id为a1b25a3d9236的端口信息
-docker inspect a1b25a3d9236   # 查看容器id为a1b25a3d9236的详细信息
-docker run -d -p 12000:5000 --name web training/webapp python app.py # 创建一个name为web的容器，并将本地12000端口和容器5000进行关联
-docker run -d --name db training/postgres   # 创建一个name为db的容器
-docker run -d -P --name web --link db:db training/webapp python app.py   # 创建一个name为web的容器，并使用--link实现与db容器的互联
-docker exec -it b295295fdd14 /bin/bash   # 连接id为b295295fdd14的容器
-docker run --rm --name web4 --link db:db training/webapp env   # 创建一个临时web4容器，利用env查看容器的环境变量，可看见关联的容器db的一些地址信息
-</code></pre>
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
   </section>
 
   
@@ -1773,7 +1866,7 @@ docker run --rm --name web4 --link db:db training/webapp env   # 创建一个临
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">299</span>
+                  <span class="site-state-item-count">300</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>
@@ -1784,7 +1877,7 @@ docker run --rm --name web4 --link db:db training/webapp env   # 创建一个临
               
               <div class="site-state-item site-state-categories">
                 <a href="/categories/index.html">
-                  <span class="site-state-item-count">30</span>
+                  <span class="site-state-item-count">31</span>
                   <span class="site-state-item-name">分类</span>
                 </a>
               </div>
@@ -1795,7 +1888,7 @@ docker run --rm --name web4 --link db:db training/webapp env   # 创建一个临
               
               <div class="site-state-item site-state-tags">
                 <a href="/tags/index.html">
-                  <span class="site-state-item-count">148</span>
+                  <span class="site-state-item-count">149</span>
                   <span class="site-state-item-name">标签</span>
                 </a>
               </div>
