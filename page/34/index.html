@@ -348,6 +348,304 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/03/06/Celery/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2018/03/06/Celery/" itemprop="url">Celery</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-03-06T15:52:57+08:00">
+                2018-03-06
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Python/" itemprop="url" rel="index">
+                    <span itemprop="name">Python</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="Celery"><a href="#Celery" class="headerlink" title="Celery"></a>Celery</h3><h4 id="需求描述"><a href="#需求描述" class="headerlink" title="需求描述"></a>需求描述</h4><p>在程序的运行过程中，我们经常会碰到一些耗时耗资源的操作，为了避免它们阻塞主程序的运行，我们经常会采用多线程或异步任务。比如，在 Web 开发中，对新用户的注册，我们通常会给他发一封激活邮件，而发邮件是个 IO 阻塞式任务，如果直接把它放到应用当中，就需要等邮件发出去之后才能进行下一步操作，此时用户只能等待再等待。更好的方式是在业务逻辑中触发一个发邮件的异步任务，而主程序可以继续往下运行。</p>
+<h4 id="Celery简介"><a href="#Celery简介" class="headerlink" title="Celery简介"></a>Celery简介</h4><p>Celery 是一个强大的分布式任务队列，它可以让任务的执行完全脱离主程序，甚至可以被分配到其他主机上运行。我们通常使用它来实现异步任务（async task）和定时任务（crontab）。它的架构组成如下图：</p>
+<h4 id="Celery常见模块"><a href="#Celery常见模块" class="headerlink" title="Celery常见模块"></a>Celery常见模块</h4><ol>
+<li><p>任务模块 Task，包含异步任务和定时任务。其中，异步任务通常在业务逻辑中被触发并发往任务队列，而定时任务由 Celery Beat 进程周期性地将任务发往任务队列。</p>
+</li>
+<li><p>消息中间件 Broker，即为任务调度队列，接收任务生产者发来的消息（即任务），将任务存入队列。Celery 本身不提供队列服务，官方推荐使用 RabbitMQ 和 Redis 等。</p>
+</li>
+<li><p>任务执行单元 Worker，是执行任务的处理单元，它实时监控消息队列，获取队列中调度的任务，并执行它。</p>
+</li>
+<li><p>任务结果存储 Backend 用于存储任务的执行结果，以供查询。同消息中间件一样，存储也可使用 RabbitMQ, Redis 和 MongoDB 等。</p>
+</li>
+</ol>
+<h3 id="快速入门"><a href="#快速入门" class="headerlink" title="快速入门"></a>快速入门</h3><h4 id="安装Celery"><a href="#安装Celery" class="headerlink" title="安装Celery"></a>安装Celery</h4><p>为了简单起见，对于 Broker 和 Backend，这里都使用 redis。在运行下面的例子之前，请确保 redis 已正确安装，并开启 redis 服务，当然，celery 也是要安装的。可以使用下面的命令来安装 celery 及相关依赖</p>
+<pre><code>pip install celery==3.1.25   # 我是windows系统，高版本好像有问题
+</code></pre><h4 id="创建Celery实例"><a href="#创建Celery实例" class="headerlink" title="创建Celery实例"></a>创建Celery实例</h4><p>将下面的代码保存为文件 tasks.py</p>
+<pre><code># -*- coding: utf-8 -*-
+import time
+from celery import Celery
+broker = &#39;redis://127.0.0.1:6379&#39;
+backend = &#39;redis://127.0.0.1:6379/0&#39;
+app = Celery(&#39;my_task&#39;, broker=broker, backend=backend)
+@app.task
+def add(x, y):
+    time.sleep(5)     # 模拟耗时操作
+    return x + y
+</code></pre><p>上面的代码做了几件事：</p>
+<ul>
+<li>创建了一个 Celery 实例 app，名称为 my_task；</li>
+<li>指定消息中间件用 redis，URL 为 redis://127.0.0.1:6379；</li>
+<li>指定存储用 redis，URL 为 redis://127.0.0.1:6379/0；</li>
+<li>创建了一个 Celery 任务 add，当函数被 @app.task 装饰后，就成为可被 Celery 调度的任务；</li>
+</ul>
+<h4 id="启动-Celery-Worker"><a href="#启动-Celery-Worker" class="headerlink" title="启动 Celery Worker"></a>启动 Celery Worker</h4><p>在当前目录，使用如下方式启动 Celery Worker</p>
+<pre><code>celery worker -A tasks --loglevel=info
+</code></pre><ul>
+<li>参数 -A 指定了 Celery 实例的位置，本例是在 tasks.py 中，Celery 会自动在该文件中寻找 Celery 对象实例，当然，我们也可以自己指定，在本例，使用 -A tasks.app；</li>
+<li>参数 –loglevel 指定了日志级别，默认为 warning，也可以使用 -l info 来表示；</li>
+</ul>
+<h4 id="调用任务"><a href="#调用任务" class="headerlink" title="调用任务"></a>调用任务</h4><p>现在，我们可以在应用程序中使用 delay() 或 apply_async() 方法来调用任务。<br>在当前目录打开 Python 控制台，输入以下代码</p>
+<pre><code>&gt;&gt;&gt; from tasks import add
+&gt;&gt;&gt; add.delay(2, 8)
+&lt;AsyncResult: 2272ddce-8be5-493f-b5ff-35a0d9fe600f&gt;
+</code></pre><p>在上面，我们从 tasks.py 文件中导入了 add 任务对象，然后使用 delay() 方法将任务发送到消息中间件（Broker），Celery Worker 进程监控到该任务后，就会进行执行。我们将窗口切换到 Worker 的启动窗口，会看到多了两条日志：</p>
+<pre><code>[2016-12-10 12:00:50,376: INFO/MainProcess] Received task: tasks.add[2272ddce-8be5-493f-b5ff-35a0d9fe600f]
+[2016-12-10 12:00:55,385: INFO/PoolWorker-4] Task tasks.add[2272ddce-8be5-493f-b5ff-35a0d9fe600f] succeeded in 5.00642602402s: 10
+</code></pre><p>这说明任务已经被调度并执行成功。<br>另外，我们如果想获取执行后的结果，可以这样做：</p>
+<pre><code>&gt;&gt;&gt; result = add.delay(2, 6)
+&gt;&gt;&gt; result.ready()   # 使用 ready() 判断任务是否执行完毕
+False
+&gt;&gt;&gt; result.ready()
+False
+&gt;&gt;&gt; result.ready()
+True
+&gt;&gt;&gt; result.get()     # 使用 get() 获取任务结果，如果使用get(),则不是异步了，因为需要等执行完成后才能返回到结果
+8
+</code></pre><p>在上面，我们是在 Python 的环境中调用任务。事实上，我们通常在应用程序中调用任务。比如，将下面的代码保存为 client.py</p>
+<pre><code># -*- coding: utf-8 -*-
+from tasks import add
+# 异步任务
+add.delay(2, 8)
+print &#39;hello world&#39;
+</code></pre><p>运行命令 $ python client.py，可以看到，虽然任务函数 add 需要等待 5 秒才返回执行结果，但由于它是一个异步任务，不会阻塞当前的主程序，因此主程序会往下执行 print 语句，打印出结果。</p>
+<h3 id="异步任务"><a href="#异步任务" class="headerlink" title="异步任务"></a>异步任务</h3><p>在上面的例子中，我们直接把 Broker 和 Backend 的配置写在了程序当中，更好的做法是将配置项统一写入到一个配置文件中，通常我们将该文件命名为 celeryconfig.py。Celery 的配置比较多，可以在官方文档查询每个配置项的含义。下面，我们再看一个例子。项目结构如下：</p>
+<pre><code>celery_demo                    # 项目根目录
+    ├── celery_app             # 存放 celery 相关文件
+    │   ├── __init__.py
+    │   ├── celeryconfig.py    # 配置文件
+    │   ├── task1.py           # 任务文件 1
+    │   └── task2.py           # 任务文件 2
+    └── client.py              # 应用程序
+</code></pre><p><strong>init</strong>.py 代码如下：</p>
+<pre><code># -*- coding: utf-8 -*-
+from celery import Celery
+app = Celery(&#39;demo&#39;)                                # 创建 Celery 实例
+app.config_from_object(&#39;celery_app.celeryconfig&#39;)   # 通过 Celery 实例加载配置模块
+</code></pre><p>celeryconfig.py 代码如下：</p>
+<pre><code>BROKER_URL = &#39;redis://127.0.0.1:6379&#39;               # 指定 Broker
+CELERY_RESULT_BACKEND = &#39;redis://127.0.0.1:6379/0&#39;  # 指定 Backend
+CELERY_TIMEZONE=&#39;Asia/Shanghai&#39;                     # 指定时区，默认是 UTC
+# CELERY_TIMEZONE=&#39;UTC&#39;                             
+CELERY_IMPORTS = (                                  # 指定导入的任务模块
+    &#39;celery_app.task1&#39;,
+    &#39;celery_app.task2&#39;
+)
+</code></pre><p>task1.py 代码如下：</p>
+<pre><code>import time
+from celery_app import app
+@app.task
+def add(x, y):
+    time.sleep(2)
+    return x + y
+</code></pre><p>task2.py 代码如下：</p>
+<pre><code>import time
+from celery_app import app
+@app.task
+def multiply(x, y):
+    time.sleep(2)
+    return x * y
+</code></pre><p>client.py 代码如下：</p>
+<pre><code># -*- coding: utf-8 -*-
+from celery_app import task1
+from celery_app import task2
+task1.add.apply_async(args=[2, 8])        # 也可用 task1.add.delay(2, 8)
+task2.multiply.apply_async(args=[3, 7])   # 也可用 task2.multiply.delay(3, 7)
+print &#39;hello world&#39;
+</code></pre><p>现在，让我们启动 Celery Worker 进程，在项目的根目录下执行下面命令：</p>
+<pre><code>celery_demo $ celery -A celery_app worker --loglevel=info
+</code></pre><p>接着，运行 $ python client.py，它会发送两个异步任务到 Broker，在 Worker 的窗口我们可以看到如下输出：</p>
+<pre><code>[2016-12-10 13:51:58,939: INFO/MainProcess] Received task: celery_app.task1.add[9ccffad0-aca4-4875-84ce-0ccfce5a83aa]
+[2016-12-10 13:51:58,941: INFO/MainProcess] Received task: celery_app.task2.multiply[64b1f889-c892-4333-bd1d-ac667e677a8a]
+[2016-12-10 13:52:00,948: INFO/PoolWorker-3] Task celery_app.task1.add[9ccffad0-aca4-4875-84ce-0ccfce5a83aa] succeeded in 2.00600231002s: 10
+[2016-12-10 13:52:00,949: INFO/PoolWorker-4] Task celery_app.task2.multiply[64b1f889-c892-4333-bd1d-ac667e677a8a] succeeded in 2.00601326401s: 21
+</code></pre><p>delay 和 apply_async:<br>在前面的例子中，我们使用 delay() 或 apply_async() 方法来调用任务。事实上，delay 方法封装了 apply_async，如下：</p>
+<pre><code>def delay(self, *partial_args, **partial_kwargs):
+    &quot;&quot;&quot;Shortcut to :meth:`apply_async` using star arguments.&quot;&quot;&quot;
+    return self.apply_async(partial_args, partial_kwargs)
+</code></pre><p>也就是说，delay 是使用 apply_async 的快捷方式。apply_async 支持更多的参数，它的一般形式如下：</p>
+<pre><code>apply_async(args=(), kwargs={}, route_name=None, **options)
+</code></pre><p>apply_async 常用的参数如下：</p>
+<ul>
+<li>countdown：指定多少秒后执行任务<pre><code>task1.apply_async(args=(2, 3), countdown=5)    # 5 秒后执行任务
+</code></pre></li>
+<li>eta (estimated time of arrival)：指定任务被调度的具体时间，参数类型是 datetime<pre><code>from datetime import datetime, timedelta
+# 当前 UTC 时间再加 10 秒后执行任务
+task1.multiply.apply_async(args=[3, 7], eta=datetime.utcnow() + timedelta(seconds=10))
+</code></pre></li>
+<li>expires：任务过期时间，参数类型可以是 int，也可以是 datetime<br><code>`</code><br>task1.multiply.apply_async(args=[3, 7], expires=10)    # 10 秒后过期</li>
+</ul>
+<pre><code>
+### 定时任务
+Celery 除了可以执行异步任务，也支持执行周期性任务（Periodic Tasks），或者说定时任务。Celery Beat 进程通过读取配置文件的内容，周期性地将定时任务发往任务队列。
+
+让我们看看例子，项目结构如下：
+</code></pre><p>celery_demo                    # 项目根目录<br>    ├── celery_app             # 存放 celery 相关文件<br>        ├── <strong>init</strong>.py<br>        ├── celeryconfig.py    # 配置文件<br>        ├── task1.py           # 任务文件<br>        └── task2.py           # 任务文件</p>
+<pre><code>__init__.py 代码如下：
+</code></pre><h1 id="coding-utf-8"><a href="#coding-utf-8" class="headerlink" title="-- coding: utf-8 --"></a>-<em>- coding: utf-8 -</em>-</h1><p>from celery import Celery<br>app = Celery(‘demo’)<br>app.config_from_object(‘celery_app.celeryconfig’)</p>
+<pre><code>celeryconfig.py 代码如下：
+</code></pre><h1 id="coding-utf-8-1"><a href="#coding-utf-8-1" class="headerlink" title="-- coding: utf-8 --"></a>-<em>- coding: utf-8 -</em>-</h1><p>from datetime import timedelta<br>from celery.schedules import crontab</p>
+<h1 id="Broker-and-Backend"><a href="#Broker-and-Backend" class="headerlink" title="Broker and Backend"></a>Broker and Backend</h1><p>BROKER_URL = ‘redis://127.0.0.1:6379’<br>CELERY_RESULT_BACKEND = ‘redis://127.0.0.1:6379/0’</p>
+<h1 id="Timezone"><a href="#Timezone" class="headerlink" title="Timezone"></a>Timezone</h1><p>CELERY_TIMEZONE=’Asia/Shanghai’    # 指定时区，不指定默认为 ‘UTC’</p>
+<h1 id="CELERY-TIMEZONE-’UTC’"><a href="#CELERY-TIMEZONE-’UTC’" class="headerlink" title="CELERY_TIMEZONE=’UTC’"></a>CELERY_TIMEZONE=’UTC’</h1><h1 id="import"><a href="#import" class="headerlink" title="import"></a>import</h1><p>CELERY_IMPORTS = (<br>    ‘celery_app.task1’,<br>    ‘celery_app.task2’<br>)</p>
+<h1 id="定时任务"><a href="#定时任务" class="headerlink" title="定时任务"></a>定时任务</h1><p>CELERYBEAT_SCHEDULE = {<br>    ‘add-every-30-seconds’: {<br>         ‘task’: ‘celery_app.task1.add’,<br>         ‘schedule’: timedelta(seconds=30),       # 每 30 秒执行一次<br>         ‘args’: (5, 8)                           # 任务函数参数<br>    },<br>    ‘multiply-at-some-time’: {<br>        ‘task’: ‘celery_app.task2.multiply’,<br>        ‘schedule’: crontab(hour=9, minute=50),   # 每天早上 9 点 50 分执行一次<br>        ‘args’: (3, 7)                            # 任务函数参数<br>    }<br>}</p>
+<pre><code>task1.py 代码如下：
+</code></pre><p>import time<br>from celery_app import app<br>@app.task<br>def add(x, y):<br>    time.sleep(2)<br>    return x + y</p>
+<pre><code>
+task2.py 代码如下：
+</code></pre><p>import time<br>from celery_app import app<br>@app.task<br>def multiply(x, y):<br>    time.sleep(2)<br>    return x * y</p>
+<pre><code>
+现在，让我们启动 Celery Worker 进程，在项目的根目录下执行下面命令：
+</code></pre><p>celery_demo $ celery -A celery_app worker –loglevel=info</p>
+<pre><code>接着，启动 Celery Beat 进程，定时将任务发送到 Broker，在项目根目录下执行下面命令：
+</code></pre><p>celery_demo $ celery beat -A celery_app<br>celery beat v4.0.1 (latentcall) is starting.<br>LocalTime -&gt; 2016-12-11 09:48:16<br>Configuration -&gt;<br>    . broker -&gt; redis://127.0.0.1:6379//<br>    . loader -&gt; celery.loaders.app.AppLoader<br>    . scheduler -&gt; celery.beat.PersistentScheduler<br>    . db -&gt; celerybeat-schedule<br>    . logfile -&gt; [stderr]@%WARNING<br>    . maxinterval -&gt; 5.00 minutes (300s)</p>
+<pre><code>之后，在 Worker 窗口我们可以看到，任务 task1 每 30 秒执行一次，而 task2 每天早上 9 点 50 分执行一次。
+在上面，我们用两个命令启动了 Worker 进程和 Beat 进程，我们也可以将它们放在一个命令中：
+
+</code></pre><p>$ celery -B -A celery_app worker –loglevel=info   # windows中不支持<br><code>`</code></p>
+<h3 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h3><p><a href="http://funhacks.net/2016/12/13/celery/" target="_blank" rel="noopener">http://funhacks.net/2016/12/13/celery/</a></p>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/03/06/Hibernate2 /">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -656,6 +954,153 @@ public static void sqlquery_test() {
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/02/28/pandas to_csv乱码/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2018/02/28/pandas to_csv乱码/" itemprop="url">Pandas to_csv乱码</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-02-28T14:52:57+08:00">
+                2018-02-28
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/奇淫技巧/" itemprop="url" rel="index">
+                    <span itemprop="name">奇淫技巧</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="to-csv乱码"><a href="#to-csv乱码" class="headerlink" title="to_csv乱码"></a>to_csv乱码</h3><p>self.new_df.to_csv(‘aaaa.csv’,  encoding=’utf_8’)之后还是乱码，将utf_8改为utf_8_sig即可</p>
+<pre><code>self.new_df.to_csv(&#39;aaaa.csv&#39;,  encoding=&#39;utf_8_sig&#39;)
+</code></pre><h3 id="read-csv指定分隔符"><a href="#read-csv指定分隔符" class="headerlink" title="read_csv指定分隔符"></a>read_csv指定分隔符</h3><pre><code>self.df = pd.read_csv(FILE_PATH, sep=&quot;|,&quot;, encoding = &quot;utf-8&quot;)
+</code></pre><h3 id="迭代dataframe"><a href="#迭代dataframe" class="headerlink" title="迭代dataframe"></a>迭代dataframe</h3><pre><code>for index, col in self.df.iterrows():
+    print &quot;当期处理数据条数:&quot;, index
+    current_col_comment = col[&#39;列名&#39;]
+</code></pre>
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/02/28/Pycharm 转 Eclipse/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -770,187 +1215,6 @@ public static void sqlquery_test() {
 <li>转小写 ctrl + shift + y</li>
 </ol>
 
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/02/28/Python中时间、字符串转换/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2018/02/28/Python中时间、字符串转换/" itemprop="url">Python 时间、字符串转换</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-02-28T14:52:57+08:00">
-                2018-02-28
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/奇淫技巧/" itemprop="url" rel="index">
-                    <span itemprop="name">奇淫技巧</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="String-转-DateTime"><a href="#String-转-DateTime" class="headerlink" title="String 转 DateTime"></a>String 转 DateTime</h3><pre><code>In [16]: time_str = &#39;2018-02-28 14:00:00&#39;
-In [18]: datetime.datetime.strptime(time_str, &quot;%Y-%m-%d %H:%M:%S&quot;)
-Out[18]: datetime.datetime(2018, 2, 28, 14, 0)
-</code></pre><h3 id="DateTime-转-String"><a href="#DateTime-转-String" class="headerlink" title="DateTime 转 String"></a>DateTime 转 String</h3><pre><code>In [19]: date_time = datetime.datetime.strptime(time_str, &quot;%Y-%m-%d %H:%M:%S&quot;)
-In [20]: date_time.strftime(&quot;%Y-%m-%d %H:%M:%S&quot;)
-Out[20]: &#39;2018-02-28 14:00:00&#39;
-</code></pre><h3 id="DateTime-转-时间戳"><a href="#DateTime-转-时间戳" class="headerlink" title="DateTime 转 时间戳"></a>DateTime 转 时间戳</h3><pre><code>In [21]: date_time
-Out[21]: datetime.datetime(2018, 2, 28, 14, 0)
-
-In [22]: time.mktime(date_time.timetuple())
-Out[22]: 1519797600.0
-</code></pre><h3 id="时间戳转String"><a href="#时间戳转String" class="headerlink" title="时间戳转String"></a>时间戳转String</h3><pre><code>In [22]: time.mktime(date_time.timetuple())
-Out[22]: 1519797600.0
-
-In [23]: time_time = time.mktime(date_time.timetuple())
-In [24]: time.strftime(&quot;%Y-%m-%d %H:%M:%S&quot;,time.localtime(time_time))
-Out[24]: &#39;2018-02-28 14:00:00&#39;
-</code></pre><h3 id="Date转DateTime"><a href="#Date转DateTime" class="headerlink" title="Date转DateTime"></a>Date转DateTime</h3><pre><code>In [25]: date = datetime.date.today()
-
-In [26]: date
-Out[26]: datetime.date(2018, 2, 28)
-
-In [29]: datetime.datetime.strptime(str(date),&quot;%Y-%m-%d&quot;)
-Out[29]: datetime.datetime(2018, 2, 28, 0, 0)
-</code></pre><h3 id="指定日期"><a href="#指定日期" class="headerlink" title="指定日期"></a>指定日期</h3><pre><code>In [30]: datetime.datetime(2018,2,28)
-Out[30]: datetime.datetime(2018, 2, 28, 0, 0)
-</code></pre><h3 id="获取几天前"><a href="#获取几天前" class="headerlink" title="获取几天前"></a>获取几天前</h3><pre><code>In [43]: a = datetime.datetime.combine(datetime.date.today(),datetime.time.min)
-
-In [44]: a
-Out[44]: datetime.datetime(2018, 2, 28, 0, 0)
-
-In [45]:  b = a + datetime.timedelta(-7)
-
-In [46]: b
-Out[46]: datetime.datetime(2018, 2, 21, 0, 0)
-</code></pre><h3 id="日期中不要前面的0"><a href="#日期中不要前面的0" class="headerlink" title="日期中不要前面的0"></a>日期中不要前面的0</h3><pre><code># 例如：01、02、03只要1、2、3
-a = datetime.datetime(2018, 2, 28, 0, 0)
-time = a.timetuple() 
-month = time.tm_mon
-day = time.tm_mday
-</code></pre>
           
         
       
@@ -1192,153 +1456,6 @@ arg_test.py: error: unrecognized arguments: 1
   
   
   <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/02/28/pandas to_csv乱码/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2018/02/28/pandas to_csv乱码/" itemprop="url">Pandas to_csv乱码</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-02-28T14:52:57+08:00">
-                2018-02-28
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/奇淫技巧/" itemprop="url" rel="index">
-                    <span itemprop="name">奇淫技巧</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="to-csv乱码"><a href="#to-csv乱码" class="headerlink" title="to_csv乱码"></a>to_csv乱码</h3><p>self.new_df.to_csv(‘aaaa.csv’,  encoding=’utf_8’)之后还是乱码，将utf_8改为utf_8_sig即可</p>
-<pre><code>self.new_df.to_csv(&#39;aaaa.csv&#39;,  encoding=&#39;utf_8_sig&#39;)
-</code></pre><h3 id="read-csv指定分隔符"><a href="#read-csv指定分隔符" class="headerlink" title="read_csv指定分隔符"></a>read_csv指定分隔符</h3><pre><code>self.df = pd.read_csv(FILE_PATH, sep=&quot;|,&quot;, encoding = &quot;utf-8&quot;)
-</code></pre><h3 id="迭代dataframe"><a href="#迭代dataframe" class="headerlink" title="迭代dataframe"></a>迭代dataframe</h3><pre><code>for index, col in self.df.iterrows():
-    print &quot;当期处理数据条数:&quot;, index
-    current_col_comment = col[&#39;列名&#39;]
-</code></pre>
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/02/28/Mongoengine批量插入/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -1454,6 +1571,187 @@ User(**a).save()
 <pre><code>    raise ValidationError(message, errors=errors)
 mongoengine.errors.ValidationError: ValidationError (User:None) (Invalid Object ID: [&#39;auto_id_0&#39;] Field is required: [&#39;id&#39;])
 
+</code></pre>
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/02/28/Python中时间、字符串转换/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2018/02/28/Python中时间、字符串转换/" itemprop="url">Python 时间、字符串转换</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-02-28T14:52:57+08:00">
+                2018-02-28
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/奇淫技巧/" itemprop="url" rel="index">
+                    <span itemprop="name">奇淫技巧</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="String-转-DateTime"><a href="#String-转-DateTime" class="headerlink" title="String 转 DateTime"></a>String 转 DateTime</h3><pre><code>In [16]: time_str = &#39;2018-02-28 14:00:00&#39;
+In [18]: datetime.datetime.strptime(time_str, &quot;%Y-%m-%d %H:%M:%S&quot;)
+Out[18]: datetime.datetime(2018, 2, 28, 14, 0)
+</code></pre><h3 id="DateTime-转-String"><a href="#DateTime-转-String" class="headerlink" title="DateTime 转 String"></a>DateTime 转 String</h3><pre><code>In [19]: date_time = datetime.datetime.strptime(time_str, &quot;%Y-%m-%d %H:%M:%S&quot;)
+In [20]: date_time.strftime(&quot;%Y-%m-%d %H:%M:%S&quot;)
+Out[20]: &#39;2018-02-28 14:00:00&#39;
+</code></pre><h3 id="DateTime-转-时间戳"><a href="#DateTime-转-时间戳" class="headerlink" title="DateTime 转 时间戳"></a>DateTime 转 时间戳</h3><pre><code>In [21]: date_time
+Out[21]: datetime.datetime(2018, 2, 28, 14, 0)
+
+In [22]: time.mktime(date_time.timetuple())
+Out[22]: 1519797600.0
+</code></pre><h3 id="时间戳转String"><a href="#时间戳转String" class="headerlink" title="时间戳转String"></a>时间戳转String</h3><pre><code>In [22]: time.mktime(date_time.timetuple())
+Out[22]: 1519797600.0
+
+In [23]: time_time = time.mktime(date_time.timetuple())
+In [24]: time.strftime(&quot;%Y-%m-%d %H:%M:%S&quot;,time.localtime(time_time))
+Out[24]: &#39;2018-02-28 14:00:00&#39;
+</code></pre><h3 id="Date转DateTime"><a href="#Date转DateTime" class="headerlink" title="Date转DateTime"></a>Date转DateTime</h3><pre><code>In [25]: date = datetime.date.today()
+
+In [26]: date
+Out[26]: datetime.date(2018, 2, 28)
+
+In [29]: datetime.datetime.strptime(str(date),&quot;%Y-%m-%d&quot;)
+Out[29]: datetime.datetime(2018, 2, 28, 0, 0)
+</code></pre><h3 id="指定日期"><a href="#指定日期" class="headerlink" title="指定日期"></a>指定日期</h3><pre><code>In [30]: datetime.datetime(2018,2,28)
+Out[30]: datetime.datetime(2018, 2, 28, 0, 0)
+</code></pre><h3 id="获取几天前"><a href="#获取几天前" class="headerlink" title="获取几天前"></a>获取几天前</h3><pre><code>In [43]: a = datetime.datetime.combine(datetime.date.today(),datetime.time.min)
+
+In [44]: a
+Out[44]: datetime.datetime(2018, 2, 28, 0, 0)
+
+In [45]:  b = a + datetime.timedelta(-7)
+
+In [46]: b
+Out[46]: datetime.datetime(2018, 2, 21, 0, 0)
+</code></pre><h3 id="日期中不要前面的0"><a href="#日期中不要前面的0" class="headerlink" title="日期中不要前面的0"></a>日期中不要前面的0</h3><pre><code># 例如：01、02、03只要1、2、3
+a = datetime.datetime(2018, 2, 28, 0, 0)
+time = a.timetuple() 
+month = time.tm_mon
+day = time.tm_mday
 </code></pre>
           
         
@@ -1906,152 +2204,6 @@ public class DemoAction3 extends ActionSupport{
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/01/12/Java基础知识总结/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2018/01/12/Java基础知识总结/" itemprop="url">Java基础知识总结</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-01-12T23:14:57+08:00">
-                2018-01-12
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Java/" itemprop="url" rel="index">
-                    <span itemprop="name">Java</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          <p>以下是容易忘记和易混淆的Java基础知识点，希望自己没事可以多看看，哈哈哈<br></p>
-          <!--noindex-->
-          <div class="post-button text-center">
-            <a class="btn" href="/2018/01/12/Java基础知识总结/#more" rel="contents">
-              阅读全文 &raquo;
-            </a>
-          </div>
-          <!--/noindex-->
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
   </section>
 
   
@@ -2102,7 +2254,7 @@ public class DemoAction3 extends ActionSupport{
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">303</span>
+                  <span class="site-state-item-count">304</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>
@@ -2113,7 +2265,7 @@ public class DemoAction3 extends ActionSupport{
               
               <div class="site-state-item site-state-categories">
                 <a href="/categories/index.html">
-                  <span class="site-state-item-count">32</span>
+                  <span class="site-state-item-count">33</span>
                   <span class="site-state-item-name">分类</span>
                 </a>
               </div>
@@ -2124,7 +2276,7 @@ public class DemoAction3 extends ActionSupport{
               
               <div class="site-state-item site-state-tags">
                 <a href="/tags/index.html">
-                  <span class="site-state-item-count">152</span>
+                  <span class="site-state-item-count">153</span>
                   <span class="site-state-item-name">标签</span>
                 </a>
               </div>
