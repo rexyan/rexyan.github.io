@@ -340,6 +340,1031 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/04/27/Python 微信卡券投放/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2018/04/27/Python 微信卡券投放/" itemprop="url">Python 微信卡券投放</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-04-27T17:19:57+08:00">
+                2018-04-27
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/技术/" itemprop="url" rel="index">
+                    <span itemprop="name">技术</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="所需资料"><a href="#所需资料" class="headerlink" title="所需资料"></a>所需资料</h3><ol>
+<li>开发者ID(AppID)</li>
+<li>开发者密码(AppSecret)</li>
+<li>卡券ID</li>
+</ol>
+<h3 id="创建卡券"><a href="#创建卡券" class="headerlink" title="创建卡券"></a>创建卡券</h3><pre><code>见附件
+</code></pre><h3 id="投放卡券（验证可行tornado示例）"><a href="#投放卡券（验证可行tornado示例）" class="headerlink" title="投放卡券（验证可行tornado示例）"></a>投放卡券（验证可行tornado示例）</h3><h4 id="Python代码"><a href="#Python代码" class="headerlink" title="Python代码"></a>Python代码</h4><pre><code>class WechatAuthHandler(BaseHandler):        
+    def get(self):
+        try:
+            appid = settings.WECHAT_APPID
+            app_secret = settings.WECHAT_SECRET
+
+            # 获取access_token（每天2000次数,过期时间7200秒，放入redis缓存）
+            access_token = self.get_access_token(appid, app_secret)
+
+            # 获取通用jssdk需要的ticket（每天2000次数,过期时间7200秒，放入redis缓存）
+            jsapi = self.get_ticket(access_token[&#39;access_token&#39;], &quot;jsapi&quot;)
+
+            # 生成jssdk签名，用于基础jssdk的各种功能调用
+            # 签名生成规则如下：参与签名的字段包括noncestr（随机字符串）, 有效的jsapi_ticket, timestamp（时间戳）, url（当前网页的URL，不包含#及其后面部分） 。
+            # 对所有待签名参数按照字段名的ASCII 码从小到大排序（字典序）后，使用URL键值对的格式（即key1=value1&amp;key2=value2…）拼接成字符串string1。
+            # 这里需要注意的是所有参数名均为小写字符。对string1作sha1加密，字段名和字段值都采用原始值，不进行URL 转义
+
+            jsapi_ticket = jsapi[&#39;ticket&#39;]
+            jsapi_timestamp = self.get_timestamp()
+            jsapi_current_url = self.get_request_url()
+            jsapi_noncestr = self.get_noncestr(&#39;jssdk&#39;)
+            before_string = &quot;jsapi_ticket=%s&amp;noncestr=%s&amp;timestamp=%s&amp;url=%s&quot; % (jsapi_ticket, jsapi_noncestr, jsapi_timestamp, jsapi_current_url)
+
+            # 签名
+            sha = hashlib.sha1(before_string.encode(&#39;utf8&#39;))
+            jsapi_signature = sha.hexdigest()
+
+            # 拼接数据
+            jssdk_data = {
+                &quot;appId&quot;: appid,
+                &quot;timestamp&quot;: str(jsapi_timestamp),
+                &quot;nonceStr&quot;: jsapi_noncestr,
+                &quot;signature&quot;: jsapi_signature,
+            }
+
+            # 生成卡券信息，这些参数用于卡券的功能调用
+            card_noncestr = self.get_noncestr(&#39;card&#39;)
+            card_timestamp = self.get_timestamp()
+            card_id = &quot;pLKpXwKR7TbJEPdHEsnNYLbBc8JE&quot; # 卡券ID
+
+            # 获取卡券专用ticket（每天2000次数,过期时间7200秒，放入redis缓存）
+            card_ticket = self.get_ticket(access_token[&#39;access_token&#39;], &quot;wx_card&quot;)
+            cardapi_ticket = card_ticket[&#39;ticket&#39;]
+
+            # 将 api_ticket、timestamp、card_id、code、openid、nonce_str的value值进行字符串的字典序排序。
+            sorted_param_list = sorted([cardapi_ticket, card_timestamp, card_id, card_noncestr])  
+
+            # 将所有参数字符串拼接成一个字符串进行sha1加密
+            card_string = &quot;&quot;.join([str(x) for x in sorted_param_list])
+            sha_card = hashlib.sha1(card_string.encode(&#39;utf8&#39;))
+            card_signature = sha_card.hexdigest()
+
+            # 拼接数据
+            card_data = {
+                &quot;timestamp&quot;: card_timestamp,
+                &quot;nonce_str&quot;: card_noncestr,
+                &quot;signature&quot;: card_signature
+            }
+            data = {&#39;jssdk&#39;:jssdk_data, &#39;cardId&#39;:card_id, &#39;cardExt&#39;:card_data}
+            self.render(&quot;wechat.html&quot;, data=data)
+            # self.write_json(data=data, status=status)
+        except Exception, e:
+            print e, &quot;出错，调转到结束页面&quot; 
+
+    def get_access_token(self, appid, app_secret):
+        # 获取access_token，由于接口有限制，所以加上缓存
+        wx_access_token_url = &quot;https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&amp;appid=%s&amp;secret=%s&quot; % (appid, app_secret)
+        access_token_string = redis_utils.redis_get(&quot;WECHAT_ACCESS_TOKEN&quot;)
+        if not access_token_string:
+            access_token_string = requests.get(url=wx_access_token_url, timeout=15).content.decode(&#39;utf8&#39;)
+            redis_utils.redis_set(&quot;WECHAT_ACCESS_TOKEN&quot;, access_token_string, 7000) # 过期时间设置为7000，比微信的提前200
+        return  json.loads(access_token_string)
+
+    def get_ticket(self, access_token, ticket_type):
+        # 根据ticket_type不同，调用不同的微信接口，由于接口有限制，所以加上缓存
+        REDIS_KEY = &quot;WECHAT_TICKET&quot;+str.upper(ticket_type)
+        wx_ticket_url = &quot;https://api.weixin.qq.com/cgi-bin/ticket/getticket?access_token=%s&amp;type=%s&quot; % (access_token, ticket_type)
+        ticket_string = redis_utils.redis_get(REDIS_KEY)
+        if not ticket_string:
+            ticket_string = requests.get(url=wx_ticket_url, timeout=15).content.decode(&#39;utf8&#39;)
+            redis_utils.redis_set(REDIS_KEY, ticket_string, 7000) # 过期时间设置为7000，比微信的提前200
+        return json.loads(ticket_string)
+
+    def get_timestamp(self):
+        # 获取时间戳
+        return int(time.time())
+
+    def get_noncestr(self, name):
+        # 产生随机字符串，可能会用于校验，所以缓存120s
+        random_str = str(uuid.uuid1())
+        redis_utils.redis_set(name, random_str, 120)
+        return random_str
+
+    def get_request_url(self):
+        # 根据规则只取#之前的部分
+        return (self.request.protocol+&quot;://&quot;+self.request.host+self.request.uri).split(&quot;#&quot;)[0]
+</code></pre><h4 id="html代码"><a href="#html代码" class="headerlink" title="html代码"></a>html代码</h4><pre><code>&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;UTF-8&quot;&gt;
+&lt;title&gt;问卷网CEM-卡券领取测试&lt;/title&gt;
+&lt;link href=&quot;https://cdn.bootcss.com/bootstrap/4.1.0/css/bootstrap.css&quot; rel=&quot;stylesheet&quot;&gt;
+&lt;script src=&quot;http://res.wx.qq.com/open/js/jweixin-1.0.0.js&quot;&gt;&lt;/script&gt;
+        &lt;script&gt;
+            wx.config({
+                    debug: false,
+                    appId: &quot;{{ data['jssdk']['appId'] }}&quot;,
+                    timestamp: &quot;{{ data['jssdk']['timestamp'] }}&quot;,
+                    nonceStr: &quot;{{ data['jssdk']['nonceStr'] }}&quot;,
+                    signature: &quot;{{ data['jssdk']['signature'] }}&quot;,
+                    jsApiList: [
+                            &#39;addCard&#39;
+                            ]
+                });
+            wx.ready(function(){
+                //添加卡券
+                document.querySelector(&#39;#addCard&#39;).onclick = function () {
+                    wx.addCard({
+                      cardList: [
+                        {
+                          cardId: &quot;{{ data['cardId'] }}&quot;,
+                          cardExt: &#39;{&quot;timestamp&quot;:&quot;{{ data['cardExt']['timestamp'] }}&quot;, &quot;nonce_str&quot;: &quot;{{ data['cardExt']['nonce_str'] }}&quot; , &quot;signature&quot;:&quot;{{ data['cardExt']['signature'] }}&quot;}&#39;
+                        }
+                      ],
+                      success: function (res) {
+                        alert(&#39;已添加卡券：&#39; + JSON.stringify(res.cardList)); 
+                      }
+                    });
+                };
+
+                document.querySelector(&#39;#select_all&#39;).onclick = function () {
+                wx.chooseCard({
+                    shopId: &#39;&#39;, // 门店Id
+                    cardType: &#39;&#39;, // 卡券类型
+                    cardId: &#39;&#39;, // 卡券Id
+                    timestamp: &#39;{{ data['cardExt']['timestamp'] }}&#39;, // 卡券签名时间戳
+                    nonceStr: &#39;{{ data['cardExt']['nonce_str'] }}&#39;, // 卡券签名随机串
+                    signType: &#39;SHA1&#39;, // 签名方式，默认&#39;SHA1&#39;
+                    cardSign: &#39;{{ data['cardExt']['signature'] }}&#39;, // 卡券签名
+                    success: function (res) {
+                    var cardList= res.cardList; // 用户选中的卡券列表信息
+                    alert(cardList)
+                    }
+                });
+                };
+            });
+    &lt;/script&gt;
+&lt;/head&gt;
+&lt;body&gt;
+        &lt;center&gt;&lt;button type=&quot;button&quot; class=&quot;btn btn-primary btn-lg btn-block&quot; style=&quot;margin-top:10%;&quot; id=&quot;addCard&quot;&gt;点我添加卡券&lt;/button&gt;&lt;/center&gt; 
+        &lt;center&gt;&lt;button type=&quot;button&quot; class=&quot;btn btn-primary btn-lg btn-block&quot; style=&quot;margin-top:10%;&quot; id=&quot;select_all&quot;&gt;查看所有卡券&lt;/button&gt;&lt;/center&gt; 
+
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre><h3 id="核销卡券"><a href="#核销卡券" class="headerlink" title="核销卡券"></a>核销卡券</h3><pre><code>见附件
+</code></pre><h3 id="微信登录（未验证flask示例）"><a href="#微信登录（未验证flask示例）" class="headerlink" title="微信登录（未验证flask示例）"></a>微信登录（未验证flask示例）</h3><pre><code>@app.route(&quot;/&quot;)
+def index():
+    appid = &quot;wx*************&quot;
+    redirect_uri = &quot;http%3A%2F%2Fcoupon.abc.com%2Fauthorization&quot;
+    csrf_state = str(random.randint(0, 10000)) + &#39;&#39;.join(random.sample(&#39;abcdefghijk&#39;, 5))
+    session[&quot;csfr_token&quot;] = csrf_state
+    wx_code_url = &quot;https://open.weixin.qq.com/connect/oauth2/authorize?appid=%s&amp;redirect_uri=%s&amp;response_type=code&amp;scope=snsapi_userinfo&amp;state=%s#wechat_redirect&quot; % (appid, redirect_uri, csrf_state)
+    return redirect(wx_code_url)
+
+@app.route(&quot;/authorization&quot;)
+def authorization():
+    page_status = &quot;1&quot;
+    wx_code = request.args.get(&quot;code&quot;)  # Flask 获取 get请求的值用request.args，获取post请求用request.form，获取前端ajax的json数据用request.data，这里的code是微信回调的时候加上去的
+    csrf_state = request.args.get(&quot;state&quot;) # 这个state是微信回调回来的时候带上去的，是之前我们自己生成的随机字符串
+    if session[&quot;csfr_token&quot;] != csrf_state: # 随机字符串的校验，校验失败就跳转首页
+        return redirect(&quot;http://coupon.abc.com&quot;)
+    else:
+        appid = &quot;wx****************&quot;
+        app_secret = &quot;*********************&quot;
+        wx_login_token_url = &quot;https://api.weixin.qq.com/sns/oauth2/access_token?appid=%s&amp;secret=%s&amp;code=%s&amp;grant_type=authorization_code&quot; % (appid, app_secret, wx_code)
+        try:
+            wx_login_token = requests.get(url=wx_login_token_url, timeout=15).json() # 获取一个token
+
+            session[&#39;openid&#39;] = wx_login_token[&#39;openid&#39;] # 微信返回的openid，同时返回了一个授权用的Token，这个授权token是没有次数限制的，区别于基础功能的access_token，这里把openid作为session来全局判断登录状态
+
+            access_token = get_access_token(appid, app_secret)  # 单独写了一个获取基础功能access_tokende 的方法，这个是有次数限制的，每天2000次，用完就gg了，所以需要做特殊的缓存操作，下面会详细说
+            jsapi = get_ticket(access_token[&#39;access_token&#39;], &quot;jsapi&quot;)  # 这个单独的方法是获取通用jssdk需要的ticket方法，ticket的使用也有次数限制，所以也需要做缓存
+
+</code></pre><h3 id="注意事项"><a href="#注意事项" class="headerlink" title="注意事项"></a>注意事项</h3><ol>
+<li>设置IP白名单</li>
+<li>设置jssdk域名白名单</li>
+<li>签名中的本页面的url是包含http的完整信息</li>
+<li>jssdk demo页面 <a href="http://203.195.235.76/jssdk/" target="_blank" rel="noopener">http://203.195.235.76/jssdk/</a></li>
+</ol>
+<h3 id="附件"><a href="#附件" class="headerlink" title="附件"></a>附件</h3><p><a href="http://ovsf3r7sm.bkt.clouddn.com/%E5%8D%A1%E5%88%B8%E7%A4%BA%E4%BE%8B.pdf" target="_blank" rel="noopener">http://ovsf3r7sm.bkt.clouddn.com/%E5%8D%A1%E5%88%B8%E7%A4%BA%E4%BE%8B.pdf</a></p>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/04/27/Python Jieba分词/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2018/04/27/Python Jieba分词/" itemprop="url">Python Jieba分词</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-04-27T17:18:57+08:00">
+                2018-04-27
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/技术/" itemprop="url" rel="index">
+                    <span itemprop="name">技术</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="安装"><a href="#安装" class="headerlink" title="安装"></a>安装</h3><p>代码对 Python 2/3 均兼容<br>全自动安装：easy_install jieba 或者 pip install jieba / pip3 install jieba<br>半自动安装：先下载 <a href="http://pypi.python.org/pypi/jieba/" target="_blank" rel="noopener">http://pypi.python.org/pypi/jieba/</a> ，解压后运行 python setup.py install<br>手动安装：将 jieba 目录放置于当前目录或者 site-packages 目录<br>通过 import jieba 来引用</p>
+<h3 id="完整代码"><a href="#完整代码" class="headerlink" title="完整代码"></a>完整代码</h3><pre><code># -*- coding:utf-8 -*-  
+# __author__ = &quot;Rex&quot;     
+# Version:1.0.0
+
+import sys
+import os
+if __name__ == &#39;__main__&#39;:
+    sys.path.insert(0, os.path.abspath(os.curdir))
+import settings
+import jieba
+import jieba.analyse
+import pandas as pd
+import xlrd
+from collections import Counter
+import re
+
+DOC_PATH = os.path.join(settings.DATA_FILE_PATH, &quot;MCD_FENCI.xlsx&quot;)
+USERDICT = os.path.join(settings.DATA_FILE_PATH, &quot;userdict.txt&quot;)
+STOP_WORDS = os.path.join(settings.DATA_FILE_PATH, &quot;stopwords.txt&quot;)
+RESULT_FILE = os.path.join(settings.DATA_FILE_PATH, &quot;FENCI.xlsx&quot;)
+
+jieba.load_userdict(USERDICT) # 可自定义词语，避免拆错，例如麦咖啡、香骨鸡腿
+jieba.analyse.set_stop_words(STOP_WORDS) # 停止词，取自 # https://github.com/dongxiexidian/Chinese/blob/master/stopwords.dat
+
+# sheet和列的映射
+SHEET_COLUMN_MAP = {
+                        &#39;Overall__1&#39;:&#39;Overall Comment&#39;, 
+                        &#39;Friendliness__2&#39;:&#39;Friendliness issue - &quot;Other&quot;&#39;, 
+                        &#39;Fast__3&#39;:&#39;Fast issue - &quot;Other&quot;&#39;, 
+                        &#39;Quality__4&#39;:[&#39;Quality item - &quot;Other&quot;&#39;, &#39;Quality issue Other&#39;], 
+                        &#39;Cleanliness__5&#39;:&#39;Cleanliness issue - &quot;Other&quot;&#39;, 
+                        &#39;Accuracy__6&#39;:&#39;Accuracy issue - &quot;Other&quot;&#39;,
+                        &#39;EOTF__7&#39;:&#39;EOTF issue - &quot;Other&quot;&#39;, 
+                    }
+
+class FENCI(object):
+    def __init__(self):
+        self.book = xlrd.open_workbook(DOC_PATH)
+        self.sheets = self.book.sheets()
+        self.seg_list = []
+
+    def fenci(self):
+        # 获取每个sheet，获取对应列，进行分词
+        for sheet in self.sheets:
+            column_name = SHEET_COLUMN_MAP.get(sheet.name)
+            if isinstance(column_name, list):
+                for col_name in column_name:
+                    current_df_series = pd.read_excel(DOC_PATH, sheet.name, encoding=&#39;utf-8&#39;).dropna()[col_name]
+                    self.append_list(current_df_series)
+            else:
+                current_df_series = pd.read_excel(DOC_PATH, sheet.name, encoding=&#39;utf-8&#39;).dropna()[column_name]
+                self.append_list(current_df_series)
+
+        re = Counter(filter(self.not_empty, self.seg_list))
+        result_df = pd.DataFrame([re]).T
+        result_df.columns=[&#39;count&#39;]
+        result_df.sort_values(&#39;count&#39;, inplace=True ,ascending=False)
+        result_df.to_excel(RESULT_FILE, encoding=&#39;utf-8&#39;)
+
+    def not_empty(self, s):
+        # 去除标点，空格
+        s=  re.sub(&quot;[\s+\.\!\/_,$%^*(+\&quot;\&#39;]+|[+——！，。？、~@#￥%……&amp;*（）]+&quot;.decode(&quot;utf8&quot;), &quot;&quot;.decode(&quot;utf8&quot;),s)
+        return s and s.strip()
+
+    def append_list(self, series):
+        # 使用jieba.analyse.extract_tags的方式，能去掉不少 “了”，“的”之类的词语，提取关键
+        for se in series:
+            self.seg_list.extend(list(jieba.analyse.extract_tags(se)))  
+
+if __name__==&#39;__main__&#39;:
+    obj = FENCI()
+    obj.fenci()
+
+
+
+
+</code></pre><h3 id="自定义词典"><a href="#自定义词典" class="headerlink" title="自定义词典"></a>自定义词典</h3><p>例如：香骨鸡腿，如果不加入自定义词典的话，那么就会拆为 香骨和鸡腿，放在一起再拆的话结果就是香骨鸡腿</p>
+<pre><code>jieba.load_userdict(USERDICT) # 可自定义词语，避免拆错，例如麦咖啡、香骨鸡腿
+</code></pre><h3 id="停止词"><a href="#停止词" class="headerlink" title="停止词"></a>停止词</h3><p>在这个里面的词语不会被拆分出来，也就是不会出现</p>
+<pre><code>jieba.analyse.set_stop_words(STOP_WORDS) # 停止词，取自 # https://github.com/dongxiexidian/Chinese/blob/master/stopwords.dat
+</code></pre>
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/04/27/Python Fire/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2018/04/27/Python Fire/" itemprop="url">Python Fire</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-04-27T17:16:57+08:00">
+                2018-04-27
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/技术/" itemprop="url" rel="index">
+                    <span itemprop="name">技术</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <p>Fire 是比较好用的工作，谷歌开源，具体使用方法可见 <a href="https://blog.csdn.net/u010099080/article/details/70332074" target="_blank" rel="noopener">链接</a></p>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/04/18/图解算法3 - 递归、栈/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2018/04/18/图解算法3 - 递归、栈/" itemprop="url">图解算法3 - 递归、栈</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-04-18T20:59:57+08:00">
+                2018-04-18
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/算法/" itemprop="url" rel="index">
+                    <span itemprop="name">算法</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="递归"><a href="#递归" class="headerlink" title="递归"></a>递归</h3><p>如果使用循环，程序的性能可能更高；如果使用递归，程序可能更容易理解。如何选择要看什么对你来说更重要。</p>
+<p>编写递归函数时，必须告诉它何时停止递归。正因为如此， 每个递归函数都有两部分：基线条件（base case）和递归条件（recursive case） 。递归条件指的是函数调用自己，而基线条件则指的是函数不再调用自己，从而避免形成无限循环</p>
+<h3 id="栈"><a href="#栈" class="headerlink" title="栈"></a>栈</h3><pre><code>def greet(name):
+    print &quot;hello, &quot; + name + &quot;!&quot;
+    greet2(name)
+    print &quot;getting ready to say bye...&quot;
+    bye()
+
+def greet2(name):
+    print &quot;how are you, &quot; + name + &quot;?&quot;
+
+def bye():
+    print &quot;ok bye!&quot;
+</code></pre><p>假设你调用greet(“maggie”)，计算机将首先为该函数调用分配一块内存。变量name的值变为maggie，这需要存储到内存中，每当你调用函数时，计算机都像这样将函数调用涉及的所有变量的值存储到内存中。接下来，你打印hello, maggie!，再调用greet2(“maggie”)。同样，计算机也为这个函数调用分配一块内存。其中第二个内存块位于第一个内存块上面【greet2所在的内存块在greet内存块的上面】。你打印how are you, maggie?，然后从函数调用返回。此时，栈顶的内存块被弹出【greet2所在的内存块被弹出】。这时greet函数处于什么状态呢？<br>函数greet只执行了一部分，调用另一个函数时，当前函数暂停并处于未完成状态。该函数的所有变量的值都还在内存中。执行完函数greet2后，你回到函数greet，并从离开的地方开始接着往下执行：首先打印getting ready to say bye…，再调用函数bye。重复上面的操作，在栈顶添加了函数bye的内存块。然后，你打印ok bye!，并从这个函数返回。最后又回到了函数greet。由于没有别的事情要做，你就从函数greet返回。这个栈用于存储多个函数的变量，被称为调用栈。</p>
+<p>使用栈虽然很方便，但是也要付出代价：存储详尽的信息可能占用大量的内存。每个函数调用都要占用一定的内存，如果栈很高，就意味着计算机存储了大量函数调用的信息。在这种情况下，你有两种选择：重新编写代码，转而使用循环或者使用使用尾递归。</p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><pre><code>递归指的是调用自己的函数。
+每个递归函数都有两个条件：基线条件和递归条件。
+栈有两种操作：压入和弹出。
+所有函数调用都进入调用栈。
+调用栈可能很长，这将占用大量的内存。
+</code></pre>
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/04/18/图解算法2 - 链表、数组、选择排序/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2018/04/18/图解算法2 - 链表、数组、选择排序/" itemprop="url">图解算法2 - 链表、数组、选择排序</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-04-18T20:58:57+08:00">
+                2018-04-18
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/算法/" itemprop="url" rel="index">
+                    <span itemprop="name">算法</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="链表和数组"><a href="#链表和数组" class="headerlink" title="链表和数组"></a>链表和数组</h3><h4 id="读取"><a href="#读取" class="headerlink" title="读取"></a>读取</h4><p>需要随机地读取元素时，数组的效率很高，因为可迅速找到数组的任何元素。在链表中，元素并非靠在一起的，你无法迅速计算出第五个元素的内存地址，而必须先访问第一个元素以获取第二个元素的地址，再访问第二个元素以获取第三个元素的地址，以此类推，直到访问第五个元素。</p>
+<h4 id="插入"><a href="#插入" class="headerlink" title="插入"></a>插入</h4><p>需要在中间插入元素时，数组和链表哪个更好呢？使用链表时，插入元素很简单，只需修改它前面的那个元素指向的地址，而使用数组时，则必须将后面的元素都向后移。如果没有足够的空间，可能还得将整个数组复制到其他地方！因此，当需要在中间插入元素时，链表是更好的选择。</p>
+<h4 id="删除"><a href="#删除" class="headerlink" title="删除"></a>删除</h4><p>如果你要删除元素呢？链表也是更好的选择，因为只需修改前一个元素指向的地址即可。而使用数组时，删除元素后，必须将后面的元素都向前移。<br>不同于插入，删除元素总能成功。如果内存中没有足够的空间，插入操作可能失败，但在任何情况下都能够将元素删除</p>
+<h4 id="三者运行时间"><a href="#三者运行时间" class="headerlink" title="三者运行时间"></a>三者运行时间</h4><p>链表擅长插入和删除，而数组擅长随机访问</p>
+<pre><code>        数组        链表
+
+读取    O(1)        O(n)
+
+插入    O(n)        O(1)
+
+删除    O(n)        O(1)
+</code></pre><p>需要指出的是，仅当能够立即访问要删除的元素时，删除操作的运行时间才为O(1)。通常我们都记录了链表的第一个元素和最后一个元素，因此删除这些元素时运行时间为O(1)</p>
+<p>数组和链表哪个用得更多呢？显然要看情况。但数组用得很多，因为它支持随机访问。有两种访问方式： 随机访问和顺序访问。顺序访问意味着从第一个元素开始逐个地读取元素。链表只能顺序访问：要读取链表的第十个元素，得先读取前九个元素，并沿链接找到第十个元素。随机访问意味着可直接跳到第十个元素。本书经常说数组的读取速度更快，这是因为它们支持随机访问。很多情况都要求能够随机访问，因此数组用得很多</p>
+<h3 id="选择排序法"><a href="#选择排序法" class="headerlink" title="选择排序法"></a>选择排序法</h3><p>假设你的计算机存储了很多乐曲。对于每个乐队，你都记录了其作品被播放的次数，你要将这个列表按播放次数从多到少的顺序排列，从而将你喜欢的乐队排序。该如何做呢？一种办法是遍历这个列表，找出作品播放次数最多的乐队，并将该乐队添加到一个新列表中。再次这样做，找出播放次数第二多的乐队。直到最后，你将得到一个有序列表。O(n)时间意味着查看列表中的每个元素一次。例如，对乐队列表进行简单查找时，意味着每个乐队都要查看一次，要找出播放次数最多的乐队，必须检查列表中的每个元素。正如你刚才看到的，这需要的时间为O(n)。因此对于这种时间为O(n)的操作，你需要执行n次，需要的总时间为 O(n × n)，即O(n2)</p>
+<h4 id="为什么是O-n2"><a href="#为什么是O-n2" class="headerlink" title="为什么是O(n2)"></a>为什么是O(n2)</h4><p>随着排序的进行，每次需要检查的元素数在逐渐减少，最后一次需要检查的元素都只有一个。既然如此，运行时间怎么还是O(n2)呢？<br>并非每次都需要检查n个元素。第一次需要检查n个元素，但随后检查的元素数依次为n - 1, n – 2, …, 2和1。平均每次检查的元素数为1/2 × n， 因此运行时间为O(n × 1/2 × n)。但大O表示法省略诸如1/2这样的常数，因此简单地写作O(n × n)或O(n2)</p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><pre><code>计算机内存犹如一大堆抽屉。
+需要存储多个元素时，可使用数组或链表。
+数组的元素都在一起。
+链表的元素是分开的，其中每个元素都存储了下一个元素的地址。
+数组的读取速度很快。
+链表的插入和删除速度很快。
+在同一个数组中，所有元素的类型都必须相同（都为int、 double等）
+</code></pre>
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/04/18/图解算法4 - 快速排序/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -783,1531 +1808,11 @@ doc/*.txt # 会忽略 doc/notes.txt 但不包括 doc/server/arch.txt
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/04/06/Docker6 -- 映射 /">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2018/04/06/Docker6 -- 映射 /" itemprop="url">Docker6 映射</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-04-06T11:33:57+08:00">
-                2018-04-06
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Docker/" itemprop="url" rel="index">
-                    <span itemprop="name">Docker</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <p>Docker允许映射容器内应用的服务端口到本地的宿主主机，还能实现多个容器之间通过容器名来快速访问。</p>
-<h3 id="端口映射"><a href="#端口映射" class="headerlink" title="端口映射"></a>端口映射</h3><h4 id="从外部访问容器"><a href="#从外部访问容器" class="headerlink" title="从外部访问容器"></a>从外部访问容器</h4><p>当容器中运行一些网络应用，要让外部访问这些应用的时候，我们可以通过参数 -P 或者 -p来指定端口。使用大P参数时，Docker会随机映射一个49000-49900的端口到容器内部的端口。</p>
-<pre><code>root@rexyan:/# docker run -d  -P training/webapp python app.py
-d03564d51bdeb439e3c9f140575ab53cd665e47c35efd567a8c20aefc14c2e6d
-root@rexyan:/# docker ps
-CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS                     NAMES
-d03564d51bde        training/webapp     &quot;python app.py&quot;     3 seconds ago       Up 2 seconds        0.0.0.0:32770-&gt;5000/tcp   clever_austin
-root@rexyan:/# 
-</code></pre><p>可以看见将本机的32770端口映射到了容器内的5000端口。我们可以浏览器访问本机IP+32770端口就能看见内容了</p>
-<p>可以使用docker logs来查看访问的信息</p>
-<pre><code>root@rexyan:/# docker logs d03564d51bde
- * Running on http://0.0.0.0:5000/ (Press CTRL+C to quit)
- * Running on http://0.0.0.0:5000/ (Press CTRL+C to quit)
-10.10.10.1 - - [06/Apr/2018 05:41:40] &quot;GET / HTTP/1.1&quot; 200 -
-10.10.10.1 - - [06/Apr/2018 05:41:41] &quot;GET /favicon.ico HTTP/1.1&quot; 404 -
-</code></pre><p>除了使用-P随机生成一个本机端口与容器的应用进行端口映射外，我们还可以使用-p来指定端口</p>
-<pre><code>root@rexyan:/# docker run -d -p 16666:5000 training/webapp python app.py
-30e63bcaf4a3df3708eacd0fb114ce66ce2fb1ee2b103409e1286313e98dda03
-</code></pre><p>将本机16666端口与容器5000进行映射。</p>
-<h4 id="映射所有接口地址"><a href="#映射所有接口地址" class="headerlink" title="映射所有接口地址"></a>映射所有接口地址</h4><p>使用-p默认会绑定本地所有接口上的所有地址，多次使用-p参数，可以绑定多个端口</p>
-<pre><code>root@rexyan:/# docker run -d -p 11111:5000 -p 11112:5000 training/webapp python app.py
-</code></pre><h4 id="映射到指定地址的指定端口"><a href="#映射到指定地址的指定端口" class="headerlink" title="映射到指定地址的指定端口"></a>映射到指定地址的指定端口</h4><pre><code>root@rexyan:/# docker run -d -p 10.10.10.133:10203:5000 training/webapp python app.py 
-</code></pre><h4 id="映射到指定地址的任意端口"><a href="#映射到指定地址的任意端口" class="headerlink" title="映射到指定地址的任意端口"></a>映射到指定地址的任意端口</h4><pre><code>root@rexyan:/# docker run -d -p 10.10.10.133::5000 training/webapp python app.py 
-</code></pre><p>这里会默认分配一个端口出来，相当于-P</p>
-<pre><code>root@rexyan:/# docker ps 
-CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS                          NAMES
-a1b25a3d9236        training/webapp     &quot;python app.py&quot;     2 seconds ago       Up 1 second         10.10.10.133:32769-&gt;5000/tcp   elegant_clarke
-</code></pre><h4 id="查看端口映射配置"><a href="#查看端口映射配置" class="headerlink" title="查看端口映射配置"></a>查看端口映射配置</h4><pre><code>root@rexyan:/# docker port a1b25a3d9236
-5000/tcp -&gt; 10.10.10.133:32769
-</code></pre><p>还可以使用docker inspect + id/名称来查看</p>
-<pre><code>docker inspect a1b25a3d9236
-</code></pre><h3 id="容器互联"><a href="#容器互联" class="headerlink" title="容器互联"></a>容器互联</h3><p>容器互联是一种让多个容器中应用进行快速交互的方式，它会在源和接收容器之间创建连接关系，接收容器可以通过容器名快速访问到源容器。</p>
-<h4 id="自定义容器名称"><a href="#自定义容器名称" class="headerlink" title="自定义容器名称"></a>自定义容器名称</h4><p>创建容器的时候系统会自动创建名称，但是我们可以使用–name来指定自己的容器名称，这里注意容器名称是不能重复的。</p>
-<pre><code>root@rexyan:/# docker run -d -p 12000:5000 --name web  training/webapp python app.py 
-f59bdcfceb9c8913fa77eb90bba2ae54342fde166934097a6ff6279aaab89f28
-root@rexyan:/# docker ps 
-CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS                     NAMES
-f59bdcfceb9c        training/webapp     &quot;python app.py&quot;     3 seconds ago       Up 2 seconds        0.0.0.0:12000-&gt;5000/tcp   web
-</code></pre><p>在创建docker的时候，如果使用-rm 参数，这代表容器终止后会被删除。-rm 参数不能和-d一起使用。</p>
-<h4 id="容器互联-1"><a href="#容器互联-1" class="headerlink" title="容器互联"></a>容器互联</h4><p>新建一个容器</p>
-<pre><code>root@rexyan:/# docker run -d --name db training/postgres
-Unable to find image &#39;training/postgres:latest&#39; locally
-latest: Pulling from training/postgres
-a3ed95caeb02: Pull complete 
-6e71c809542e: Pull complete 
-2978d9af87ba: Pull complete 
-e1bca35b062f: Pull complete 
-500b6decf741: Pull complete 
-74b14ef2151f: Pull complete 
-7afd5ed3826e: Pull complete 
-3c69bb244f5e: Pull complete 
-d86f9ec5aedf: Pull complete 
-010fabf20157: Pull complete 
-Digest: sha256:a945dc6dcfbc8d009c3d972931608344b76c2870ce796da00a827bd50791907e
-Status: Downloaded newer image for training/postgres:latest
-d8d7bec173c29963f34d840547760c0a9629fc71950f2c5592fe7b8c3d8c014b
-</code></pre><p>新建一个web容器，与刚刚新建的db容器进行互联，格式为–link name:alias name是与之连接的容器名称，alias是这个连接的别名。这样做的好处是我们无需使用-p或者-P暴露出容器db的地址，增加了安全性。</p>
-<pre><code>root@rexyan:/# docker run  -d -P --name web --link db:db training/webapp python app.py 
-</code></pre><p>可以从两个方面看出这两个容器是否互联，我们可以进入到创建好的web容器中</p>
-<pre><code>root@rexyan:/# docker exec -it b295295fdd14 /bin/bash 
-</code></pre><p>查看hosts 文件</p>
-<pre><code>root@b295295fdd14:/opt/webapp# cat /etc/hosts 
-127.0.0.1       localhost
-::1     localhost ip6-localhost ip6-loopback
-fe00::0 ip6-localnet
-ff00::0 ip6-mcastprefix
-ff02::1 ip6-allnodes
-ff02::2 ip6-allrouters
-172.17.0.3      db d8d7bec173c2
-172.17.0.2      b295295fdd14
-root@b295295fdd14:/opt/webapp# ping db
-PING db (172.17.0.3) 56(84) bytes of data.
-64 bytes from db (172.17.0.3): icmp_seq=1 ttl=64 time=0.239 ms
-64 bytes from db (172.17.0.3): icmp_seq=2 ttl=64 time=0.132 ms
-64 bytes from db (172.17.0.3): icmp_seq=3 ttl=64 time=0.131 ms 
-</code></pre><p>我们看见了172.17.0.2对应是是自己的容器id，172.17.0.3对应带了名称为db的容器，容器id为d8d7bec173c2。我们可以在当前web容器中ping db容器，直接使用ping db 可以ping通，说明两个的网络是互通的。</p>
-<p>第二种方式是使用env来查看web容器的环境变量，创建一个临时的web4容器，并关联db，查看env</p>
-<pre><code>root@rexyan:/# docker run --rm --name web4 --link db:db training/webapp env 
-PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-HOSTNAME=fc701885a079
-DB_PORT=tcp://172.17.0.3:5432
-DB_PORT_5432_TCP=tcp://172.17.0.3:5432
-DB_PORT_5432_TCP_ADDR=172.17.0.3
-DB_PORT_5432_TCP_PORT=5432
-DB_PORT_5432_TCP_PROTO=tcp
-DB_NAME=/web4/db
-DB_ENV_PG_VERSION=9.3
-HOME=/root
-root@rexyan:/# 
-</code></pre><p>上面的内容中DB_开头的环境变量是提供web4容器与db容器连接使用的。</p>
-<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><pre><code>docker run -d -P training/webapp python app.py     # 创建一个容器，并且关联一个本地随机端口
-docker logs d03564d51bde    # 查看id为d03564d51bde容器的log信息
-docker run -d -p 16666:5000 training/webapp python app.py   # 创建容器，指定本地端口16666和容器5000端口进行网络互联
-docker run -d -p 11111:5000 -p 11112:5000 training/webapp python app.py   # 创建容器，指定两个本地两个端口与容器进行网络互联
-docker run -d -p 10.10.10.133:10203:5000 training/webapp python app.py  # 创建容器，指定ip和端口与容器进行网络互联
-docker run -d -p 10.10.10.133::5000 training/webapp python app.py   # 创建容器，指定ip与容器进行网络互联，端口会随机分配一个，和-P一样
-docker port a1b25a3d9236    # 查看容器id为a1b25a3d9236的端口信息
-docker inspect a1b25a3d9236   # 查看容器id为a1b25a3d9236的详细信息
-docker run -d -p 12000:5000 --name web training/webapp python app.py # 创建一个name为web的容器，并将本地12000端口和容器5000进行关联
-docker run -d --name db training/postgres   # 创建一个name为db的容器
-docker run -d -P --name web --link db:db training/webapp python app.py   # 创建一个name为web的容器，并使用--link实现与db容器的互联
-docker exec -it b295295fdd14 /bin/bash   # 连接id为b295295fdd14的容器
-docker run --rm --name web4 --link db:db training/webapp env   # 创建一个临时web4容器，利用env查看容器的环境变量，可看见关联的容器db的一些地址信息
-</code></pre>
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/04/05/Docker5 -- 数据 /">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2018/04/05/Docker5 -- 数据 /" itemprop="url">Docker5 数据</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-04-05T22:36:57+08:00">
-                2018-04-05
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Docker/" itemprop="url" rel="index">
-                    <span itemprop="name">Docker</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <p>Docker 在使用中往往需要对数据进行持久化，或者需要在多个容器之间进行数据共享。容器中管理数据主要有两种方式：</p>
-<ol>
-<li>数据卷：容器内数据直接映射到本地主机上</li>
-<li>数据卷镜像：使用特定的容器维护数据卷</li>
-</ol>
-<h3 id="数据卷"><a href="#数据卷" class="headerlink" title="数据卷"></a>数据卷</h3><p>数据卷是一个可供容器使用的特殊目录，类似Linux的mount操作。</p>
-<p>数据卷有很多特性：</p>
-<ol>
-<li>数据卷可以在容器之间共享和重用</li>
-<li>对数据卷内数据的修改会立马生效</li>
-<li>对数据的更新不会影响容器，解耦了应用和数据</li>
-<li>卷会一直存在，直到没有容器使用，可以安全的卸载。</li>
-</ol>
-<h4 id="容器内创建数据卷"><a href="#容器内创建数据卷" class="headerlink" title="容器内创建数据卷"></a>容器内创建数据卷</h4><p>使用docker run的时候，可以使用-v在容器内创建一个数据卷，多次使用-v可以创建多个数据卷。</p>
-<pre><code>root@ubuntu:~# docker pull training/webapp
-Using default tag: latest
-latest: Pulling from training/webapp
-e190868d63f8: Pull complete 
-909cd34c6fd7: Pull complete 
-0b9bfabab7c1: Pull complete 
-a3ed95caeb02: Pull complete 
-10bbbc0fc0ff: Pull complete 
-fca59b508e9f: Pull complete 
-e7ae2541b15b: Pull complete 
-9dd97ef58ce9: Pull complete 
-a4c1b0cb7af7: Pull complete 
-Digest: sha256:06e9c1983bd6d5db5fba376ccd63bfa529e8d02f23d5079b8f74a616308fb11d
-Status: Downloaded newer image for training/webapp:latest
-</code></pre><pre><code>root@kindle15:~# docker run -d -p 5000:5000 --name web -v /webapp training/webapp
-5112b10e6b3c4bf0b96c5dbfb8a950089e0a33695bda193ff15dd80f55ee674d
-root@kindle15:~# docker ps
-CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS                    NAMES
-5112b10e6b3c        training/webapp     &quot;python app.py&quot;     4 seconds ago       Up 3 seconds        0.0.0.0:5000-&gt;5000/tcp   web
-root@kindle15:~# 
-</code></pre><p>浏览器访问5000端口可以看见  Hello world!</p>
-<p>使用exec重新连接看下是否有/webapp目录【如果不用-v指定创建一个，是不会有/webapp这个目录的】</p>
-<pre><code>root@kindle15:~# docker exec -it 5112b10 /bin/bash
-root@5112b10e6b3c:/opt/webapp# cd /webapp/
-root@5112b10e6b3c:/webapp# ll
-total 8
-drwxr-xr-x 2 root root 4096 Apr  5 07:26 ./
-drwxr-xr-x 1 root root 4096 Apr  5 07:26 ../
-</code></pre><h4 id="主机目录作为数据卷"><a href="#主机目录作为数据卷" class="headerlink" title="主机目录作为数据卷"></a>主机目录作为数据卷</h4><p>先查看下镜像</p>
-<pre><code>root@rexyan:/src/webapp# docker images 
-REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE
-ubuntu              14.04               a35e70164dfb        4 weeks ago         222 MB
-training/webapp     latest              6fae60ef3446        2 years ago         349 MB
-</code></pre><p>创建一个容器，并将本机目录文件夹/src/webapp作为数据卷和容器中的/tmp目录进行关联</p>
-<pre><code>root@rexyan:/src/webapp# docker run -it -v /src/webapp:/tmp ubuntu:14.04 /bin/bash
-</code></pre><p>到容器中/tmp下新建一个目录</p>
-<pre><code>root@fe571def773f:/# cd /tmp/
-root@fe571def773f:/tmp# ll
-total 8
-drwxr-xr-x  2 root root 4096 Apr  5 13:11 ./
-drwxr-xr-x 34 root root 4096 Apr  5 13:23 ../
-root@fe571def773f:/tmp# 
-root@fe571def773f:/tmp# 
-root@fe571def773f:/tmp# touch hahahah.txt
-root@fe571def773f:/tmp# 
-root@fe571def773f:/tmp# exit
-</code></pre><p>退出容器，查看/src/webapp下文件的变化，可以看见新建的文件hahahah.txt</p>
-<pre><code>root@rexyan:/src/webapp# cd /src/webapp/
-root@rexyan:/src/webapp# ll
-total 8
-drwxr-xr-x 2 root root 4096 Apr  5 21:23 ./
-drwxr-xr-x 3 root root 4096 Apr  5 21:11 ../
--rw-r--r-- 1 root root    0 Apr  5 21:23 hahahah.txt
-</code></pre><p>这里要注意，本地路径必须是绝对路径，如果目录不存在Docker会自动创建。</p>
-<p>Docker挂载数据卷的默认权限是读写（rw），用户也可以通过ro指定为只读，下面新建一个容器，将目录指定为只读，并去创建一个文件，会看见提示 Read-only file system</p>
-<pre><code>root@rexyan:/src/webapp# docker run -it -v /src/webapp:/tmp:ro ubuntu:14.04 /bin/bash
-root@b3ae330ad08e:/# cd /tmp/
-root@b3ae330ad08e:/tmp# ll
-total 8
-drwxr-xr-x  2 root root 4096 Apr  5 13:23 ./
-drwxr-xr-x 34 root root 4096 Apr  5 13:27 ../
--rw-r--r--  1 root root    0 Apr  5 13:23 hahahah.txt
-root@b3ae330ad08e:/tmp# touch  222.txt
-touch: cannot touch &#39;222.txt&#39;: Read-only file system
-root@b3ae330ad08e:/tmp# 
-</code></pre><h4 id="主机文件作为数据卷"><a href="#主机文件作为数据卷" class="headerlink" title="主机文件作为数据卷"></a>主机文件作为数据卷</h4><pre><code>没有测试成功，挂载后为文件夹
-</code></pre><h3 id="数据卷容器"><a href="#数据卷容器" class="headerlink" title="数据卷容器"></a>数据卷容器</h3><p>数据卷容器是一个容器，目的是专门用来提供数据卷供其他容器挂载。数据卷容器可以很方便的在多个容器之间共享文件数据</p>
-<pre><code>root@rexyan:/# docker run -it -v /datadb --name datadb ubuntu:14.04 
-</code></pre><p>此时已经进入了容器，我们可以看见我们刚刚创建的数据卷/datadb。注意这里是在容器中创建的/datadb文件夹，并不是你的主机上【注意区分挂载一个主机目录作为数据卷和挂载一个数据卷容器的区别，前者的功能是用于容器和主机之间进行数据的共享，而后者是用于容器与容器之间进行数据的共享】</p>
-<pre><code>root@0043f3b8c86a:/# ll
-total 76
-drwxr-xr-x  35 root root 4096 Apr  5 13:44 ./
-drwxr-xr-x  35 root root 4096 Apr  5 13:44 ../
--rwxr-xr-x   1 root root    0 Apr  5 13:44 .dockerenv*
-drwxr-xr-x   2 root root 4096 Mar  2 04:49 bin/
-drwxr-xr-x   2 root root 4096 Apr 10  2014 boot/
-drwxr-xr-x   2 root root 4096 Apr  5 13:44 datadb/
-drwxr-xr-x   5 root root  360 Apr  5 13:44 dev/
-drwxr-xr-x  64 root root 4096 Apr  5 13:44 etc/
-drwxr-xr-x   2 root root 4096 Apr 10  2014 home/
-drwxr-xr-x  12 root root 4096 Mar  2 04:49 lib/
-drwxr-xr-x   2 root root 4096 Mar  2 04:48 lib64/
-drwxr-xr-x   2 root root 4096 Mar  2 04:47 media/
-drwxr-xr-x   2 root root 4096 Apr 10  2014 mnt/
-drwxr-xr-x   2 root root 4096 Mar  2 04:47 opt/
-dr-xr-xr-x 188 root root    0 Apr  5 13:44 proc/
-drwx------   2 root root 4096 Mar  2 04:49 root/
-drwxr-xr-x   8 root root 4096 Mar  6 22:16 run/
-drwxr-xr-x   2 root root 4096 Mar  6 22:16 sbin/
-drwxr-xr-x   2 root root 4096 Mar  2 04:47 srv/
-dr-xr-xr-x  13 root root    0 Apr  5 13:40 sys/
-drwxrwxrwt   2 root root 4096 Mar  2 04:49 tmp/
-drwxr-xr-x  11 root root 4096 Mar  2 04:47 usr/
-drwxr-xr-x  13 root root 4096 Mar  2 04:49 var/
-</code></pre><p>新建两个容器，命名为test1和test2，并将刚刚创建的datadb数据卷容器挂载上</p>
-<pre><code>root@rexyan:/# docker run -itd --volumes-from datadb --name test1  ubuntu:14.04 
-571888752cf6360cf8712a5d6c35354f334aaebd1b732c4fd01d11d16622ee76
-root@rexyan:/# docker run -itd --volumes-from datadb --name test2  ubuntu:14.04 
-5264b61715cc464db23c1cfdf6eb7e7fa224ac84a65f8f5293499bdb72fbd17d
-</code></pre><p>我们去datadb数据卷容器中的/datadb下新建一个文件</p>
-<pre><code>root@rexyan:/# docker exec -it 0043f3b8c86a /bin/bash 
-root@0043f3b8c86a:/# cd /datadb/
-root@0043f3b8c86a:/datadb# touch  test_file.md  
-root@0043f3b8c86a:/datadb# exit
-</code></pre><p>我们分别去test1容器和test2容器查看文件的情况</p>
-<pre><code>root@rexyan:/# docker exec -it test1 /bin/bash
-root@571888752cf6:/# cd /datadb/
-root@571888752cf6:/datadb# ll
-total 8
-drwxr-xr-x  2 root root 4096 Apr  5 13:51 ./
-drwxr-xr-x 35 root root 4096 Apr  5 13:47 ../
--rw-r--r--  1 root root    0 Apr  5 13:51 test_file.md
-root@571888752cf6:/datadb# 
-</code></pre><pre><code>root@rexyan:/# docker exec -it test2 /bin/bash
-root@5264b61715cc:/# cd /datadb/
-root@5264b61715cc:/datadb# ll
-total 8
-drwxr-xr-x  2 root root 4096 Apr  5 13:51 ./
-drwxr-xr-x 35 root root 4096 Apr  5 13:47 ../
--rw-r--r--  1 root root    0 Apr  5 13:51 test_file.md
-root@5264b61715cc:/datadb# 
-</code></pre><p>会看见test1和test2容器都有了刚刚在datadb数据卷容器创建的文件。</p>
-<p>我们这次在test1容器中新建一个文件，然后去看test2容器和datadb容器中的变化</p>
-<pre><code>root@rexyan:/# docker exec -it test1 /bin/bash
-root@571888752cf6:/# cd /datadb/
-root@571888752cf6:/datadb# 
-root@571888752cf6:/datadb# touch test1_file.md
-root@571888752cf6:/datadb# exit
-</code></pre><pre><code>root@rexyan:/# docker exec -it test2 /bin/bash
-root@5264b61715cc:/# cd /datadb/
-root@5264b61715cc:/datadb# 
-root@5264b61715cc:/datadb# 
-root@5264b61715cc:/datadb# ll
-total 8
-drwxr-xr-x  2 root root 4096 Apr  5 13:56 ./
-drwxr-xr-x 36 root root 4096 Apr  5 13:56 ../
--rw-r--r--  1 root root    0 Apr  5 13:56 test1_file.md
--rw-r--r--  1 root root    0 Apr  5 13:51 test_file.md
-root@5264b61715cc:/datadb# 
-</code></pre><pre><code>root@rexyan:/# docker exec -it datadb /bin/bash
-root@0043f3b8c86a:/# cd /datadb/
-root@0043f3b8c86a:/datadb# ll
-total 8
-drwxr-xr-x  2 root root 4096 Apr  5 13:56 ./
-drwxr-xr-x 36 root root 4096 Apr  5 13:45 ../
--rw-r--r--  1 root root    0 Apr  5 13:56 test1_file.md
--rw-r--r--  1 root root    0 Apr  5 13:51 test_file.md
-</code></pre><p>由此得出结论，因为datadb容器中的/datadb是数据卷，而datadb容器做为数据卷容器，并挂载在了test1和test2容器上，所有，当一个的/datadb数据卷发生变化的时候，其他两者都是会变化的。这里还需注意，使用–volumes-from参数所挂载数据卷的容器自身并不需要处于运行状态。</p>
-<pre><code>CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
-5264b61715cc        ubuntu:14.04        &quot;/bin/bash&quot;         14 minutes ago      Up 14 minutes                           test2
-571888752cf6        ubuntu:14.04        &quot;/bin/bash&quot;         14 minutes ago      Up 14 minutes                           test1
-0043f3b8c86a        ubuntu:14.04        &quot;/bin/bash&quot;         17 minutes ago      Up 11 minutes                           datadb
-root@rexyan:/# docker stop  datadb 
-</code></pre><p>新建一个容器，挂载在刚刚停止的数据卷容器，可以挂载上，所以使用–volumes-from参数所挂载数据卷的容器自身并不需要处于运行状态</p>
-<pre><code>root@rexyan:/# docker run -itd --volumes-from datadb --name test3  ubuntu:14.04 
-ecf33118c725313422c06e49a9b6ca7a1d0ac37d1ff8475aa42b5ccf84353329
-root@rexyan:/# docker ps
-CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
-ecf33118c725        ubuntu:14.04        &quot;/bin/bash&quot;         3 seconds ago       Up 1 second                             test3
-5264b61715cc        ubuntu:14.04        &quot;/bin/bash&quot;         14 minutes ago      Up 14 minutes                           test2
-571888752cf6        ubuntu:14.04        &quot;/bin/bash&quot;         15 minutes ago      Up 15 minutes                           test1
-</code></pre><p>如果删除了挂载的容器(test1/test2/test3)数据卷不会自动被删除，如果要删除一个数据卷，必须在删除最后一个还挂载着它的容器时显视使用docker rm -v来指定同时删除关联的容器。</p>
-<p>先删除两个容器，剩下一个还挂载着的</p>
-<pre><code>root@rexyan:/# docker ps
-CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
-ecf33118c725        ubuntu:14.04        &quot;/bin/bash&quot;         11 minutes ago      Up 11 minutes                           test3
-5264b61715cc        ubuntu:14.04        &quot;/bin/bash&quot;         25 minutes ago      Up 25 minutes                           test2
-571888752cf6        ubuntu:14.04        &quot;/bin/bash&quot;         26 minutes ago      Up 26 minutes                           test1
-root@rexyan:/# 
-root@rexyan:/# 
-root@rexyan:/# docker rm -f ecf33118c725
-ecf33118c725
-root@rexyan:/# docker rm -f 5264b61715cc 
-5264b61715cc
-root@rexyan:/# 
-</code></pre><p>这时查看数据卷容器是否还在</p>
-<pre><code>root@rexyan:/# docker ps -a 
-CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS                      PORTS               NAMES
-571888752cf6        ubuntu:14.04        &quot;/bin/bash&quot;         27 minutes ago      Up 27 minutes                                   test1
-0043f3b8c86a        ubuntu:14.04        &quot;/bin/bash&quot;         30 minutes ago      Exited (0) 12 minutes ago                       datadb             
-</code></pre><p>可以看见数据卷容器datadb还在，我们可以使用docker rm -v datadb 来删除数据卷容器。</p>
-<h3 id="数据卷容器的备份和恢复"><a href="#数据卷容器的备份和恢复" class="headerlink" title="数据卷容器的备份和恢复"></a>数据卷容器的备份和恢复</h3><h4 id="备份"><a href="#备份" class="headerlink" title="备份"></a>备份</h4><h4 id="恢复"><a href="#恢复" class="headerlink" title="恢复"></a>恢复</h4><h3 id="错误"><a href="#错误" class="headerlink" title="错误"></a>错误</h3><pre><code>standard_init_linux.go:178: exec user process caused &quot;exec format error&quot;
-</code></pre><p>这是因为操作系统是32位的，不支持。</p>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/04/03/Docker4 -- 容器 /">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2018/04/03/Docker4 -- 容器 /" itemprop="url">Docker4 容器</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-04-03T19:17:57+08:00">
-                2018-04-03
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Docker/" itemprop="url" rel="index">
-                    <span itemprop="name">Docker</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="创建容器"><a href="#创建容器" class="headerlink" title="创建容器"></a>创建容器</h3><h4 id="新建容器"><a href="#新建容器" class="headerlink" title="新建容器"></a>新建容器</h4><pre><code>docker create -it  ubuntu:16.04 
-</code></pre><p>-i：保持标准输入打开<br>-t：是否分配一个伪终端<br>使用docker create创建的容器默认是停止状态</p>
-<pre><code>root@ubuntu:~# docker ps
-</code></pre><p>查看已经启动的容器</p>
-<pre><code>root@ubuntu:~# docker ps -a
-CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
-f9736e4b4e92        ubuntu:16.04        &quot;/bin/bash&quot;         22 minutes ago      Created                                 elated_shockley
-</code></pre><p>查看所有的容器</p>
-<h4 id="启动容器"><a href="#启动容器" class="headerlink" title="启动容器"></a>启动容器</h4><pre><code>docker start f9736
-</code></pre><p>使用docker start + 容器的ID来启动容器</p>
-<pre><code>root@ubuntu:~# docker ps
-CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
-f9736e4b4e92        ubuntu:16.04        &quot;/bin/bash&quot;         24 minutes ago      Up 46 seconds                           elated_shockley
-</code></pre><p>再次使用docker ps就能看见刚刚启动的容器了</p>
-<h4 id="新建并启动容器"><a href="#新建并启动容器" class="headerlink" title="新建并启动容器"></a>新建并启动容器</h4><pre><code>docker run  ubuntu:14.04 /bin/echo &quot;11111&quot;     
-</code></pre><p>docker run等价于先执行docker create 在执行docker start，之后输出11111，最后停止容器。</p>
-<p>当使用docker run来创建容器时，在docker后台运行的标准操作包括：</p>
-<ol>
-<li>检查本地是否要要运行的镜像，不存在就从公有仓库下载</li>
-<li>利用镜像来创建一个容器，并启动该容器</li>
-<li>分配一个文件系统给容器，并在只读的镜像层外面挂载一层可读写层</li>
-<li>从宿主主机配置的网桥接口中桥接一个虚拟的接口到容器中</li>
-<li>从网桥的地址池分配一个IP地址给容器</li>
-<li>执行用户的应用程序</li>
-<li>执行完毕后容器自动终止</li>
-</ol>
-<pre><code>root@ubuntu:~# docker run -it  ubuntu:14.04  /bin/bash   
-root@dcd459d13060:/# pwd
-/
-root@dcd459d13060:/# ls 
-bin  boot  dev  etc  home  lib  media  mnt  opt  proc  root  run  sbin  srv  sys  tmp  usr  var
-root@dcd459d13060:/# ps
-  PID TTY          TIME CMD
-    1 ?        00:00:00 bash
-   15 ?        00:00:00 ps
-root@dcd459d13060:/# exit
-exit
-root@ubuntu:~# 
-</code></pre><p>可以使用ctrl + d 或者exit退出容器</p>
-<h4 id="守护态运行"><a href="#守护态运行" class="headerlink" title="守护态运行"></a>守护态运行</h4><pre><code>docker run -d  ubuntu:14.04 /bin/sh -c &quot;while true; do echo 1111; sleep 1;done&quot;
-</code></pre><p>加上参数-d就能让容器在后台以守护态方式运行。<br>可以使用docker logs + id 查看日志信息</p>
-<pre><code>root@ubuntu:~# docker ps
-CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS               NAMES
-7a1cce3f1981        ubuntu:14.04        &quot;/bin/sh -c &#39;while...&quot;   3 minutes ago       Up 3 minutes                            musing_goldstine
-565d89975177        ubuntu:14.04        &quot;/bin/sh -c &#39;while...&quot;   About an hour ago   Up About an hour                        naughty_babbage
-f9736e4b4e92        ubuntu:16.04        &quot;/bin/bash&quot;              2 hours ago         Up 2 hours                              elated_shockley
-</code></pre><pre><code>root@ubuntu:~# docker logs  7a1cce
-1111
-1111
-1111
-......
-</code></pre><h3 id="终止容器"><a href="#终止容器" class="headerlink" title="终止容器"></a>终止容器</h3><pre><code>root@ubuntu:~# docker ps 
-CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS               NAMES
-7a1cce3f1981        ubuntu:14.04        &quot;/bin/sh -c &#39;while...&quot;   13 minutes ago      Up 13 minutes                           musing_goldstine
-565d89975177        ubuntu:14.04        &quot;/bin/sh -c &#39;while...&quot;   About an hour ago   Up About an hour                        naughty_babbage
-f9736e4b4e92        ubuntu:16.04        &quot;/bin/bash&quot;              3 hours ago         Up 2 hours                              elated_shockley
-</code></pre><p>使用dcoker stop + id可以实现容器的停止【首先发送SIGTERM信号，10s后在发送SIGKILL来终止容器】</p>
-<pre><code>root@ubuntu:~# docker stop 7a1cce
-7a1cce
-</code></pre><p>使用dcoker kill + id可以实现容器的停止【直接发送SIGKILL来终止容器】</p>
-<pre><code>root@ubuntu:~# docker kill 565d
-565d
-</code></pre><p>使用dcoker restart + id可以实现容器的重新启动</p>
-<pre><code>root@ubuntu:~# docker restart 7a1cc
-7a1cc
-</code></pre><p>使用dcoker start + id可以实现容器的停止</p>
-<pre><code>root@ubuntu:~# docker start 565d89
-565d89
-</code></pre><p>使用dcoker ps -qa可以查看所用容器的id</p>
-<pre><code>root@ubuntu:~# docker ps -qa
-7a1cce3f1981
-565d89975177
-f9736e4b4e92
-</code></pre><h3 id="进入容器"><a href="#进入容器" class="headerlink" title="进入容器"></a>进入容器</h3><p>当容器使用-d参数时，容器后进入后台。用户无法看到容器的信息，也无法进行操作。下面介绍三种进入容器的方法。</p>
-<pre><code>root@ubuntu:~# docker ps 
-CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS               NAMES
-7a1cce3f1981        ubuntu:14.04        &quot;/bin/sh -c &#39;while...&quot;   26 minutes ago      Up 5 seconds                            musing_goldstine
-565d89975177        ubuntu:14.04        &quot;/bin/sh -c &#39;while...&quot;   About an hour ago   Up 11 minutes                           naughty_babbage
-f9736e4b4e92        ubuntu:16.04        &quot;/bin/bash&quot;              3 hours ago         Up 2 hours                              elated_shockley
-</code></pre><h4 id="attach"><a href="#attach" class="headerlink" title="attach"></a>attach</h4><pre><code>root@ubuntu:~# docker attach 7a1cce3f1981 
-1111
-1111
-</code></pre><p>使用docker attach + 容器名称/容器id【注意这里是容器的名称】</p>
-<p>使用attach不方便，因为当多个窗口同时使用attach连接到同一个容器的时候，所有的窗口都会同步显示。当某个窗口阻塞的时候，其他窗口也无法执行其他操作了。</p>
-<h4 id="exec"><a href="#exec" class="headerlink" title="exec"></a>exec</h4><pre><code>root@ubuntu:~# docker exec -it 565d89975177 /bin/bash
-root@565d89975177:/# pwd
-/
-</code></pre><p>使用docker exec + 选项 + 命令 【上面的-it表示打开标准输入和输出，并分配一个伪终端】，exec命令是推荐的对容器的操作方式。<br>其他参数：<br>-t：分配伪终端，默认为false<br>-i：打开标准输入，默认是false<br>–privileged：是否以最高权限执行命令，默认为false<br>-u：执行命令的用户名或uid</p>
-<h4 id="nsenter"><a href="#nsenter" class="headerlink" title="nsenter"></a>nsenter</h4><h3 id="删除容器"><a href="#删除容器" class="headerlink" title="删除容器"></a>删除容器</h3><pre><code>root@ubuntu:~# docker ps -a
-CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS                   PORTS               NAMES
-7a1cce3f1981        ubuntu:14.04        &quot;/bin/sh -c &#39;while...&quot;   3 hours ago         Exited (0) 3 hours ago                       musing_goldstine
-565d89975177        ubuntu:14.04        &quot;/bin/sh -c &#39;while...&quot;   4 hours ago         Up 3 hours                                   naughty_babbage
-f9736e4b4e92        ubuntu:16.04        &quot;/bin/bash&quot;              6 hours ago         Up 6 hours                                   elated_shockley
-</code></pre><p>删除一个容器</p>
-<pre><code>root@ubuntu:~# docker rm 7a1cce3f1981 
-7a1cce3f1981
-</code></pre><p>docker rm 命令只能删除处于终止火车退出状态的容器。并不能删除还处于运行状态的容器。可以添加-f参数来删除一个还在运行中的容器。使用-f参数，Docker会先发一个SIGKILL信号给容器，终止应用，再将其删除。</p>
-<pre><code>root@ubuntu:~# docker ps
-CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS               NAMES
-565d89975177        ubuntu:14.04        &quot;/bin/sh -c &#39;while...&quot;   4 hours ago         Up 3 hours                              naughty_babbage
-f9736e4b4e92        ubuntu:16.04        &quot;/bin/bash&quot;              6 hours ago         Up 6 hours                              elated_shockley
-</code></pre><p>不使用-f参数</p>
-<pre><code>root@ubuntu:~# docker rm 565d89975177
-Error response from daemon: You cannot remove a running container 565d89975177b855ebf9e80636e85613b5ad9f9e40ef9c5f7f6edeca12efd155. Stop the container before attempting removal or use -f
-</code></pre><p>使用-f参数删除</p>
-<pre><code>root@ubuntu:~# docker rm -f  565d89975177
-565d89975177
-</code></pre><h3 id="导入导出容器"><a href="#导入导出容器" class="headerlink" title="导入导出容器"></a>导入导出容器</h3><p>使用docker export可以到处一个容器，不管是这个容器是否处于运行状态</p>
-<h4 id="导出容器"><a href="#导出容器" class="headerlink" title="导出容器"></a>导出容器</h4><pre><code>root@ubuntu:~# docker export -o test_export.tar.gz f9736e4b4e92
-</code></pre><p>docker export -o + 文件路径及名称 + 容器id</p>
-<h4 id="导入容器"><a href="#导入容器" class="headerlink" title="导入容器"></a>导入容器</h4><pre><code>root@ubuntu:~# docker import test_export.tar.gz  rexyan/ubuntu:v1.0 
-</code></pre><p>可以使用docker import + 文件 + 镜像标签</p>
-<p>结果</p>
-<pre><code>root@ubuntu:~# docker images
-REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE
-rexyan/ubuntu       v1.0                fb9d66f12998        12 seconds ago      85.2 MB
-ubuntu              16.04               adfebeb0ac91        3 weeks ago         111 MB
-ubuntu              14.04               b42bcb3a6514        3 weeks ago         210 MB
-</code></pre><p>实际上我们也可以使用docker load来导入一个镜像到本地镜像库，也可以使用docker import来导入一个容器快照到本地镜像库。这两者的区别在于：</p>
-<ol>
-<li>容器快照将丢失所有的历史记录和元数据信息【即仅保存容器当时的快照信息】，而镜像文件将保存完整的记录。</li>
-<li>容器快照的大小与镜像相比，容器快照的大小更小。</li>
-<li>容器快照的导入方式可以重新指定标签等元数据信息。</li>
-</ol>
-<h3 id="拷贝文件到容器中"><a href="#拷贝文件到容器中" class="headerlink" title="拷贝文件到容器中"></a>拷贝文件到容器中</h3><pre><code>docker cp /tmp/文件.tar.gz 70939372d08a:/tmp
-</code></pre><p>拷贝/tmp/文件.tar.gz文件到 70939372d08a容器中的/tmp目录下</p>
-<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><pre><code>docker create -it ubuntu:16.04  # 使用 ubuntu:16.04 创建一个带标准输入且有终端的容器，这个容器处于停止状态
-docker run ubuntu:14.04 /bin/echo &quot;11111&quot;  # 使用 ubuntu:14.04 创建且运行一个容器，并输出&quot;11111&quot;，输出会后退出容器
-docker run -it ubuntu:14.04 /bin/bash  # 使用ubuntu:14.04创建一个带标准输入且有终端的容器，这个容器处于运行状态
-docker restart 7a1cc   # 重启id为7a1cc的容器
-docker start 565d89   # 启动id为565d89的容器
-docker kill 565d  # 立即杀死id为565d容器
-docker stop 7a1cce    # 停止id为7a1cce的容器【这个有10s的倒计时】
-docker logs 7a1cce    # 查看id为7a1cce的容器的日志和输出信息
-docker rm -f 565d89975177   # 强制删除id为565d89975177的容器
-docker rm 565d89975177  # 删除id为565d89975177的容器
-docker run -d ubuntu:14.04 /bin/sh -c &quot;while true; do echo 1111; sleep 1;done&quot; # 创建一个容器，且后台以守护态运行
-docker attach 7a1cce3f1981   # 进入id为7a1cce3f1981的容器
-docker exec -it 565d89975177 /bin/bash    # 进入id为565d89975177的容器，且打开标准输入和终端，并使用bash
-docker ps -qa  # 查看所有容器的id
-docker export -o test_export.tar.gz f9736e4b4e92  #将容器导出到文件
-docker import test_export.tar.gz  rexyan/ubuntu:v1.0  # 从文件导入容器，并指定标签信息
-</code></pre>
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/04/01/Docker3 -- 使用镜像/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2018/04/01/Docker3 -- 使用镜像/" itemprop="url">Docker3 镜像</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-04-01T19:54:57+08:00">
-                2018-04-01
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Docker/" itemprop="url" rel="index">
-                    <span itemprop="name">Docker</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="更换Docker源"><a href="#更换Docker源" class="headerlink" title="更换Docker源"></a>更换Docker源</h3><p>修改Docker配置文件/etc/default/docker，在最后增加</p>
-<pre><code>DOCKER_OPTS=&quot;--registry-mirror=http://aad0405c.m.daocloud.io&quot;
-</code></pre><p>重启Docker</p>
-<pre><code>service docker restart
-</code></pre><h3 id="获取镜像"><a href="#获取镜像" class="headerlink" title="获取镜像"></a>获取镜像</h3><p>通常情况下，描述一个镜像需要包括“名称” + “标签”。<br>例如：获得一个Ubuntu 14.04的系统镜像【在进行拉取之前先更改docker源。否则速度很慢】</p>
-<pre><code>docker pull ubuntu:14.04
-</code></pre><p>如果不指定TAG，那么会默认选择latest标签，例如：</p>
-<pre><code>docker pull ubuntu
-</code></pre><p>一般来说，镜像的latest标签代表着镜像是最新的，也就是说可能存在不稳定的情况。在生产环境中应该避免这种镜像。</p>
-<p>下载过程分析</p>
-<pre><code>root@ubuntu:~# docker pull ubuntu
-Using default tag: latest
-latest: Pulling from library/ubuntu
-43cff9ac2d34: Pull complete 
-d25abb784368: Pull complete 
-7355f8e4aeb7: Pull complete 
-ea422b11e5e1: Pull complete 
-a4f1088e42dc: Pull complete 
-Digest: sha256:e348fbbea0e0a0e73ab0370de151e7800684445c509d46195aef73e090a49bd6
-Status: Downloaded newer image for ubuntu:latest
-</code></pre><p>从上面可以看出镜像由若干层组成，43cff9ac2d34这样的就代表这层的ID。这里特别要注意，当不同的镜像包含相同的层时，本地仅存一份内容，这样做的目的是为了减少需要的存储空间。</p>
-<p>pull的时候，默认的是使用Docker Hub仓库上的镜像，我们称之为官方仓库。如果要从非官方仓库下载镜像，则需要加上仓库地址，例如：</p>
-<pre><code>docker pull hub.c.163.com/public/ubuntu:14.04
-</code></pre><h3 id="查看镜像信息"><a href="#查看镜像信息" class="headerlink" title="查看镜像信息"></a>查看镜像信息</h3><h4 id="列出镜像"><a href="#列出镜像" class="headerlink" title="列出镜像"></a>列出镜像</h4><pre><code>root@ubuntu:~# docker images
-REPOSITORY                    TAG                 IMAGE ID            CREATED             SIZE
-ubuntu                        latest              adfebeb0ac91        3 weeks ago         111 MB
-ubuntu                        14.04               a35e70164dfb        3 weeks ago         222 MB
-hub.c.163.com/public/ubuntu   14.04               2fe5c4bba1f9        2 years ago         237 MB
-</code></pre><p>REPOSITORY: 来自哪个仓库<br>TAG：镜像的标签<br>IMAGE ID：镜像的唯一标识【这个是可以重复的，重复说明他们指向同一个镜像】<br>CREATED：镜像最后的更新时间<br>SIZE：镜像的大小【越小越好，由于相同的镜像层本地只会存储一份，所以，物理上占用的存储空间会小于各镜像的逻辑体积之和】</p>
-<p>其他命令选项<br>-a:列出所有的镜像文件，包含临时文件，默认为否<br>-f:过滤镜像，例如dangling=true，代表没有被使用的镜像。<br>-q:只显示镜像的ID</p>
-<pre><code>docker images -a
-docker images -f dangling=true 
-docker images -q
-</code></pre><h4 id="添加标签"><a href="#添加标签" class="headerlink" title="添加标签"></a>添加标签</h4><p>先查看现有的镜像信息</p>
-<pre><code>root@ubuntu:~# docker images -a
-REPOSITORY                    TAG                 IMAGE ID            CREATED             SIZE
-ubuntu                        latest              adfebeb0ac91        3 weeks ago         111 MB
-ubuntu                        14.04               a35e70164dfb        3 weeks ago         222 MB
-hub.c.163.com/public/ubuntu   14.04               2fe5c4bba1f9        2 years ago         237 MB
-</code></pre><p>可以使用docker tag来为本次镜像添加新的标签。例如，以标签为ubuntu:latest的镜像为基础，新建一个名为rexyan_ubuntu:v1的镜像。</p>
-<pre><code>docker tag ubuntu:latest rexyan_ubuntu:v1  
-</code></pre><p>查看结果</p>
-<pre><code>root@ubuntu:~# docker images  
-REPOSITORY                    TAG                 IMAGE ID            CREATED             SIZE
-rexyan_ubuntu                 v1                  adfebeb0ac91        3 weeks ago         111 MB
-ubuntu                        latest              adfebeb0ac91        3 weeks ago         111 MB
-ubuntu                        14.04               a35e70164dfb        3 weeks ago         222 MB
-hub.c.163.com/public/ubuntu   14.04               2fe5c4bba1f9        2 years ago         237 MB
-</code></pre><h4 id="查看镜像详情"><a href="#查看镜像详情" class="headerlink" title="查看镜像详情"></a>查看镜像详情</h4><p>例如：查看标签为ubuntu:14.04的镜像的信息</p>
-<pre><code>docker inspect ubuntu:14.04
-</code></pre><p>输出</p>
-<pre><code>[
-    {
-        &quot;Id&quot;: &quot;sha256:a35e70164dfb0dd7a9fec8be0b00017a2277c5a221dcab8ffa75f876ed0aae3d&quot;,
-        &quot;RepoTags&quot;: [
-            &quot;ubuntu:14.04&quot;
-        ],
-        &quot;RepoDigests&quot;: [
-            &quot;ubuntu@sha256:0661e2dbc6072eadfd48c0c972681ffc11ca8ea5d0a9f5f4227df7d653f649fd&quot;
-        ],
-        &quot;Parent&quot;: &quot;&quot;,
-        &quot;Comment&quot;: &quot;&quot;,
-        &quot;Created&quot;: &quot;2018-03-06T22:16:52.079792907Z&quot;,
-        &quot;Container&quot;: &quot;e2d9db43ceab9935f29c6147c73a164eaaf32aecc1b0cb3285255cc1c293ea78&quot;,
-        &quot;ContainerConfig&quot;: {
-            &quot;Hostname&quot;: &quot;e2d9db43ceab&quot;,
-            &quot;Domainname&quot;: &quot;&quot;,
-            &quot;User&quot;: &quot;&quot;,
-            &quot;AttachStdin&quot;: false,
-            &quot;AttachStdout&quot;: false,
-            &quot;AttachStderr&quot;: false,
-            &quot;Tty&quot;: false,
-            &quot;OpenStdin&quot;: false,
-            &quot;StdinOnce&quot;: false,
-            &quot;Env&quot;: [
-                &quot;PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin&quot;
-            ],
-            &quot;Cmd&quot;: [
-                &quot;/bin/sh&quot;,
-                &quot;-c&quot;,
-                &quot;#(nop) &quot;,
-                &quot;CMD [\&quot;/bin/bash\&quot;]&quot;
-            ],
-            &quot;ArgsEscaped&quot;: true,
-            &quot;Image&quot;: &quot;sha256:b8c20fc2a0d0df0287d60b6d3065b10d91c200fa50309a0085c44ecc4e9faa22&quot;,
-            &quot;Volumes&quot;: null,
-            &quot;WorkingDir&quot;: &quot;&quot;,
-            &quot;Entrypoint&quot;: null,
-            &quot;OnBuild&quot;: null,
-            &quot;Labels&quot;: {}
-        },
-        &quot;DockerVersion&quot;: &quot;17.06.2-ce&quot;,
-        &quot;Author&quot;: &quot;&quot;,
-        &quot;Config&quot;: {
-            &quot;Hostname&quot;: &quot;&quot;,
-            &quot;Domainname&quot;: &quot;&quot;,
-            &quot;User&quot;: &quot;&quot;,
-            &quot;AttachStdin&quot;: false,
-            &quot;AttachStdout&quot;: false,
-            &quot;AttachStderr&quot;: false,
-            &quot;Tty&quot;: false,
-            &quot;OpenStdin&quot;: false,
-            &quot;StdinOnce&quot;: false,
-            &quot;Env&quot;: [
-                &quot;PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin&quot;
-            ],
-            &quot;Cmd&quot;: [
-                &quot;/bin/bash&quot;
-            ],
-            &quot;ArgsEscaped&quot;: true,
-            &quot;Image&quot;: &quot;sha256:b8c20fc2a0d0df0287d60b6d3065b10d91c200fa50309a0085c44ecc4e9faa22&quot;,
-            &quot;Volumes&quot;: null,
-            &quot;WorkingDir&quot;: &quot;&quot;,
-            &quot;Entrypoint&quot;: null,
-            &quot;OnBuild&quot;: null,
-            &quot;Labels&quot;: null
-        },
-        &quot;Architecture&quot;: &quot;amd64&quot;,
-        &quot;Os&quot;: &quot;linux&quot;,
-        &quot;Size&quot;: 222372215,
-        &quot;VirtualSize&quot;: 222372215,
-        &quot;GraphDriver&quot;: {
-            &quot;Name&quot;: &quot;aufs&quot;,
-            &quot;Data&quot;: null
-        },
-        &quot;RootFS&quot;: {
-            &quot;Type&quot;: &quot;layers&quot;,
-            &quot;Layers&quot;: [
-                &quot;sha256:92fb50b4d953c72eb1d5c045bab47a78f5c02348d8f004f7229a7b8fef16608d&quot;,
-                &quot;sha256:e95051d9cb9b95bf46df6cf5affab21157019659b3405e9c69f1f4a8376b24e7&quot;,
-                &quot;sha256:3abb69fb15dc83c0bf7a562f7bda73844fd20ed8cc4aec7b28ebd4113797cd9a&quot;,
-                &quot;sha256:dd420adea0d3f9f9da8500d4a8ec542ae0a32e78de557c9ce3755bd416431b5a&quot;,
-                &quot;sha256:65262d4f5516e81457c1ad5e14da8fbf66a999557107bbc7c2a635cbf94e64d9&quot;
-            ]
-        }
-    }
-]
-</code></pre><p>这样列出的是全部的信息，如果我们只看一部分指定信息，可以使用下面命令。下面命令查看RootFS下的Type</p>
-<pre><code>docker inspect ubuntu:14.04  -f {{".RootFS"."Type"}}
-</code></pre><h4 id="列出镜像文件层级信息"><a href="#列出镜像文件层级信息" class="headerlink" title="列出镜像文件层级信息"></a>列出镜像文件层级信息</h4><p>镜像都是由多个层组成，我们可以使用docker history来查看各层的信息</p>
-<pre><code>docker history ubuntu:14.04
-</code></pre><h3 id="搜索镜像"><a href="#搜索镜像" class="headerlink" title="搜索镜像"></a>搜索镜像</h3><p>我们可以查询官方仓库的上的镜像</p>
-<pre><code>docker search nginx
-</code></pre><p>结果</p>
-<pre><code>NAME                                                   DESCRIPTION                                     STARS     OFFICIAL   AUTOMATED
-nginx                                                  Official build of Nginx.                        8262      [OK]       
-jwilder/nginx-proxy                                    Automated Nginx reverse proxy for docker c...   1300                 [OK]
-richarvey/nginx-php-fpm                                Container running Nginx + PHP-FPM capable ...   540                  [OK]
-jrcs/letsencrypt-nginx-proxy-companion                 LetsEncrypt container to use with nginx as...   336                  [OK]
-kong                                                   Open-source Microservice &amp; API Management ...   170       [OK]       
-webdevops/php-nginx                                    Nginx with PHP-FPM                              97                   [OK]
-kitematic/hello-world-nginx                            A light-weight nginx container that demons...   95                   
-zabbix/zabbix-web-nginx-mysql                          Zabbix frontend based on Nginx web-server ...   48                   [OK]
-bitnami/nginx                                          Bitnami nginx Docker Image                      45                   [OK]
-linuxserver/nginx                                      An Nginx container, brought to you by Linu...   33                   
-1and1internet/ubuntu-16-nginx-php-phpmyadmin-mysql-5   ubuntu-16-nginx-php-phpmyadmin-mysql-5          31                   [OK]
-tobi312/rpi-nginx                                      NGINX on Raspberry Pi / armhf                   19                   [OK]
-wodby/drupal-nginx                                     Nginx for Drupal container image                9                    [OK]
-blacklabelops/nginx                                    Dockerized Nginx Reverse Proxy Server.          8                    [OK]
-nginxdemos/nginx-ingress                               NGINX Ingress Controller for Kubernetes         8                    
-webdevops/nginx                                        Nginx container                                 8                    [OK]
-centos/nginx-18-centos7                                Platform for running nginx 1.8 or building...   6                    
-nginxdemos/hello                                       NGINX webserver that serves a simple page ...   5                    [OK]
-1science/nginx                                         Nginx Docker images that include Consul Te...   4                    [OK]
-pebbletech/nginx-proxy                                 nginx-proxy sets up a container running ng...   2                    [OK]
-behance/docker-nginx                                   Provides base OS, patches and stable nginx...   2                    [OK]
-toccoag/openshift-nginx                                Nginx reverse proxy for Nice running on sa...   1                    [OK]
-travix/nginx                                           NGinx reverse proxy                             1                    [OK]
-mailu/nginx                                            Mailu nginx frontend                            0                    [OK]
-ansibleplaybookbundle/nginx-apb                        An APB to deploy NGINX                          0                    [OK]
-</code></pre><p>其他参数<br>可以使用–filter 后跟条件来进行查询。【例如：查询nginx镜像，且只显示自动创建的镜像，其他的选项还有 is-official、stars，可以根据是否是官方的，以及评论的等级进行过滤】默认的查询结果是按照星级评价去排序的。</p>
-<pre><code>docker search --filter is-automated=true nginx
-</code></pre><h3 id="删除镜像"><a href="#删除镜像" class="headerlink" title="删除镜像"></a>删除镜像</h3><h4 id="使用标签删除"><a href="#使用标签删除" class="headerlink" title="使用标签删除"></a>使用标签删除</h4><p>查看所有的镜像</p>
-<pre><code>root@ubuntu:~# docker images 
-REPOSITORY                    TAG                 IMAGE ID            CREATED             SIZE
-rexyan_ubuntu                 v1                  adfebeb0ac91        3 weeks ago         111 MB
-ubuntu                        latest              adfebeb0ac91        3 weeks ago         111 MB
-ubuntu                        14.04               a35e70164dfb        3 weeks ago         222 MB
-hub.c.163.com/public/ubuntu   14.04               2fe5c4bba1f9        2 years ago         237 MB
-</code></pre><p>使用标签删除rexyan_ubuntu:v1的镜像：【这里注意，rexyan_ubuntu:v1和ubuntu：latest的IMAGE ID相同，也就是说他们指向的是同一个镜像。我们这时删除rexyan_ubuntu:v1它并不会将IMAGE ID为adfebeb0ac91的镜像删除，因为还有一个镜像】</p>
-<pre><code>docker rmi rexyan_ubuntu:v1 
-</code></pre><p>结果：</p>
-<pre><code>root@ubuntu:~# docker images               
-REPOSITORY                    TAG                 IMAGE ID            CREATED             SIZE
-ubuntu                        latest              adfebeb0ac91        3 weeks ago         111 MB
-ubuntu                        14.04               a35e70164dfb        3 weeks ago         222 MB
-hub.c.163.com/public/ubuntu   14.04               2fe5c4bba1f9        2 years ago         237 MB
-</code></pre><p>如果这个时候再将IMAGE ID为adfebeb0ac91的镜像删除，那么这个镜像就被真正的删除了。下面所示，删除了镜像文件的所有层。</p>
-<pre><code>root@ubuntu:~# docker rmi ubuntu:latest 
-Untagged: ubuntu:latest
-Untagged: ubuntu@sha256:e348fbbea0e0a0e73ab0370de151e7800684445c509d46195aef73e090a49bd6
-Deleted: sha256:adfebeb0ac9194caaa37b52b84e6ff09b858f8daacf19ed46eced547284fc82d
-Deleted: sha256:e366e66208ed5e77a9ed40bfc7b782bcdf30a52b40065104abfa0c818958b2fd
-Deleted: sha256:f768a58d55c43e1a30e5517565010c2f151bdae2ad50c015a3f0d703e36b711f
-Deleted: sha256:dbffe316628589cf9fdbeec1132a8e3e165667353c09184cf4835a375ff0bb92
-Deleted: sha256:3f9b143e33c3558e297033eaae7997e555a8c00664f198953048c8a6a57e745f
-Deleted: sha256:5c610defde1afc14c5049019cfdd7e34cbb8703d38e9001aaf1d595ba39430b1
-</code></pre><p>再次查看结果：</p>
-<pre><code>root@ubuntu:~# docker images 
-REPOSITORY                    TAG                 IMAGE ID            CREATED             SIZE
-ubuntu                        14.04               a35e70164dfb        3 weeks ago         222 MB
-hub.c.163.com/public/ubuntu   14.04               2fe5c4bba1f9        2 years ago         237 MB
-</code></pre><h4 id="使用镜像ID删除"><a href="#使用镜像ID删除" class="headerlink" title="使用镜像ID删除"></a>使用镜像ID删除</h4><p>当你删除的ID是被多个镜像指向的时候是无法删除的。还有就是当这个镜像已经被用来创建容器，那么也是不能删除的，需先使用docker rm删除容器，然后在使用dcker rmi 删除镜像</p>
-<p>先查看所有镜像</p>
-<pre><code>root@ubuntu:~# docker images
-REPOSITORY                    TAG                 IMAGE ID            CREATED             SIZE
-ubuntu                        16.04               f975c5035748        3 weeks ago         112 MB
-hub.c.163.com/public/ubuntu   14.04               2fe5c4bba1f9        2 years ago         237 MB
-rexyan                        v2                  2fe5c4bba1f9        2 years ago         237 MB
-rexyan                        v3                  2fe5c4bba1f9        2 years ago         237 MB
-</code></pre><p>删除被多个指向的镜像,可以看见不能删除</p>
-<pre><code>root@ubuntu:~# docker rmi 2fe5c4bba1f9
-Error response from daemon: conflict: unable to delete 2fe5c4bba1f9 (must be forced) - image is referenced in multiple repositories
-</code></pre><p>当删除只有一个指向的镜像,这样就不存在问题，可以直接删除</p>
-<pre><code>root@ubuntu:~# docker rmi f975c5035748
-Untagged: ubuntu:16.04
-Untagged: ubuntu@sha256:52286464db54577a128fa1b1aa3c115bd86721b490ff4cbd0cd14d190b66c570
-Deleted: sha256:f975c50357489439eb9145dbfa16bb7cd06c02c31aa4df45c77de4d2baa4e232
-Deleted: sha256:0bd983fc698ee9453dd7d21f8572ea1016ec9255346ceabb0f9e173b4348644f
-Deleted: sha256:08fe90e1a1644431accc00cc80f519f4628dbf06a653c76800b116d3333d2b6d
-Deleted: sha256:5dc5eef2b94edd185b4d39586e7beb385a54b6bac05d165c9d47494492448235
-Deleted: sha256:14a40a140881d18382e13b37588b3aa70097bb4f3fb44085bc95663bdc68fe20
-Deleted: sha256:a94e0d5a7c404d0e6fa15d8cd4010e69663bd8813b5117fbad71365a73656df9
-</code></pre><p>创建一个容器</p>
-<pre><code>root@ubuntu:~# docker run ubuntu:16.04 echo &quot;test&quot;
-</code></pre><p>查看所有容器</p>
-<pre><code>root@ubuntu:~# docker ps -a
-CONTAINER ID        IMAGE               COMMAND             CREATED              STATUS                          PORTS               NAMES
-72b4b205a190        ubuntu:16.04        &quot;echo test&quot;         About a minute ago   Exited (1) About a minute ago                       infallible_torvalds
-f3847498e33e        ubuntu:16.04        &quot;echo test&quot;         About a minute ago   Exited (1) About a minute ago                       angry_mahavira
-</code></pre><p>尝试着删除用来用来创建容器的这个镜像，会看到提示被使用，应该停止这个容器</p>
-<pre><code>root@ubuntu:~# docker rmi f975c5035748 
-Error response from daemon: conflict: unable to delete f975c5035748 (must be forced) - image is being used by stopped container f3847498e33e
-</code></pre><p>这时，我们有两个选择，使用-f参数强制删除【前面遇到的一个镜像被多个标签指向的情况也能用-f来强制删除】，或者先删除容器，后删除镜像<br>强制删除事例：</p>
-<pre><code>docker rmi -f  f975c5035748 
-</code></pre><p>另一种先删除容器【创建了两个，所以两个都要删除】</p>
-<pre><code>root@ubuntu:~# docker rm 72b4b205a190
-72b4b205a190
-root@ubuntu:~# docker rm f3847498e33e
-f3847498e33e
-</code></pre><p>在删除镜像，这样就成功删除了</p>
-<pre><code>root@ubuntu:~# docker rmi  f975c5035748
-Untagged: ubuntu:16.04
-Untagged: ubuntu@sha256:7d715ef7f37de67f7a6489e783fc3ab9dc64041f6926126073bf4d0e6590dbc2
-Deleted: sha256:f975c50357489439eb9145dbfa16bb7cd06c02c31aa4df45c77de4d2baa4e232
-Deleted: sha256:0bd983fc698ee9453dd7d21f8572ea1016ec9255346ceabb0f9e173b4348644f
-Deleted: sha256:08fe90e1a1644431accc00cc80f519f4628dbf06a653c76800b116d3333d2b6d
-Deleted: sha256:5dc5eef2b94edd185b4d39586e7beb385a54b6bac05d165c9d47494492448235
-Deleted: sha256:14a40a140881d18382e13b37588b3aa70097bb4f3fb44085bc95663bdc68fe20
-Deleted: sha256:a94e0d5a7c404d0e6fa15d8cd4010e69663bd8813b5117fbad71365a73656df9
-</code></pre><h3 id="创建镜像"><a href="#创建镜像" class="headerlink" title="创建镜像"></a>创建镜像</h3><p>创建镜像的方法，除了这里介绍的这两种外，还有使用Dockerfile来创建的，后面再学习到。</p>
-<h4 id="基于已有镜像的容器创建"><a href="#基于已有镜像的容器创建" class="headerlink" title="基于已有镜像的容器创建"></a>基于已有镜像的容器创建</h4><p>新建一个容器，并进入bash，并新建一个文件</p>
-<pre><code>root@ubuntu:~# docker run -it ubuntu:16.04 /bin/bash
-root@943bd5b5f887:/# touch rexyan.text
-root@943bd5b5f887:/# exit
-</code></pre><p>查看当前启动、并创建文件的docker，记下id</p>
-<pre><code>root@ubuntu:~# docker ps -a 
-CONTAINER ID        IMAGE               COMMAND             CREATED              STATUS                          PORTS               NAMES
-943bd5b5f887        ubuntu:16.04        &quot;/bin/bash&quot;         About a minute ago   Exited (0) About a minute ago                       festive_meitner
-</code></pre><p>提交一个新的镜像，-m是提交信息，-a是作者信息，943bd5b5f887是我们启动并修改文件的容器，rexyan:v1的新创建的镜像的标签</p>
-<pre><code>docker commit -m&quot;add new file&quot; -a&quot;rexyan&quot; 943bd5b5f887 rexyan:v1
-</code></pre><p>查看镜像，会发现新增了一个，标签为rexyan:v1</p>
-<pre><code>root@ubuntu:~# docker images 
-REPOSITORY          TAG                 IMAGE ID            CREATED              SIZE
-rexyan              v1                  cee5de10da32        About a minute ago   111 MB
-ubuntu              16.04               adfebeb0ac91        3 weeks ago          111 MB
-</code></pre><p>参数：<br>-m：提交信息<br>-a：作者信息<br>-c：提交的时候执行Dockerfile指令<br>-p：提交时候暂停容器运行</p>
-<p>验证我们刚刚创建的镜像：使用刚刚创建的镜像来创建容器，看看里看看里面是否有rexyan.test这个文件即可。</p>
-<h4 id="基于本地模版导入"><a href="#基于本地模版导入" class="headerlink" title="基于本地模版导入"></a>基于本地模版导入</h4><p>示例：</p>
-<pre><code>cat ubuntu-14.04-x86_64-minimal.tar.gz | docker import - ubuntu:14.04
-</code></pre><h3 id="存出和载入镜像"><a href="#存出和载入镜像" class="headerlink" title="存出和载入镜像"></a>存出和载入镜像</h3><h4 id="存出"><a href="#存出" class="headerlink" title="存出"></a>存出</h4><pre><code>root@ubuntu:~# docker save -o ubuntu_export_file.tar.gz ubuntu:16.04 
-root@ubuntu:~# ll
-total 112320
-drwx------  2 root root      4096 Apr  1 04:03 ./
-drwxr-xr-x 21 root root      4096 Mar 31 23:52 ../
--rw-------  1 root root       485 Apr  1 01:02 .bash_history
--rw-r--r--  1 root root      3106 Oct 22  2015 .bashrc
--rw-r--r--  1 root root       148 Aug 17  2015 .profile
--rw-------  1 root root 114980352 Apr  1 04:03 ubuntu_export_file.tar.gz
--rw-------  1 root root      5102 Apr  1 02:05 .viminfo
-</code></pre><h4 id="载入"><a href="#载入" class="headerlink" title="载入"></a>载入</h4><p>删除所有的镜像，使得本地仓库为空</p>
-<pre><code>root@ubuntu:~# docker images 
-REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE
-</code></pre><p>将刚刚打包的文件加载到docker仓库</p>
-<pre><code>root@ubuntu:~# docker load --input ubuntu_export_file.tar.gz 
-5c610defde1a: Loading layer [==================================================&gt;] 114.9 MB/114.9 MB
-1cb600ff8c94: Loading layer [==================================================&gt;] 15.87 kB/15.87 kB
-199a30dc6a17: Loading layer [==================================================&gt;] 13.82 kB/13.82 kB
-cec5d9e51cf1: Loading layer [==================================================&gt;] 5.632 kB/5.632 kB
-64e8d47e7876: Loading layer [==================================================&gt;] 3.072 kB/3.072 kB
-Loaded image: ubuntu:16.04
-</code></pre><p>查看结果</p>
-<pre><code>root@ubuntu:~# docker images
-REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE
-ubuntu              16.04               adfebeb0ac91        3 weeks ago         111 MB
-</code></pre><h3 id="上传镜像"><a href="#上传镜像" class="headerlink" title="上传镜像"></a>上传镜像</h3><p>上传之前得有一个<a href="https://hub.docker.com的帐号，并且新建一个REPOSITORY" target="_blank" rel="noopener">https://hub.docker.com的帐号，并且新建一个REPOSITORY</a><br>上传准备，修改tag信息。将本地仓库的ubuntu:16.04修改标签为yanrs/test:v1，其中yanrs是用户名，test是名称，v1是标签</p>
-<pre><code>docker tag ubuntu:16.04 yanrs/test:v1
-</code></pre><p>推送</p>
-<pre><code>未成功
-</code></pre><h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><pre><code>docker pull ubuntu:14.04   # pull ubuntu镜像，版本为14.04
-docker pull ubuntu   # pull ubuntu镜像，版本为最后一版
-docker pull hub.c.163.com/public/ubuntu:14.04  # pull ubuntu镜像，从其他仓库
-docker images   # 查看本地镜像
-docker tag ubuntu:latest rexyan_ubuntu:v1     # 修改标签信息
-docker inspect ubuntu:14.04    # 查看详细信息
-docker inspect ubuntu:14.04 -f {{".RootFS"."Type"}}   # 查看详细信息中的RootFS下的Type的内容
-docker history ubuntu:14.04      # 查看镜像的层级结构
-docker search nginx   # 查询nginx的镜像
-docker search --filter is-automated=true nginx  # 查询nginx的镜像，带条件
-docker rmi rexyan_ubuntu:v1    # 按照标签删除镜像
-docker run ubuntu:16.04 echo &quot;test&quot;    # 创建一个容器，并输出test
-docker ps -a      # 查看所有的容器
-docker rm 72b4b205a190  # 根据ID删除容器
-docker run -it ubuntu:16.04 /bin/bash  # 创建并运行容器
-docker commit -m&quot;add new file&quot; -a&quot;rexyan&quot; 943bd5b5f887 rexyan:v1   # 创建一个镜像
-cat ubuntu-14.04-x86_64-minimal.tar.gz | docker import - ubuntu:14.04  # 将模版文件导入到本地仓库
-docker save -o ubuntu_export_file.tar.gz ubuntu:16.04    # 将本地仓库的镜像存为文件
-docker load --input ubuntu_export_file.tar.gz  # 将本地文件导入到仓库
-</code></pre>
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2018/04/01/Docker2 -- 安装/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2018/04/01/Docker2 -- 安装/" itemprop="url">Docker2 安装</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-04-01T19:53:57+08:00">
-                2018-04-01
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Docker/" itemprop="url" rel="index">
-                    <span itemprop="name">Docker</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="安装ssh"><a href="#安装ssh" class="headerlink" title="安装ssh"></a>安装ssh</h3><pre><code>sudo apt-get install openssh-server
-</code></pre><p>查看是否启动</p>
-<pre><code>sudo ps -e |grep ssh
-</code></pre><p>启动</p>
-<pre><code>sudo service ssh start
-</code></pre><p>允许管理员使用密码登录<br>配置文件中的”PermitRootLogin without-password”加一个”#”号,把它注释掉再增加一句”PermitRootLogin yes”</p>
-<h3 id="查看内核版本"><a href="#查看内核版本" class="headerlink" title="查看内核版本"></a>查看内核版本</h3><pre><code>rexyan@ubuntu:~$ uname -a
-Linux ubuntu 4.4.0-116-generic #140-Ubuntu SMP Mon Feb 12 21:22:43 UTC 2018 i686 i686 i686 GNU/Linux
-</code></pre><p>内核应该高于3.10，这里是4.4.0</p>
-<p>更新ubuntu软件源为阿里</p>
-<pre><code>sudo vim /etc/apt/sources.list
-</code></pre><p>替换为</p>
-<pre><code># deb cdrom:[Ubuntu 16.04 LTS _Xenial Xerus_ - Release amd64 (20160420.1)]/ xenial main restricted
-deb-src http://archive.ubuntu.com/ubuntu xenial main restricted #Added by software-properties
-deb http://mirrors.aliyun.com/ubuntu/ xenial main restricted
-deb-src http://mirrors.aliyun.com/ubuntu/ xenial main restricted multiverse universe #Added by software-properties
-deb http://mirrors.aliyun.com/ubuntu/ xenial-updates main restricted
-deb-src http://mirrors.aliyun.com/ubuntu/ xenial-updates main restricted multiverse universe #Added by software-properties
-deb http://mirrors.aliyun.com/ubuntu/ xenial universe
-deb http://mirrors.aliyun.com/ubuntu/ xenial-updates universe
-deb http://mirrors.aliyun.com/ubuntu/ xenial multiverse
-deb http://mirrors.aliyun.com/ubuntu/ xenial-updates multiverse
-deb http://mirrors.aliyun.com/ubuntu/ xenial-backports main restricted universe multiverse
-deb-src http://mirrors.aliyun.com/ubuntu/ xenial-backports main restricted universe multiverse #Added by software-properties
-deb http://archive.canonical.com/ubuntu xenial partner
-deb-src http://archive.canonical.com/ubuntu xenial partner
-deb http://mirrors.aliyun.com/ubuntu/ xenial-security main restricted
-deb-src http://mirrors.aliyun.com/ubuntu/ xenial-security main restricted multiverse universe #Added by software-properties
-deb http://mirrors.aliyun.com/ubuntu/ xenial-security universe
-deb http://mirrors.aliyun.com/ubuntu/ xenial-security multiverse
-</code></pre><p>执行update</p>
-<pre><code>sudo apt-get update
-</code></pre><h3 id="安装Docker"><a href="#安装Docker" class="headerlink" title="安装Docker"></a>安装Docker</h3><pre><code>sudo apt install docker
-</code></pre><p>启动</p>
-<pre><code>sudo service docker start
-</code></pre><p>若为普通用户，可将该用户加入自动创建docker组</p>
-<pre><code>sudo usermod -aG docker rexyan  # 例如将rexyan加入到docker组中
-</code></pre><p>查看Docker版本信息【若docker服务没有启动，则看不见server端的信息】</p>
-<pre><code>rexyan@ubuntu:~$ docker version
-Client:
- Version:      1.13.1
- API version:  1.26
- Go version:   go1.6.2
- Git commit:   092cba3
- Built:        Thu Nov  2 20:40:26 2017
- OS/Arch:      linux/386
-
-Server:
- Version:      1.13.1
- API version:  1.26 (minimum version 1.12)
- Go version:   go1.6.2
- Git commit:   092cba3
- Built:        Thu Nov  2 20:40:26 2017
- OS/Arch:      linux/386
- Experimental: false
-</code></pre>
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
   </section>
 
   
   <nav class="pagination">
-    <a class="extend prev" rel="prev" href="/page/30/"><i class="fa fa-angle-left"></i></a><a class="page-number" href="/">1</a><span class="space">&hellip;</span><a class="page-number" href="/page/30/">30</a><span class="page-number current">31</span><a class="page-number" href="/page/32/">32</a><span class="space">&hellip;</span><a class="page-number" href="/page/39/">39</a><a class="extend next" rel="next" href="/page/32/"><i class="fa fa-angle-right"></i></a>
+    <a class="extend prev" rel="prev" href="/page/30/"><i class="fa fa-angle-left"></i></a><a class="page-number" href="/">1</a><span class="space">&hellip;</span><a class="page-number" href="/page/30/">30</a><span class="page-number current">31</span><a class="page-number" href="/page/32/">32</a><span class="space">&hellip;</span><a class="page-number" href="/page/40/">40</a><a class="extend next" rel="next" href="/page/32/"><i class="fa fa-angle-right"></i></a>
   </nav>
 
 
@@ -2353,7 +1858,7 @@ Server:
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">311</span>
+                  <span class="site-state-item-count">316</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>
@@ -2375,7 +1880,7 @@ Server:
               
               <div class="site-state-item site-state-tags">
                 <a href="/tags/index.html">
-                  <span class="site-state-item-count">156</span>
+                  <span class="site-state-item-count">157</span>
                   <span class="site-state-item-name">标签</span>
                 </a>
               </div>

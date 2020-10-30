@@ -340,202 +340,6 @@
   
   
   <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2020/05/06/MySQL 高级 - 2/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2020/05/06/MySQL 高级 - 2/" itemprop="url">MySQL 高级 - 2</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2020-05-06T22:10:57+08:00">
-                2020-05-06
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/MySQL/" itemprop="url" rel="index">
-                    <span itemprop="name">MySQL</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="事务隔离"><a href="#事务隔离" class="headerlink" title="事务隔离"></a>事务隔离</h3><p>在 MySQL 中，事务支持是在引擎层实现的。你现在知道，MySQL 是一个支持多引擎的系统，但并不是所有的引擎都支持事务。比如 MySQL 原生的 MyISAM 引擎就不支持事务，这也是 MyISAM 被 InnoDB 取代的重要原因之一。</p>
-<p>SQL 标准的事务隔离级别包括：</p>
-<ul>
-<li>读未提交是指，一个事务还没提交时，它做的变更就能被别的事务看到。</li>
-<li>读提交是指，一个事务提交之后，它做的变更才会被其他事务看到。</li>
-<li>可重复读是指，一个事务执行过程中看到的数据，总是跟这个事务在启动时看到的数据是一致的。</li>
-<li>串行化，顾名思义是对于同一行记录，“写”会加“写锁”，“读”会加“读锁”。当出现读写锁冲突的时候，后访问的事务必须等前一个事务执行完成，才能继续执行。</li>
-</ul>
-<p><strong>MVCC</strong></p>
-<p><img src="https://static001.geekbang.org/resource/image/d9/ee/d9c313809e5ac148fc39feff532f0fee.png" alt></p>
-<p>同一条记录在系统中可以存在多个版本，就是数据库的多版本并发控制（MVCC）</p>
-<p>RC（读已提交）级别下，MVCC 视图会在每一个语句前创建一个，所以在 RC 级别下，一个事务是可以看到另外一个事务已经提交的内容，因为它在每一次查询之前都会重新给予最新的数据创建一个新的 MVCC 视图。 </p>
-<p>RR（可重复读）级别下，MVCC视图实在开始事务的时候就创建好了，这个视图会一直使用，直到该事务结束。</p>
-<h3 id="索引"><a href="#索引" class="headerlink" title="索引"></a>索引</h3><p><strong>哈希表为什么不适合做索引</strong>：因为不是有序的，所以哈希索引做区间查询的速度是很慢的。哈希表这种结构适用于只有等值查询的场景。</p>
-<p><strong>有序数组为什么不适合做索引</strong>：如果仅仅看查询效率，有序数组就是最好的数据结构了。但是，在需要更新数据的时候就麻烦了，你往中间插入一个记录就必须得挪动后面所有的记录，成本太高。所以，有序数组索引只适用于静态存储引擎，比如你要保存的是 2017 年某个城市的所有人口信息，这类不会再修改的数据。</p>
-<p><strong>二叉搜索树为什么不适合做索引</strong>：因为索引不止存在内存中，还要写到磁盘上。二叉树树高过高每次查询都需要访问过多节点，即访问数据块过多，而从磁盘随机读取数据块过于耗时。</p>
-<p>在 MySQL 中，索引是在存储引擎层实现的，所以并没有统一的索引标准，即不同存储引擎的索引的工作方式并不一样。而即使多个存储引擎支持同一种类型的索引，其底层的实现也可能不同。每一个索引在 InnoDB 里面对应一棵 B+ 树。</p>
-<pre><code>假设，我们有一个主键列为 ID 的表，表中有字段 k，并且在 k 上有索引。
-
-mysql&gt; create table T(id int primary key, k int not null, name varchar(16),index (k))engine=InnoDB;
-
-(ID,k) 值分别为 (100,1)、(200,2)、(300,3)、(500,5) 和 (600,6)
-</code></pre><p><img src="https://static001.geekbang.org/resource/image/dc/8d/dcda101051f28502bd5c4402b292e38d.png" alt></p>
-<p><strong>索引类型分为主键索引和非主键索引</strong>: 主键索引的叶子节点存的是整行数据【B+树的叶子节点是page （页），一个页里面可以存多个行】。在 InnoDB 里，主键索引也被称为聚簇索引（clustered index）非主键索引的叶子节点内容是主键的值。在 InnoDB 里，非主键索引也被称为二级索引（secondary index）。</p>
-<p><strong>基于主键索引和普通索引的查询有什么区别？</strong> 如果语句是 select <em> from T where ID=500，即主键查询方式，则只需要搜索 ID 这棵 B+ 树；如果语句是 select </em> from T where k=5，即普通索引查询方式，则需要先搜索 k 索引树，得到 ID 的值为 500，再到 ID 索引树搜索一次。这个过程称为回表。也就是说，基于非主键索引的查询需要多扫描一棵索引树。</p>
-<p><strong>为什么主键最好是自增的</strong>：B+ 树为了维护索引有序性，在插入新值的时候需要做必要的维护。如果所在的数据页已经满了，根据 B+ 树的算法，这时候需要申请一个新的数据页，然后挪动部分数据过去。这个过程称为页分裂。在这种情况下，性能自然会受影响。自增主键的插入数据模式，每次插入一条新记录，都是追加操作，都不涉及到挪动其他记录，也不会触发叶子节点的分裂。</p>
-<p><strong>覆盖索引</strong></p>
-<pre><code>mysql&gt; create table T (
-ID int primary key,
-k int NOT NULL DEFAULT 0, 
-s varchar(16) NOT NULL DEFAULT &#39;&#39;,
-index k(k))
-engine=InnoDB;
-
-insert into T values(100,1, &#39;aa&#39;),(200,2,&#39;bb&#39;),(300,3,&#39;cc&#39;),(500,5,&#39;ee&#39;),(600,6,&#39;ff&#39;),(700,7,&#39;gg&#39;);
-</code></pre><p>上述表中，k 上有索引。如果我执行 select * from T where k between 3 and 5，需要执行几次树的搜索操作，会扫描多少行？</p>
-<p><img src="https://static001.geekbang.org/resource/image/dc/8d/dcda101051f28502bd5c4402b292e38d.png" alt></p>
-<ol>
-<li>在 k 索引树上找到 k=3 的记录，取得 ID = 300；</li>
-<li>再到 ID 索引树查到 ID=300 对应的 R3；</li>
-<li>在 k 索引树取下一个值 k=5，取得 ID=500；</li>
-<li>再回到 ID 索引树查到 ID=500 对应的 R4；</li>
-<li>在 k 索引树取下一个值 k=6，不满足条件，循环结束。</li>
-</ol>
-<p>在这个过程中，回到主键索引树搜索的过程，我们称为回表。可以看到，这个查询过程读了 k 索引树的 3 条记录（步骤 1、3 和 5），回表了两次（步骤 2 和 4）。在这个例子中，由于查询结果所需要的数据只在主键索引上有，所以不得不回表。那么，有没有可能经过索引优化，避免回表过程呢？如果执行的语句是 select ID from T where k between 3 and 5，这时只需要查 ID 的值，而 ID 的值已经在 k 索引树上了，因此可以直接提供查询结果，不需要回表。也就是说，在这个查询里面，索引 k 已经“覆盖了”我们的查询需求，我们称为覆盖索引。</p>
-<p>即覆盖索引就是在这次的查询中，所要的数据已经在这棵索引树的叶子结点上了。覆盖索引可以减少树的搜索次数，显著提升查询性能，所以使用覆盖索引是一个常用的性能优化手段。</p>
-<p><strong>索引下推</strong></p>
-<p>以市民表的联合索引（name, age）为例。如果现在有一个需求：检索出表中“名字第一个字是张，而且年龄是 10 岁的所有男孩”。那么，SQL 语句是这么写的：</p>
-<pre><code>mysql&gt; select * from tuser where name like &#39;张%&#39; and age=10 and ismale=1;
-</code></pre><p>这个语句在搜索索引树的时候，只能用 “张”，找到第一个满足条件的记录 ID3。当然，这还不错，总比全表扫描要好。然后呢？当然是判断其他条件是否满足。在 MySQL 5.6 之前，只能从 ID3 开始一个个回表。到主键索引上找出数据行，再对比字段值。而 MySQL 5.6 引入的索引下推优化（index condition pushdown)， 可以在索引遍历过程中，对索引中包含的字段先做判断，直接过滤掉不满足条件的记录，减少回表次数。</p>
-<p>无索引下推执行流程（图3）:</p>
-<p><img src="https://static001.geekbang.org/resource/image/b3/ac/b32aa8b1f75611e0759e52f5915539ac.jpg" alt></p>
-<p>索引下推执行流程（图4）:</p>
-<p><img src="https://static001.geekbang.org/resource/image/76/1b/76e385f3df5a694cc4238c7b65acfe1b.jpg" alt></p>
-<p>在图 3 和 4 这两个图里面，每一个虚线箭头表示回表一次。图 3 中，在 (name,age) 索引里面我特意去掉了 age 的值，这个过程 InnoDB 并不会去看 age 的值，只是按顺序把“name 第一个字是’张’”的记录一条条取出来回表。因此，需要回表 4 次。图 4 跟图 3 的区别是，InnoDB 在 (name,age) 索引内部就判断了 age 是否等于 10，对于不等于 10 的记录，直接判断并跳过。在我们的这个例子中，只需要对 ID4、ID5 这两条记录回表取数据判断，就只需要回表 2 次。</p>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="https://yanrs.me/2020/05/06/MySQL 高级 - 3/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -667,209 +471,6 @@ insert into T values(100,1, &#39;aa&#39;),(200,2,&#39;bb&#39;),(300,3,&#39;cc&#3
 <li>直接进入等待，直到超时。这个超时时间可以通过参数 innodb_lock_wait_timeout 来设置。默认为 50s</li>
 <li>另一种策略是，发起死锁检测，发现死锁后，主动回滚死锁链条中的某一个事务，让其他事务得以继续执行。将参数 innodb_deadlock_detect 设置为 on，表示开启这个逻辑。默认开启。缺点是死锁检测要耗费大量的 CPU 资源。</li>
 <li>控制并发度。比如同一行同时最多只有 10 个线程在更新，这个并发控制要做在数据库服务端。如果你有中间件，可以考虑在中间件实现；如果你的团队有能修改 MySQL 源码的人，也可以做在 MySQL 里面。基本思路就是，对于相同行的更新，在进入引擎之前排队。这样在 InnoDB 内部就不会有大量的死锁检测工作了</li>
-</ol>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2020/05/06/MySQL 高级 - 5/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2020/05/06/MySQL 高级 - 5/" itemprop="url">MySQL 高级 - 5</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2020-05-06T22:10:57+08:00">
-                2020-05-06
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/MySQL/" itemprop="url" rel="index">
-                    <span itemprop="name">MySQL</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="count-计数"><a href="#count-计数" class="headerlink" title="count(*) 计数"></a>count(*) 计数</h3><p>在不同的 MySQL 引擎中，count(*) 有不同的实现方式。</p>
-<ol>
-<li>MyISAM 引擎把一个表的总行数存在了磁盘上，因此执行 count(*) 的时候会直接返回这个数，效率很高；</li>
-<li>而 InnoDB 引擎就麻烦了，它执行 count(*) 的时候，需要把数据一行一行地从引擎里面读出来，然后累积计数。</li>
-</ol>
-<p>这里需要注意的是，我们在这篇文章里讨论的是没有过滤条件的 count(*)，如果加了 where 条件的话，MyISAM 表也是不能返回得这么快的。</p>
-<p><strong>InnoDB 对 count(*) 的优化</strong></p>
-<p>InnoDB 是索引组织表，主键索引树的叶子节点是数据，而普通索引树的叶子节点是主键值。所以，普通索引树比主键索引树小很多。对于 count(*) 这样的操作，遍历哪个索引树得到的结果逻辑上都是一样的。因此，MySQL 优化器会找到最小的那棵树来遍历。在保证逻辑正确的前提下，尽量减少扫描的数据量，是数据库系统设计的通用法则之一。</p>
-<p><strong>show table status 看到的表行数准确吗</strong></p>
-<p>show table status 命令显示的行数是不准确的，因为索引统计的值是通过采样来估算的。</p>
-<p><strong>count(*)、count(主键 id)、count(字段) 和 count(1) 的性能</strong></p>
-<p>count() 是一个聚合函数，对于返回的结果集，一行行地判断，如果 count 函数的参数不是 NULL，累计值就加 1，否则不加。所以，<code>count(*)</code>、count(主键 id) 和 count(1) 都表示返回满足条件的结果集的总行数；而 count(字段），则表示返回满足条件的数据行里面，参数“字段”不为 NULL 的总个数。即 count(列名) 会过滤为null 的情况，所以相同条件的查询下，<code>count(*)</code> 的数量一定是大于等于 count(列名)的。</p>
-<pre><code>count(字段）：遍历整张表，需要取值，判断 字段 != null，按行累加； 
-count(id) ：遍历整张表，需要取ID，判断 id !=null，按行累加； 
-count(1) ： 遍历整张表，【不需要】取值，返回的每一行放一个数字1，按行累加； 
-count(*) : 【不需要取字段】，count(*)，按行累加； 
-因为count(*) 和 count(1) 不取字段值，减少往 server层的数据返回，所以比其他count(字段)要返回值的【性能】较好；
-
-性能：count(字段）&lt; count(id) &lt; count(1)≈count(*)
-</code></pre><h3 id="两阶段提交不同时刻的奔溃"><a href="#两阶段提交不同时刻的奔溃" class="headerlink" title="两阶段提交不同时刻的奔溃"></a>两阶段提交不同时刻的奔溃</h3><p>在两阶段提交的不同瞬间，MySQL 如果发生异常重启，是怎么保证数据完整性的？</p>
-<p><img src="https://static001.geekbang.org/resource/image/ee/2a/ee9af616e05e4b853eba27048351f62a.jpg" alt></p>
-<ol>
-<li><p>在图中时刻 A 的地方，也就是写入 redo log 处于 prepare 阶段之后、写 binlog 之前，发生了崩溃（crash），由于此时 binlog 还没写，redo log 也还没提交，所以崩溃恢复的时候，这个事务会回滚。这时候，binlog 还没写，所以也不会传到备库</p>
-</li>
-<li><p>如果 redo log 里面的事务是完整的，也就是已经有了 commit 标识，则直接提交；</p>
-</li>
-<li><p>如果 redo log 里面的事务只有完整的 prepare，则判断对应的事务 binlog 是否存在并完整：</p>
-<p>a. 如果是，则提交事务；</p>
-<p>b. 否则，回滚事务。</p>
-</li>
-</ol>
-<p>B 发生 crash 对应的就是 2(a) 的情况，崩溃恢复过程中事务会被提交。</p>
-<p><strong>MySQL 怎么知道 binlog 是完整的</strong></p>
-<p>一个事务的 binlog 是有完整格式的：</p>
-<p>​    statement 格式的 binlog，最后会有 COMMIT；</p>
-<p>​    row 格式的 binlog，最后会有一个 XID event。</p>
-<p>在 MySQL 5.6.2 版本以后，引入了 binlog-checksum 参数，用来验证 binlog 内容的正确性。对于 binlog 日志由于磁盘原因，可能会在日志中间出错的情况，MySQL 可以通过校验 checksum 的结果来发现</p>
-<p><strong>redo log 和 binlog 是怎么关联起来的</strong></p>
-<p>它们有一个共同的数据字段，叫 XID。崩溃恢复的时候，会按顺序扫描 redo log：如果碰到既有 prepare、又有 commit 的 redo log，就直接提交；如果碰到只有 parepare、而没有 commit 的 redo log，就拿着 XID 去 binlog 找对应的事务。</p>
-<p><strong>为什么要两阶段提交？干脆先 redo log 写完，再写 binlog。崩溃恢复的时候，满足两个日志都完整不就可以了？</strong></p>
-<p>两阶段提交就是为了给所有人一个机会，当每个人都说“我 ok”的时候，再一起提交。</p>
-<p><strong>只用 binlog 来支持崩溃恢复，又能支持归档，可不可以？</strong></p>
-<p>这样的情况下 binlog 还是不能支持崩溃恢复的。原因是 binlog 没有能力恢复“数据页”。InnoDB 引擎使用的是 WAL 技术，执行事务的时候，写完内存和日志，事务就算完成了。如果之后崩溃，要依赖于日志来恢复数据页，由于数据页的信息都是存储在 redo log 里面的，所以这里就不能恢复数据页，会导致一部分数据丢失。</p>
-<p><strong>反过来，只用 redo log，不要 binlog 行不行</strong></p>
-<p>不行。redo log 是循环写，写到末尾是要回到开头继续写的。这样历史日志没法保留，redo log 也就起不到归档的作用。还有很多公司有异构系统（比如一些数据分析系统），这些系统就靠消费 MySQL 的 binlog 来更新自己的数据。关掉 binlog 的话，这些下游系统就没法输入了。</p>
-<p><strong>redo log buffer 是什么？是先修改内存，还是先写 redo log 文件？</strong></p>
-<p>redo log 会在事务提交的时候再写入到文件中，之前是一直存在于 redo log buffer 之中的。</p>
-<h3 id="order-by-排序是怎么工作的"><a href="#order-by-排序是怎么工作的" class="headerlink" title="order by 排序是怎么工作的"></a>order by 排序是怎么工作的</h3><p>MySQL会为每个线程分配一个内存（sort_buffer）用于排序, 该内存大小为sort_buffer_size</p>
-<p><strong>全字段排序</strong><br>    a. 通过索引将所需的字段全部读取到sort_buffer中<br>    b. 按照排序字段进行排序<br>    c. 将结果集返回给客户端</p>
-<p>缺点：造成sort_buffer中存放不下很多数据，因为除了排序字段还存放其他字段，对sort_buffer的利用效率不高，当所需排序数据量很大时，会有很多的临时文件，排序性能也会很差</p>
-<p>优点：MySQL认为内存足够大时会优先选择全字段排序，因为这种方式比rowid 排序避免了一次回表操作</p>
-<p><strong>rowid 排序</strong></p>
-<p>​    a. 通过控制排序的行数据的长度来让sort_buffer中尽可能多的存放数据，max_length_for_sort_data<br>​    b. 只将需要排序的字段和主键读取到sort_buffer中，并按照排序字段进行排序<br>​    c. 按照排序后的顺序，取id进行回表取出想要获取的数据<br>​    d. 将结果集返回给客户端</p>
-<p>优点：更好的利用内存的 sort_buffer 进行排序操作，尽量减少对磁盘的访问</p>
-<p>缺点：回表的操作是随机IO，会造成大量的随机读，不一定就比全字段排序减少对磁盘的访问</p>
-<h3 id="MySQL-主从备份"><a href="#MySQL-主从备份" class="headerlink" title="MySQL 主从备份"></a>MySQL 主从备份</h3><p>主库接收到客户端的更新请求后，执行内部事务的更新逻辑，同时写 binlog。备库 B 跟主库 A 之间维持了一个长连接。主库 A 内部有一个线程，专门用于服务备库 B 的这个长连接。一个事务日志同步的完整过程是这样的：</p>
-<ol>
-<li>在备库 B 上通过 change master 命令，设置主库 A 的 IP、端口、用户名、密码，以及要从哪个位置开始请求 binlog，这个位置包含文件名和日志偏移量。</li>
-<li>在备库 B 上执行 start slave 命令，这时候备库会启动两个线程，就是图中的 io_thread 和 sql_thread。其中 io_thread 负责与主库建立连接。主库 A 校验完用户名、密码后，开始按照备库 B 传过来的位置，从本地读取 binlog，发给 B。</li>
-<li>备库 B 拿到 binlog 后，写到本地文件，称为中转日志（relay log）。</li>
-<li>sql_thread 读取中转日志，解析出日志里的命令，并执行。</li>
 </ol>
 
           
@@ -1297,6 +898,405 @@ mysql&gt; alter table SUser add index index2(email(6));
 <p>建议你不论使用 MySQL 的哪个版本，都将这个值设置为 ON。因为，一个表单独存储为一个文件更容易管理，而且在你不需要这个表的时候，通过 drop table 命令，系统就会直接删除这个文件。而如果是放在共享表空间中，即使表删掉了，空间也是不会回收的。</p>
 <p>数据的删除，插入都会造成数据的空洞，使用 alter table A engine=InnoDB 重建表空间，释放空洞的空间，缩容。 MySQL 5.6 之前要求在整个 DDL 过程中，表 A 中不能有更新。也就是说，这个 DDL 不是 Online 的。 如果在这个过程中，有新的数据要写入到表 A 的话，就会造成数据丢失。</p>
 <p>MySQL 5.6 版本开始引入的 Online DDL，表 A 中可以有更新，实现原理是记录一个 row log，存放的是 A 的后续操作记录，最后在恢复。</p>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2020/05/06/MySQL 高级 - 2/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2020/05/06/MySQL 高级 - 2/" itemprop="url">MySQL 高级 - 2</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2020-05-06T22:10:57+08:00">
+                2020-05-06
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/MySQL/" itemprop="url" rel="index">
+                    <span itemprop="name">MySQL</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="事务隔离"><a href="#事务隔离" class="headerlink" title="事务隔离"></a>事务隔离</h3><p>在 MySQL 中，事务支持是在引擎层实现的。你现在知道，MySQL 是一个支持多引擎的系统，但并不是所有的引擎都支持事务。比如 MySQL 原生的 MyISAM 引擎就不支持事务，这也是 MyISAM 被 InnoDB 取代的重要原因之一。</p>
+<p>SQL 标准的事务隔离级别包括：</p>
+<ul>
+<li>读未提交是指，一个事务还没提交时，它做的变更就能被别的事务看到。</li>
+<li>读提交是指，一个事务提交之后，它做的变更才会被其他事务看到。</li>
+<li>可重复读是指，一个事务执行过程中看到的数据，总是跟这个事务在启动时看到的数据是一致的。</li>
+<li>串行化，顾名思义是对于同一行记录，“写”会加“写锁”，“读”会加“读锁”。当出现读写锁冲突的时候，后访问的事务必须等前一个事务执行完成，才能继续执行。</li>
+</ul>
+<p><strong>MVCC</strong></p>
+<p><img src="https://static001.geekbang.org/resource/image/d9/ee/d9c313809e5ac148fc39feff532f0fee.png" alt></p>
+<p>同一条记录在系统中可以存在多个版本，就是数据库的多版本并发控制（MVCC）</p>
+<p>RC（读已提交）级别下，MVCC 视图会在每一个语句前创建一个，所以在 RC 级别下，一个事务是可以看到另外一个事务已经提交的内容，因为它在每一次查询之前都会重新给予最新的数据创建一个新的 MVCC 视图。 </p>
+<p>RR（可重复读）级别下，MVCC视图实在开始事务的时候就创建好了，这个视图会一直使用，直到该事务结束。</p>
+<h3 id="索引"><a href="#索引" class="headerlink" title="索引"></a>索引</h3><p><strong>哈希表为什么不适合做索引</strong>：因为不是有序的，所以哈希索引做区间查询的速度是很慢的。哈希表这种结构适用于只有等值查询的场景。</p>
+<p><strong>有序数组为什么不适合做索引</strong>：如果仅仅看查询效率，有序数组就是最好的数据结构了。但是，在需要更新数据的时候就麻烦了，你往中间插入一个记录就必须得挪动后面所有的记录，成本太高。所以，有序数组索引只适用于静态存储引擎，比如你要保存的是 2017 年某个城市的所有人口信息，这类不会再修改的数据。</p>
+<p><strong>二叉搜索树为什么不适合做索引</strong>：因为索引不止存在内存中，还要写到磁盘上。二叉树树高过高每次查询都需要访问过多节点，即访问数据块过多，而从磁盘随机读取数据块过于耗时。</p>
+<p>在 MySQL 中，索引是在存储引擎层实现的，所以并没有统一的索引标准，即不同存储引擎的索引的工作方式并不一样。而即使多个存储引擎支持同一种类型的索引，其底层的实现也可能不同。每一个索引在 InnoDB 里面对应一棵 B+ 树。</p>
+<pre><code>假设，我们有一个主键列为 ID 的表，表中有字段 k，并且在 k 上有索引。
+
+mysql&gt; create table T(id int primary key, k int not null, name varchar(16),index (k))engine=InnoDB;
+
+(ID,k) 值分别为 (100,1)、(200,2)、(300,3)、(500,5) 和 (600,6)
+</code></pre><p><img src="https://static001.geekbang.org/resource/image/dc/8d/dcda101051f28502bd5c4402b292e38d.png" alt></p>
+<p><strong>索引类型分为主键索引和非主键索引</strong>: 主键索引的叶子节点存的是整行数据【B+树的叶子节点是page （页），一个页里面可以存多个行】。在 InnoDB 里，主键索引也被称为聚簇索引（clustered index）非主键索引的叶子节点内容是主键的值。在 InnoDB 里，非主键索引也被称为二级索引（secondary index）。</p>
+<p><strong>基于主键索引和普通索引的查询有什么区别？</strong> 如果语句是 select <em> from T where ID=500，即主键查询方式，则只需要搜索 ID 这棵 B+ 树；如果语句是 select </em> from T where k=5，即普通索引查询方式，则需要先搜索 k 索引树，得到 ID 的值为 500，再到 ID 索引树搜索一次。这个过程称为回表。也就是说，基于非主键索引的查询需要多扫描一棵索引树。</p>
+<p><strong>为什么主键最好是自增的</strong>：B+ 树为了维护索引有序性，在插入新值的时候需要做必要的维护。如果所在的数据页已经满了，根据 B+ 树的算法，这时候需要申请一个新的数据页，然后挪动部分数据过去。这个过程称为页分裂。在这种情况下，性能自然会受影响。自增主键的插入数据模式，每次插入一条新记录，都是追加操作，都不涉及到挪动其他记录，也不会触发叶子节点的分裂。</p>
+<p><strong>覆盖索引</strong></p>
+<pre><code>mysql&gt; create table T (
+ID int primary key,
+k int NOT NULL DEFAULT 0, 
+s varchar(16) NOT NULL DEFAULT &#39;&#39;,
+index k(k))
+engine=InnoDB;
+
+insert into T values(100,1, &#39;aa&#39;),(200,2,&#39;bb&#39;),(300,3,&#39;cc&#39;),(500,5,&#39;ee&#39;),(600,6,&#39;ff&#39;),(700,7,&#39;gg&#39;);
+</code></pre><p>上述表中，k 上有索引。如果我执行 select * from T where k between 3 and 5，需要执行几次树的搜索操作，会扫描多少行？</p>
+<p><img src="https://static001.geekbang.org/resource/image/dc/8d/dcda101051f28502bd5c4402b292e38d.png" alt></p>
+<ol>
+<li>在 k 索引树上找到 k=3 的记录，取得 ID = 300；</li>
+<li>再到 ID 索引树查到 ID=300 对应的 R3；</li>
+<li>在 k 索引树取下一个值 k=5，取得 ID=500；</li>
+<li>再回到 ID 索引树查到 ID=500 对应的 R4；</li>
+<li>在 k 索引树取下一个值 k=6，不满足条件，循环结束。</li>
+</ol>
+<p>在这个过程中，回到主键索引树搜索的过程，我们称为回表。可以看到，这个查询过程读了 k 索引树的 3 条记录（步骤 1、3 和 5），回表了两次（步骤 2 和 4）。在这个例子中，由于查询结果所需要的数据只在主键索引上有，所以不得不回表。那么，有没有可能经过索引优化，避免回表过程呢？如果执行的语句是 select ID from T where k between 3 and 5，这时只需要查 ID 的值，而 ID 的值已经在 k 索引树上了，因此可以直接提供查询结果，不需要回表。也就是说，在这个查询里面，索引 k 已经“覆盖了”我们的查询需求，我们称为覆盖索引。</p>
+<p>即覆盖索引就是在这次的查询中，所要的数据已经在这棵索引树的叶子结点上了。覆盖索引可以减少树的搜索次数，显著提升查询性能，所以使用覆盖索引是一个常用的性能优化手段。</p>
+<p><strong>索引下推</strong></p>
+<p>以市民表的联合索引（name, age）为例。如果现在有一个需求：检索出表中“名字第一个字是张，而且年龄是 10 岁的所有男孩”。那么，SQL 语句是这么写的：</p>
+<pre><code>mysql&gt; select * from tuser where name like &#39;张%&#39; and age=10 and ismale=1;
+</code></pre><p>这个语句在搜索索引树的时候，只能用 “张”，找到第一个满足条件的记录 ID3。当然，这还不错，总比全表扫描要好。然后呢？当然是判断其他条件是否满足。在 MySQL 5.6 之前，只能从 ID3 开始一个个回表。到主键索引上找出数据行，再对比字段值。而 MySQL 5.6 引入的索引下推优化（index condition pushdown)， 可以在索引遍历过程中，对索引中包含的字段先做判断，直接过滤掉不满足条件的记录，减少回表次数。</p>
+<p>无索引下推执行流程（图3）:</p>
+<p><img src="https://static001.geekbang.org/resource/image/b3/ac/b32aa8b1f75611e0759e52f5915539ac.jpg" alt></p>
+<p>索引下推执行流程（图4）:</p>
+<p><img src="https://static001.geekbang.org/resource/image/76/1b/76e385f3df5a694cc4238c7b65acfe1b.jpg" alt></p>
+<p>在图 3 和 4 这两个图里面，每一个虚线箭头表示回表一次。图 3 中，在 (name,age) 索引里面我特意去掉了 age 的值，这个过程 InnoDB 并不会去看 age 的值，只是按顺序把“name 第一个字是’张’”的记录一条条取出来回表。因此，需要回表 4 次。图 4 跟图 3 的区别是，InnoDB 在 (name,age) 索引内部就判断了 age 是否等于 10，对于不等于 10 的记录，直接判断并跳过。在我们的这个例子中，只需要对 ID4、ID5 这两条记录回表取数据判断，就只需要回表 2 次。</p>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2020/05/06/MySQL 高级 - 5/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2020/05/06/MySQL 高级 - 5/" itemprop="url">MySQL 高级 - 5</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2020-05-06T22:10:57+08:00">
+                2020-05-06
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/MySQL/" itemprop="url" rel="index">
+                    <span itemprop="name">MySQL</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="count-计数"><a href="#count-计数" class="headerlink" title="count(*) 计数"></a>count(*) 计数</h3><p>在不同的 MySQL 引擎中，count(*) 有不同的实现方式。</p>
+<ol>
+<li>MyISAM 引擎把一个表的总行数存在了磁盘上，因此执行 count(*) 的时候会直接返回这个数，效率很高；</li>
+<li>而 InnoDB 引擎就麻烦了，它执行 count(*) 的时候，需要把数据一行一行地从引擎里面读出来，然后累积计数。</li>
+</ol>
+<p>这里需要注意的是，我们在这篇文章里讨论的是没有过滤条件的 count(*)，如果加了 where 条件的话，MyISAM 表也是不能返回得这么快的。</p>
+<p><strong>InnoDB 对 count(*) 的优化</strong></p>
+<p>InnoDB 是索引组织表，主键索引树的叶子节点是数据，而普通索引树的叶子节点是主键值。所以，普通索引树比主键索引树小很多。对于 count(*) 这样的操作，遍历哪个索引树得到的结果逻辑上都是一样的。因此，MySQL 优化器会找到最小的那棵树来遍历。在保证逻辑正确的前提下，尽量减少扫描的数据量，是数据库系统设计的通用法则之一。</p>
+<p><strong>show table status 看到的表行数准确吗</strong></p>
+<p>show table status 命令显示的行数是不准确的，因为索引统计的值是通过采样来估算的。</p>
+<p><strong>count(*)、count(主键 id)、count(字段) 和 count(1) 的性能</strong></p>
+<p>count() 是一个聚合函数，对于返回的结果集，一行行地判断，如果 count 函数的参数不是 NULL，累计值就加 1，否则不加。所以，<code>count(*)</code>、count(主键 id) 和 count(1) 都表示返回满足条件的结果集的总行数；而 count(字段），则表示返回满足条件的数据行里面，参数“字段”不为 NULL 的总个数。即 count(列名) 会过滤为null 的情况，所以相同条件的查询下，<code>count(*)</code> 的数量一定是大于等于 count(列名)的。</p>
+<pre><code>count(字段）：遍历整张表，需要取值，判断 字段 != null，按行累加； 
+count(id) ：遍历整张表，需要取ID，判断 id !=null，按行累加； 
+count(1) ： 遍历整张表，【不需要】取值，返回的每一行放一个数字1，按行累加； 
+count(*) : 【不需要取字段】，count(*)，按行累加； 
+因为count(*) 和 count(1) 不取字段值，减少往 server层的数据返回，所以比其他count(字段)要返回值的【性能】较好；
+
+性能：count(字段）&lt; count(id) &lt; count(1)≈count(*)
+</code></pre><h3 id="两阶段提交不同时刻的奔溃"><a href="#两阶段提交不同时刻的奔溃" class="headerlink" title="两阶段提交不同时刻的奔溃"></a>两阶段提交不同时刻的奔溃</h3><p>在两阶段提交的不同瞬间，MySQL 如果发生异常重启，是怎么保证数据完整性的？</p>
+<p><img src="https://static001.geekbang.org/resource/image/ee/2a/ee9af616e05e4b853eba27048351f62a.jpg" alt></p>
+<ol>
+<li><p>在图中时刻 A 的地方，也就是写入 redo log 处于 prepare 阶段之后、写 binlog 之前，发生了崩溃（crash），由于此时 binlog 还没写，redo log 也还没提交，所以崩溃恢复的时候，这个事务会回滚。这时候，binlog 还没写，所以也不会传到备库</p>
+</li>
+<li><p>如果 redo log 里面的事务是完整的，也就是已经有了 commit 标识，则直接提交；</p>
+</li>
+<li><p>如果 redo log 里面的事务只有完整的 prepare，则判断对应的事务 binlog 是否存在并完整：</p>
+<p>a. 如果是，则提交事务；</p>
+<p>b. 否则，回滚事务。</p>
+</li>
+</ol>
+<p>B 发生 crash 对应的就是 2(a) 的情况，崩溃恢复过程中事务会被提交。</p>
+<p><strong>MySQL 怎么知道 binlog 是完整的</strong></p>
+<p>一个事务的 binlog 是有完整格式的：</p>
+<p>​    statement 格式的 binlog，最后会有 COMMIT；</p>
+<p>​    row 格式的 binlog，最后会有一个 XID event。</p>
+<p>在 MySQL 5.6.2 版本以后，引入了 binlog-checksum 参数，用来验证 binlog 内容的正确性。对于 binlog 日志由于磁盘原因，可能会在日志中间出错的情况，MySQL 可以通过校验 checksum 的结果来发现</p>
+<p><strong>redo log 和 binlog 是怎么关联起来的</strong></p>
+<p>它们有一个共同的数据字段，叫 XID。崩溃恢复的时候，会按顺序扫描 redo log：如果碰到既有 prepare、又有 commit 的 redo log，就直接提交；如果碰到只有 parepare、而没有 commit 的 redo log，就拿着 XID 去 binlog 找对应的事务。</p>
+<p><strong>为什么要两阶段提交？干脆先 redo log 写完，再写 binlog。崩溃恢复的时候，满足两个日志都完整不就可以了？</strong></p>
+<p>两阶段提交就是为了给所有人一个机会，当每个人都说“我 ok”的时候，再一起提交。</p>
+<p><strong>只用 binlog 来支持崩溃恢复，又能支持归档，可不可以？</strong></p>
+<p>这样的情况下 binlog 还是不能支持崩溃恢复的。原因是 binlog 没有能力恢复“数据页”。InnoDB 引擎使用的是 WAL 技术，执行事务的时候，写完内存和日志，事务就算完成了。如果之后崩溃，要依赖于日志来恢复数据页，由于数据页的信息都是存储在 redo log 里面的，所以这里就不能恢复数据页，会导致一部分数据丢失。</p>
+<p><strong>反过来，只用 redo log，不要 binlog 行不行</strong></p>
+<p>不行。redo log 是循环写，写到末尾是要回到开头继续写的。这样历史日志没法保留，redo log 也就起不到归档的作用。还有很多公司有异构系统（比如一些数据分析系统），这些系统就靠消费 MySQL 的 binlog 来更新自己的数据。关掉 binlog 的话，这些下游系统就没法输入了。</p>
+<p><strong>redo log buffer 是什么？是先修改内存，还是先写 redo log 文件？</strong></p>
+<p>redo log 会在事务提交的时候再写入到文件中，之前是一直存在于 redo log buffer 之中的。</p>
+<h3 id="order-by-排序是怎么工作的"><a href="#order-by-排序是怎么工作的" class="headerlink" title="order by 排序是怎么工作的"></a>order by 排序是怎么工作的</h3><p>MySQL会为每个线程分配一个内存（sort_buffer）用于排序, 该内存大小为sort_buffer_size</p>
+<p><strong>全字段排序</strong><br>    a. 通过索引将所需的字段全部读取到sort_buffer中<br>    b. 按照排序字段进行排序<br>    c. 将结果集返回给客户端</p>
+<p>缺点：造成sort_buffer中存放不下很多数据，因为除了排序字段还存放其他字段，对sort_buffer的利用效率不高，当所需排序数据量很大时，会有很多的临时文件，排序性能也会很差</p>
+<p>优点：MySQL认为内存足够大时会优先选择全字段排序，因为这种方式比rowid 排序避免了一次回表操作</p>
+<p><strong>rowid 排序</strong></p>
+<p>​    a. 通过控制排序的行数据的长度来让sort_buffer中尽可能多的存放数据，max_length_for_sort_data<br>​    b. 只将需要排序的字段和主键读取到sort_buffer中，并按照排序字段进行排序<br>​    c. 按照排序后的顺序，取id进行回表取出想要获取的数据<br>​    d. 将结果集返回给客户端</p>
+<p>优点：更好的利用内存的 sort_buffer 进行排序操作，尽量减少对磁盘的访问</p>
+<p>缺点：回表的操作是随机IO，会造成大量的随机读，不一定就比全字段排序减少对磁盘的访问</p>
+<h3 id="MySQL-主从备份"><a href="#MySQL-主从备份" class="headerlink" title="MySQL 主从备份"></a>MySQL 主从备份</h3><p>主库接收到客户端的更新请求后，执行内部事务的更新逻辑，同时写 binlog。备库 B 跟主库 A 之间维持了一个长连接。主库 A 内部有一个线程，专门用于服务备库 B 的这个长连接。一个事务日志同步的完整过程是这样的：</p>
+<ol>
+<li>在备库 B 上通过 change master 命令，设置主库 A 的 IP、端口、用户名、密码，以及要从哪个位置开始请求 binlog，这个位置包含文件名和日志偏移量。</li>
+<li>在备库 B 上执行 start slave 命令，这时候备库会启动两个线程，就是图中的 io_thread 和 sql_thread。其中 io_thread 负责与主库建立连接。主库 A 校验完用户名、密码后，开始按照备库 B 传过来的位置，从本地读取 binlog，发给 B。</li>
+<li>备库 B 拿到 binlog 后，写到本地文件，称为中转日志（relay log）。</li>
+<li>sql_thread 读取中转日志，解析出日志里的命令，并执行。</li>
+</ol>
 
           
         
@@ -4153,7 +4153,7 @@ done;
 
   
   <nav class="pagination">
-    <a class="extend prev" rel="prev" href="/page/3/"><i class="fa fa-angle-left"></i></a><a class="page-number" href="/">1</a><span class="space">&hellip;</span><a class="page-number" href="/page/3/">3</a><span class="page-number current">4</span><a class="page-number" href="/page/5/">5</a><span class="space">&hellip;</span><a class="page-number" href="/page/39/">39</a><a class="extend next" rel="next" href="/page/5/"><i class="fa fa-angle-right"></i></a>
+    <a class="extend prev" rel="prev" href="/page/3/"><i class="fa fa-angle-left"></i></a><a class="page-number" href="/">1</a><span class="space">&hellip;</span><a class="page-number" href="/page/3/">3</a><span class="page-number current">4</span><a class="page-number" href="/page/5/">5</a><span class="space">&hellip;</span><a class="page-number" href="/page/40/">40</a><a class="extend next" rel="next" href="/page/5/"><i class="fa fa-angle-right"></i></a>
   </nav>
 
 
@@ -4199,7 +4199,7 @@ done;
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">311</span>
+                  <span class="site-state-item-count">316</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>
@@ -4221,7 +4221,7 @@ done;
               
               <div class="site-state-item site-state-tags">
                 <a href="/tags/index.html">
-                  <span class="site-state-item-count">156</span>
+                  <span class="site-state-item-count">157</span>
                   <span class="site-state-item-name">标签</span>
                 </a>
               </div>
