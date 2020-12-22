@@ -340,7 +340,7 @@
   
   
   <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2020/05/06/MySQL 高级 - 5/">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2020/05/06/MySQL 高级 - 1/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="name" content="Rex">
@@ -359,7 +359,7 @@
         
           <h1 class="post-title" itemprop="name headline">
                 
-                <a class="post-title-link" href="/2020/05/06/MySQL 高级 - 5/" itemprop="url">MySQL 高级 - 5</a></h1>
+                <a class="post-title-link" href="/2020/05/06/MySQL 高级 - 1/" itemprop="url">MySQL 高级 - 1</a></h1>
         
 
         <div class="post-meta">
@@ -433,69 +433,88 @@
       
         
           
-            <h3 id="count-计数"><a href="#count-计数" class="headerlink" title="count(*) 计数"></a>count(*) 计数</h3><p>在不同的 MySQL 引擎中，count(*) 有不同的实现方式。</p>
+            <h3 id="SQL-查询流程"><a href="#SQL-查询流程" class="headerlink" title="SQL 查询流程"></a>SQL 查询流程</h3><p><img src="https://static001.geekbang.org/resource/image/0d/d9/0d2070e8f84c4801adbfa03bda1f98d9.png" alt></p>
 <ol>
-<li>MyISAM 引擎把一个表的总行数存在了磁盘上，因此执行 count(*) 的时候会直接返回这个数，效率很高；</li>
-<li>而 InnoDB 引擎就麻烦了，它执行 count(*) 的时候，需要把数据一行一行地从引擎里面读出来，然后累积计数。</li>
+<li><strong>连接器建立连接</strong></li>
 </ol>
-<p>这里需要注意的是，我们在这篇文章里讨论的是没有过滤条件的 count(*)，如果加了 where 条件的话，MyISAM 表也是不能返回得这么快的。</p>
-<p><strong>InnoDB 对 count(*) 的优化</strong></p>
-<p>InnoDB 是索引组织表，主键索引树的叶子节点是数据，而普通索引树的叶子节点是主键值。所以，普通索引树比主键索引树小很多。对于 count(*) 这样的操作，遍历哪个索引树得到的结果逻辑上都是一样的。因此，MySQL 优化器会找到最小的那棵树来遍历。在保证逻辑正确的前提下，尽量减少扫描的数据量，是数据库系统设计的通用法则之一。</p>
-<p><strong>show table status 看到的表行数准确吗</strong></p>
-<p>show table status 命令显示的行数是不准确的，因为索引统计的值是通过采样来估算的。</p>
-<p><strong>count(*)、count(主键 id)、count(字段) 和 count(1) 的性能</strong></p>
-<p>count() 是一个聚合函数，对于返回的结果集，一行行地判断，如果 count 函数的参数不是 NULL，累计值就加 1，否则不加。所以，<code>count(*)</code>、count(主键 id) 和 count(1) 都表示返回满足条件的结果集的总行数；而 count(字段），则表示返回满足条件的数据行里面，参数“字段”不为 NULL 的总个数。即 count(列名) 会过滤为null 的情况，所以相同条件的查询下，<code>count(*)</code> 的数量一定是大于等于 count(列名)的。</p>
-<pre><code>count(字段）：遍历整张表，需要取值，判断 字段 != null，按行累加； 
-count(id) ：遍历整张表，需要取ID，判断 id !=null，按行累加； 
-count(1) ： 遍历整张表，【不需要】取值，返回的每一行放一个数字1，按行累加； 
-count(*) : 【不需要取字段】，count(*)，按行累加； 
-因为count(*) 和 count(1) 不取字段值，减少往 server层的数据返回，所以比其他count(字段)要返回值的【性能】较好；
+<pre><code>1. 客户端如果太长时间没动静，连接器就会自动将它断开。这个时间是由参数 wait_timeout 控制的，默认值是 8 小时,如果在连接被断开之后，客户端再次发送请求的话，就会收到一个错误提醒： Lost connection to MySQL server during query。
 
-性能：count(字段）&lt; count(id) &lt; count(1)≈count(*)
-</code></pre><h3 id="两阶段提交不同时刻的奔溃"><a href="#两阶段提交不同时刻的奔溃" class="headerlink" title="两阶段提交不同时刻的奔溃"></a>两阶段提交不同时刻的奔溃</h3><p>在两阶段提交的不同瞬间，MySQL 如果发生异常重启，是怎么保证数据完整性的？</p>
-<p><img src="https://static001.geekbang.org/resource/image/ee/2a/ee9af616e05e4b853eba27048351f62a.jpg" alt></p>
-<ol>
-<li><p>在图中时刻 A 的地方，也就是写入 redo log 处于 prepare 阶段之后、写 binlog 之前，发生了崩溃（crash），由于此时 binlog 还没写，redo log 也还没提交，所以崩溃恢复的时候，这个事务会回滚。这时候，binlog 还没写，所以也不会传到备库</p>
-</li>
-<li><p>如果 redo log 里面的事务是完整的，也就是已经有了 commit 标识，则直接提交；</p>
-</li>
-<li><p>如果 redo log 里面的事务只有完整的 prepare，则判断对应的事务 binlog 是否存在并完整：</p>
-<p>a. 如果是，则提交事务；</p>
-<p>b. 否则，回滚事务。</p>
-</li>
+2. 使用长连接连接 mysql 后，你可能会发现，有些时候 MySQL 占用内存涨得特别快，这是因为 MySQL 在执行过程中临时使用的内存是管理在连接对象里面的。这些资源会在连接断开的时候才释放。所以如果长连接累积下来，可能导致内存占用太大，被系统强行杀掉（OOM），从现象看就是 MySQL 异常重启了。解决方法是：定期断开长连接或者如果你用的是 MySQL 5.7 或更新版本，可以在每次执行一个比较大的操作后，通过执行 mysql_reset_connection 来重新初始化连接资源，即初始化长链接，释放内存。
+</code></pre><ol start="2">
+<li><strong>查询缓存</strong></li>
 </ol>
-<p>B 发生 crash 对应的就是 2(a) 的情况，崩溃恢复过程中事务会被提交。</p>
-<p><strong>MySQL 怎么知道 binlog 是完整的</strong></p>
-<p>一个事务的 binlog 是有完整格式的：</p>
-<p>​    statement 格式的 binlog，最后会有 COMMIT；</p>
-<p>​    row 格式的 binlog，最后会有一个 XID event。</p>
-<p>在 MySQL 5.6.2 版本以后，引入了 binlog-checksum 参数，用来验证 binlog 内容的正确性。对于 binlog 日志由于磁盘原因，可能会在日志中间出错的情况，MySQL 可以通过校验 checksum 的结果来发现</p>
-<p><strong>redo log 和 binlog 是怎么关联起来的</strong></p>
-<p>它们有一个共同的数据字段，叫 XID。崩溃恢复的时候，会按顺序扫描 redo log：如果碰到既有 prepare、又有 commit 的 redo log，就直接提交；如果碰到只有 parepare、而没有 commit 的 redo log，就拿着 XID 去 binlog 找对应的事务。</p>
-<p><strong>为什么要两阶段提交？干脆先 redo log 写完，再写 binlog。崩溃恢复的时候，满足两个日志都完整不就可以了？</strong></p>
-<p>两阶段提交就是为了给所有人一个机会，当每个人都说“我 ok”的时候，再一起提交。</p>
-<p><strong>只用 binlog 来支持崩溃恢复，又能支持归档，可不可以？</strong></p>
-<p>这样的情况下 binlog 还是不能支持崩溃恢复的。原因是 binlog 没有能力恢复“数据页”。InnoDB 引擎使用的是 WAL 技术，执行事务的时候，写完内存和日志，事务就算完成了。如果之后崩溃，要依赖于日志来恢复数据页，由于数据页的信息都是存储在 redo log 里面的，所以这里就不能恢复数据页，会导致一部分数据丢失。</p>
-<p><strong>反过来，只用 redo log，不要 binlog 行不行</strong></p>
-<p>不行。redo log 是循环写，写到末尾是要回到开头继续写的。这样历史日志没法保留，redo log 也就起不到归档的作用。还有很多公司有异构系统（比如一些数据分析系统），这些系统就靠消费 MySQL 的 binlog 来更新自己的数据。关掉 binlog 的话，这些下游系统就没法输入了。</p>
-<p><strong>redo log buffer 是什么？是先修改内存，还是先写 redo log 文件？</strong></p>
-<p>redo log 会在事务提交的时候再写入到文件中，之前是一直存在于 redo log buffer 之中的。</p>
-<h3 id="order-by-排序是怎么工作的"><a href="#order-by-排序是怎么工作的" class="headerlink" title="order by 排序是怎么工作的"></a>order by 排序是怎么工作的</h3><p>MySQL会为每个线程分配一个内存（sort_buffer）用于排序, 该内存大小为sort_buffer_size</p>
-<p><strong>全字段排序</strong><br>    a. 通过索引将所需的字段全部读取到sort_buffer中<br>    b. 按照排序字段进行排序<br>    c. 将结果集返回给客户端</p>
-<p>缺点：造成sort_buffer中存放不下很多数据，因为除了排序字段还存放其他字段，对sort_buffer的利用效率不高，当所需排序数据量很大时，会有很多的临时文件，排序性能也会很差</p>
-<p>优点：MySQL认为内存足够大时会优先选择全字段排序，因为这种方式比rowid 排序避免了一次回表操作</p>
-<p><strong>rowid 排序</strong></p>
-<p>​    a. 通过控制排序的行数据的长度来让sort_buffer中尽可能多的存放数据，max_length_for_sort_data<br>​    b. 只将需要排序的字段和主键读取到sort_buffer中，并按照排序字段进行排序<br>​    c. 按照排序后的顺序，取id进行回表取出想要获取的数据<br>​    d. 将结果集返回给客户端</p>
-<p>优点：更好的利用内存的 sort_buffer 进行排序操作，尽量减少对磁盘的访问</p>
-<p>缺点：回表的操作是随机IO，会造成大量的随机读，不一定就比全字段排序减少对磁盘的访问</p>
-<h3 id="MySQL-主从备份"><a href="#MySQL-主从备份" class="headerlink" title="MySQL 主从备份"></a>MySQL 主从备份</h3><p>主库接收到客户端的更新请求后，执行内部事务的更新逻辑，同时写 binlog。备库 B 跟主库 A 之间维持了一个长连接。主库 A 内部有一个线程，专门用于服务备库 B 的这个长连接。一个事务日志同步的完整过程是这样的：</p>
-<ol>
-<li>在备库 B 上通过 change master 命令，设置主库 A 的 IP、端口、用户名、密码，以及要从哪个位置开始请求 binlog，这个位置包含文件名和日志偏移量。</li>
-<li>在备库 B 上执行 start slave 命令，这时候备库会启动两个线程，就是图中的 io_thread 和 sql_thread。其中 io_thread 负责与主库建立连接。主库 A 校验完用户名、密码后，开始按照备库 B 传过来的位置，从本地读取 binlog，发给 B。</li>
-<li>备库 B 拿到 binlog 后，写到本地文件，称为中转日志（relay log）。</li>
-<li>sql_thread 读取中转日志，解析出日志里的命令，并执行。</li>
-</ol>
+<pre><code>1. MySQL 拿到一个查询请求后，会先到查询缓存看看，之前是不是执行过这条语句。之前执行过的语句及其结果可能会以 key-value 对的形式，被直接缓存在内存中。key 是查询的语句，value 是查询的结果。如果你的查询能够直接在这个缓存中找到 key，那么这个 value 就会被直接返回给客户端。
 
+2. 多数情况下不建议使用缓存，因为查询缓存的失效非常频繁，只要有对一个表的更新，这个表上所有的查询缓存都会被清空。因此很可能你费劲地把结果存起来，还没使用呢，就被一个更新全清空了。对于更新压力大的数据库来说，查询缓存的命中率会非常低。
+
+3. 可以将参数 query_cache_type 设置成 DEMAND，这样对于默认的 SQL 语句都不使用查询缓存。
+
+4. 对于你确定要使用查询缓存的语句，可以用 SQL_CACHE 显式指定，像下面这个语句一样 
+   select SQL_CACHE * from T where ID=10；
+
+5. MySQL 8.0 版本直接将查询缓存的整块功能删掉了，也就是说 8.0 开始彻底没有这个功能了。
+</code></pre><ol start="3">
+<li><strong>分析器进行词法分析和语法分析</strong></li>
+</ol>
+<pre><code>1. 词法分析：例如 MySQL 从你输入的&quot;select&quot;这个关键字识别出来，这是一个查询语句
+2. 语法分析：判断你输入的这个 SQL 语句是否满足 MySQL 语法。如果语句不对，就会收到“You have an error in your SQL syntax”的错误提醒
+</code></pre><ol start="4">
+<li><strong>优化器优化SQL</strong></li>
+</ol>
+<pre><code>1. 优化器是在表里面有多个索引的时候，决定使用哪个索引；或者在一个语句有多表关联（join）的时候，决定各个表的连接顺序。原则是：尽可能扫描少的数据库行纪录,让查询更快。
+</code></pre><ol start="5">
+<li><strong>执行器</strong></li>
+</ol>
+<pre><code>1. 开始执行的时候，要先判断一下你对这个表 T 有没有执行查询的权限，如果没有，就会返回没有权限的错误，如下所示 (在工程实现上，如果命中查询缓存，会在查询缓存返回结果的时候，做权限验证。查询也会在优化器之前调用 precheck 验证权限)。注意，这时候是对 &quot;表&quot; 的权限进行判断，而连接器是验证用户身份。
+  mysql&gt; select * from T where ID=10;
+  ERROR 1142 (42000): SELECT command denied to user &#39;b&#39;@&#39;localhost&#39; for table &#39;T&#39;
+
+2. 如果有权限，就打开表继续执行。打开表的时候，执行器就会根据表的引擎定义，去使用这个引擎提供的接口。
+</code></pre><h3 id="SQL-更新流程"><a href="#SQL-更新流程" class="headerlink" title="SQL 更新流程"></a>SQL 更新流程</h3><pre><code>mysql&gt; create table T(ID int primary key, c int);
+mysql&gt; update T set c=c+1 where ID=2;
+</code></pre><ol>
+<li><strong>redo log</strong></li>
+</ol>
+<p>当有一条记录需要更新的时候，InnoDB 引擎就会先把记录写到 redo log（粉板）里面，并更新内存，这个时候更新就算完成了。同时，InnoDB 引擎会在适当的时候，将这个操作记录更新到磁盘里面，而这个更新往往是在系统比较空闲的时候做，这就像打烊以后掌柜做的事。redo log 在哪，他也是在磁盘上，这也是一个写磁盘的过程，但是与更新过程不一样的是，更新过程是在磁盘上随机 IO，费时。 而写 redo log 是在磁盘上顺序IO。效率要高。</p>
+<p>redo log 是循环写的，空间固定会用完；binlog 是可以追加写入的。“追加写”是指 binlog 文件写到一定大小后会切换到下一个，并不会覆盖以前的日志。</p>
+<p>redo log 是 InnoDB 引擎所特有的，所以我们如果再使用 InnoDB 引擎创建表时，如果数据库发生异常重启，之前提交的记录都不会丢失。 InnoDB 正因为有了 redo log (重做日志)，才有了 crash-safe 的能力（即使 mysql 服务宕机，也不会丢失数据的能力）。</p>
+<ol start="2">
+<li><strong>binlog</strong></li>
+</ol>
+<p>MySQL 整体来看，其实就有两块：一块是 Server 层，它主要做的是 MySQL 功能层面的事情；还有一块是引擎层，负责存储相关的具体事宜。上面我们聊到的粉板 redo log 是 InnoDB 引擎特有的日志，而 Server 层也有自己的日志，称为 binlog（归档日志）。</p>
+<p>redo log 和 binlog 的三点区别：</p>
+<ul>
+<li>redo log 是 InnoDB 引擎特有的；binlog 是 MySQL 的 Server 层实现的，所有引擎都可以使用</li>
+<li>redo log 是物理日志，记录的是“在某个数据页上做了什么修改”；binlog 是逻辑日志，记录的是这个语句的原始逻辑，比如“给 ID=2 这一行的 c 字段加 1 ”。Redo log不是记录数据页“更新之后的状态”，而是记录这个页 “做了什么改动”。binlog 有两种模式，statement 格式的话是记sql语句， row 格式会记录行的内容，记两条，更新前和更新后都有。</li>
+<li>redo log 是循环写的，空间固定会用完；binlog 是可以追加写入的。“追加写”是指 binlog 文件写到一定大小后会切换到下一个，并不会覆盖以前的日志。</li>
+</ul>
+<ol start="3">
+<li><strong>数据更新流程</strong></li>
+</ol>
+<pre><code>1. 执行语句前要先连接数据库，这是连接器的工作。在一个表上有更新的时候，跟这个表有关的查询缓存会失效，所以这条语句就会把表 T 上所有缓存结果都清空。这也就是我们一般不建议使用查询缓存的原因。分析器会通过词法和语法解析知道这是一条更新语句。优化器决定要使用 ID 这个索引。然后，执行器负责具体执行，找到这一行，然后更新。
+
+2. 执行器先找引擎取 ID=2 这一行。ID 是主键，引擎直接用树搜索找到这一行。如果 ID=2 这一行所在的数据页本来就在内存中，就直接返回给执行器；否则，需要先从磁盘读入内存，然后再返回。注意⚠️：对于更新操作，并不会更新某条记录就把某条记录查询到内存中对其做修改就行，而是将对应记录所在页都加载到内存中。
+
+3. 执行器拿到引擎给的行数据，把这个值加上 1，比如原来是 N，现在就是 N+1，得到新的一行数据，再调用引擎接口写入这行新数据。
+
+4. 引擎将这行新数据更新到内存中，同时将这个更新操作记录到 redo log 里面，此时 redo log 处于 prepare 状态。然后告知执行器执行完成了，随时可以提交事务。注意⚠️：这里更新到内存中是指更新内存中这条数据所在的数据页中的数据，因为在前面的步骤就已经将这条数据所在的数据页读入到了内存中，所以这里说的更新内存指的就是更新内存中对应数据页的这条数据
+
+5. 执行器生成这个操作的 binlog，并把 binlog 写入磁盘。
+
+6. 执行器调用引擎的提交事务接口，引擎把刚刚写入的 redo log 改成提交（commit）状态，更新完成.
+</code></pre><p><img src="https://static001.geekbang.org/resource/image/2e/be/2e5bff4910ec189fe1ee6e2ecc7b4bbe.png" alt></p>
+<p>浅色框表示是在 InnoDB 内部执行的，深色框表示是在执行器中执行。最后三步看上去有点“绕”，将 redo log 的写入拆成了两个步骤：prepare 和 commit，这就是”两阶段提交”。</p>
+<ol start="4">
+<li><strong>两阶段提交</strong></li>
+</ol>
+<p>由于 redo log 和 binlog 是两个独立的逻辑，如果不用两阶段提交，要么就是先写完 redo log 再写 binlog，或者采用反过来的顺序。那么数据库的状态就有可能和用它的日志恢复出来的库的状态不一致。</p>
+<pre><code>update T set c=c+1 where ID=2;
+仍然用前面的 update 语句来做例子。假设当前 ID=2 的行，字段 c 的值是 0，再假设执行 update 语句过程中在写完第一个日志后，第二个日志还没有写完期间发生了 crash，会出现什么情况呢？
+
+先写 redo log 后写 binlog: 假设在 redo log 写完，binlog 还没有写完的时候，MySQL 进程异常重启。由于我们前面说过的，redo log 写完之后，系统即使崩溃，仍然能够把数据恢复回来，所以恢复后这一行 c 的值是 1。但是由于 binlog 没写完就 crash 了，这时候 binlog 里面就没有记录这个语句。因此，之后备份日志的时候，存起来的 binlog 里面就没有这条语句。然后你会发现，如果需要用这个 binlog 来恢复临时库的话，由于这个语句的 binlog 丢失，这个临时库就会少了这一次更新，恢复出来的这一行 c 的值就是 0，与原库的值不同。
+
+先写 binlog 后写 redo log: 如果在 binlog 写完之后 crash，由于 redo log 还没写，崩溃恢复以后这个事务无效，所以这一行 c 的值是 0。但是 binlog 里面已经记录了“把 c 从 0 改成 1”这个日志。所以，在之后用 binlog 来恢复的时候就多了一个事务出来，恢复出来的这一行 c 的值就是 1，与原库的值不同。
+</code></pre>
           
         
       
@@ -699,6 +718,209 @@ mysql&gt; alter table SUser add index index2(email(6));
 <p>建议你不论使用 MySQL 的哪个版本，都将这个值设置为 ON。因为，一个表单独存储为一个文件更容易管理，而且在你不需要这个表的时候，通过 drop table 命令，系统就会直接删除这个文件。而如果是放在共享表空间中，即使表删掉了，空间也是不会回收的。</p>
 <p>数据的删除，插入都会造成数据的空洞，使用 alter table A engine=InnoDB 重建表空间，释放空洞的空间，缩容。 MySQL 5.6 之前要求在整个 DDL 过程中，表 A 中不能有更新。也就是说，这个 DDL 不是 Online 的。 如果在这个过程中，有新的数据要写入到表 A 的话，就会造成数据丢失。</p>
 <p>MySQL 5.6 版本开始引入的 Online DDL，表 A 中可以有更新，实现原理是记录一个 row log，存放的是 A 的后续操作记录，最后在恢复。</p>
+
+          
+        
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2020/05/06/MySQL 高级 - 5/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2020/05/06/MySQL 高级 - 5/" itemprop="url">MySQL 高级 - 5</a></h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2020-05-06T22:10:57+08:00">
+                2020-05-06
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/MySQL/" itemprop="url" rel="index">
+                    <span itemprop="name">MySQL</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="count-计数"><a href="#count-计数" class="headerlink" title="count(*) 计数"></a>count(*) 计数</h3><p>在不同的 MySQL 引擎中，count(*) 有不同的实现方式。</p>
+<ol>
+<li>MyISAM 引擎把一个表的总行数存在了磁盘上，因此执行 count(*) 的时候会直接返回这个数，效率很高；</li>
+<li>而 InnoDB 引擎就麻烦了，它执行 count(*) 的时候，需要把数据一行一行地从引擎里面读出来，然后累积计数。</li>
+</ol>
+<p>这里需要注意的是，我们在这篇文章里讨论的是没有过滤条件的 count(*)，如果加了 where 条件的话，MyISAM 表也是不能返回得这么快的。</p>
+<p><strong>InnoDB 对 count(*) 的优化</strong></p>
+<p>InnoDB 是索引组织表，主键索引树的叶子节点是数据，而普通索引树的叶子节点是主键值。所以，普通索引树比主键索引树小很多。对于 count(*) 这样的操作，遍历哪个索引树得到的结果逻辑上都是一样的。因此，MySQL 优化器会找到最小的那棵树来遍历。在保证逻辑正确的前提下，尽量减少扫描的数据量，是数据库系统设计的通用法则之一。</p>
+<p><strong>show table status 看到的表行数准确吗</strong></p>
+<p>show table status 命令显示的行数是不准确的，因为索引统计的值是通过采样来估算的。</p>
+<p><strong>count(*)、count(主键 id)、count(字段) 和 count(1) 的性能</strong></p>
+<p>count() 是一个聚合函数，对于返回的结果集，一行行地判断，如果 count 函数的参数不是 NULL，累计值就加 1，否则不加。所以，<code>count(*)</code>、count(主键 id) 和 count(1) 都表示返回满足条件的结果集的总行数；而 count(字段），则表示返回满足条件的数据行里面，参数“字段”不为 NULL 的总个数。即 count(列名) 会过滤为null 的情况，所以相同条件的查询下，<code>count(*)</code> 的数量一定是大于等于 count(列名)的。</p>
+<pre><code>count(字段）：遍历整张表，需要取值，判断 字段 != null，按行累加； 
+count(id) ：遍历整张表，需要取ID，判断 id !=null，按行累加； 
+count(1) ： 遍历整张表，【不需要】取值，返回的每一行放一个数字1，按行累加； 
+count(*) : 【不需要取字段】，count(*)，按行累加； 
+因为count(*) 和 count(1) 不取字段值，减少往 server层的数据返回，所以比其他count(字段)要返回值的【性能】较好；
+
+性能：count(字段）&lt; count(id) &lt; count(1)≈count(*)
+</code></pre><h3 id="两阶段提交不同时刻的奔溃"><a href="#两阶段提交不同时刻的奔溃" class="headerlink" title="两阶段提交不同时刻的奔溃"></a>两阶段提交不同时刻的奔溃</h3><p>在两阶段提交的不同瞬间，MySQL 如果发生异常重启，是怎么保证数据完整性的？</p>
+<p><img src="https://static001.geekbang.org/resource/image/ee/2a/ee9af616e05e4b853eba27048351f62a.jpg" alt></p>
+<ol>
+<li><p>在图中时刻 A 的地方，也就是写入 redo log 处于 prepare 阶段之后、写 binlog 之前，发生了崩溃（crash），由于此时 binlog 还没写，redo log 也还没提交，所以崩溃恢复的时候，这个事务会回滚。这时候，binlog 还没写，所以也不会传到备库</p>
+</li>
+<li><p>如果 redo log 里面的事务是完整的，也就是已经有了 commit 标识，则直接提交；</p>
+</li>
+<li><p>如果 redo log 里面的事务只有完整的 prepare，则判断对应的事务 binlog 是否存在并完整：</p>
+<p>a. 如果是，则提交事务；</p>
+<p>b. 否则，回滚事务。</p>
+</li>
+</ol>
+<p>B 发生 crash 对应的就是 2(a) 的情况，崩溃恢复过程中事务会被提交。</p>
+<p><strong>MySQL 怎么知道 binlog 是完整的</strong></p>
+<p>一个事务的 binlog 是有完整格式的：</p>
+<p>​    statement 格式的 binlog，最后会有 COMMIT；</p>
+<p>​    row 格式的 binlog，最后会有一个 XID event。</p>
+<p>在 MySQL 5.6.2 版本以后，引入了 binlog-checksum 参数，用来验证 binlog 内容的正确性。对于 binlog 日志由于磁盘原因，可能会在日志中间出错的情况，MySQL 可以通过校验 checksum 的结果来发现</p>
+<p><strong>redo log 和 binlog 是怎么关联起来的</strong></p>
+<p>它们有一个共同的数据字段，叫 XID。崩溃恢复的时候，会按顺序扫描 redo log：如果碰到既有 prepare、又有 commit 的 redo log，就直接提交；如果碰到只有 parepare、而没有 commit 的 redo log，就拿着 XID 去 binlog 找对应的事务。</p>
+<p><strong>为什么要两阶段提交？干脆先 redo log 写完，再写 binlog。崩溃恢复的时候，满足两个日志都完整不就可以了？</strong></p>
+<p>两阶段提交就是为了给所有人一个机会，当每个人都说“我 ok”的时候，再一起提交。</p>
+<p><strong>只用 binlog 来支持崩溃恢复，又能支持归档，可不可以？</strong></p>
+<p>这样的情况下 binlog 还是不能支持崩溃恢复的。原因是 binlog 没有能力恢复“数据页”。InnoDB 引擎使用的是 WAL 技术，执行事务的时候，写完内存和日志，事务就算完成了。如果之后崩溃，要依赖于日志来恢复数据页，由于数据页的信息都是存储在 redo log 里面的，所以这里就不能恢复数据页，会导致一部分数据丢失。</p>
+<p><strong>反过来，只用 redo log，不要 binlog 行不行</strong></p>
+<p>不行。redo log 是循环写，写到末尾是要回到开头继续写的。这样历史日志没法保留，redo log 也就起不到归档的作用。还有很多公司有异构系统（比如一些数据分析系统），这些系统就靠消费 MySQL 的 binlog 来更新自己的数据。关掉 binlog 的话，这些下游系统就没法输入了。</p>
+<p><strong>redo log buffer 是什么？是先修改内存，还是先写 redo log 文件？</strong></p>
+<p>redo log 会在事务提交的时候再写入到文件中，之前是一直存在于 redo log buffer 之中的。</p>
+<h3 id="order-by-排序是怎么工作的"><a href="#order-by-排序是怎么工作的" class="headerlink" title="order by 排序是怎么工作的"></a>order by 排序是怎么工作的</h3><p>MySQL会为每个线程分配一个内存（sort_buffer）用于排序, 该内存大小为sort_buffer_size</p>
+<p><strong>全字段排序</strong><br>    a. 通过索引将所需的字段全部读取到sort_buffer中<br>    b. 按照排序字段进行排序<br>    c. 将结果集返回给客户端</p>
+<p>缺点：造成sort_buffer中存放不下很多数据，因为除了排序字段还存放其他字段，对sort_buffer的利用效率不高，当所需排序数据量很大时，会有很多的临时文件，排序性能也会很差</p>
+<p>优点：MySQL认为内存足够大时会优先选择全字段排序，因为这种方式比rowid 排序避免了一次回表操作</p>
+<p><strong>rowid 排序</strong></p>
+<p>​    a. 通过控制排序的行数据的长度来让sort_buffer中尽可能多的存放数据，max_length_for_sort_data<br>​    b. 只将需要排序的字段和主键读取到sort_buffer中，并按照排序字段进行排序<br>​    c. 按照排序后的顺序，取id进行回表取出想要获取的数据<br>​    d. 将结果集返回给客户端</p>
+<p>优点：更好的利用内存的 sort_buffer 进行排序操作，尽量减少对磁盘的访问</p>
+<p>缺点：回表的操作是随机IO，会造成大量的随机读，不一定就比全字段排序减少对磁盘的访问</p>
+<h3 id="MySQL-主从备份"><a href="#MySQL-主从备份" class="headerlink" title="MySQL 主从备份"></a>MySQL 主从备份</h3><p>主库接收到客户端的更新请求后，执行内部事务的更新逻辑，同时写 binlog。备库 B 跟主库 A 之间维持了一个长连接。主库 A 内部有一个线程，专门用于服务备库 B 的这个长连接。一个事务日志同步的完整过程是这样的：</p>
+<ol>
+<li>在备库 B 上通过 change master 命令，设置主库 A 的 IP、端口、用户名、密码，以及要从哪个位置开始请求 binlog，这个位置包含文件名和日志偏移量。</li>
+<li>在备库 B 上执行 start slave 命令，这时候备库会启动两个线程，就是图中的 io_thread 和 sql_thread。其中 io_thread 负责与主库建立连接。主库 A 校验完用户名、密码后，开始按照备库 B 传过来的位置，从本地读取 binlog，发给 B。</li>
+<li>备库 B 拿到 binlog 后，写到本地文件，称为中转日志（relay log）。</li>
+<li>sql_thread 读取中转日志，解析出日志里的命令，并执行。</li>
+</ol>
 
           
         
@@ -4639,239 +4861,6 @@ auth<span class="token punctuation">.</span><span class="token function">userDet
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="https://yanrs.me/2020/03/16/46. 日志/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="Rex">
-      <meta itemprop="description" content>
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="星尘">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2020/03/16/46. 日志/" itemprop="url">46. 日志</a></h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2020-03-16T23:05:57+08:00">
-                2020-03-16
-              </time>
-            
-
-            
-
-            
-          </span>
-
-          
-            <span class="post-category">
-            
-              <span class="post-meta-divider">|</span>
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">分类于</span>
-              
-              
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Java-大数据/" itemprop="url" rel="index">
-                    <span itemprop="name">Java 大数据</span>
-                  </a>
-                </span>
-
-                
-                
-              
-            </span>
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <h3 id="历史遗留问题"><a href="#历史遗留问题" class="headerlink" title="历史遗留问题"></a>历史遗留问题</h3><p>市场上存在非常多的日志框架。JUL（java.util.logging）, JCL（Jakarta Commons Logging）,Log4j, Log4j2, Logback (具体框架, springboot使用)、SLF4j、jboss-logging  等。Spring 在框架内部使用JCL。 Log4j 被 apache收购，升级，改为log4j2，框架改动很大，只是借用之名。Log4j, Logback, SLF4j都是同一个作者。</p>
-<table>
-<thead>
-<tr>
-<th>日志门面(规范)</th>
-<th>日志实现</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>JCL （Jakarta Commons Logging）<br>SLF4j (simple Logging Facade for java)<br>jboss-logging</td>
-<td>Log4j<br>JUL(java.util.logging)<br>Log4j2<br>Logback<br></td>
-</tr>
-</tbody>
-</table>
-<p>springboot（slf4j+logback）: Spring（commons-logging）、Hibernate（jboss-logging）、 每个框架使用的日志框架都不一样，由此我们要进行统一管理。</p>
-<p>优先选择 slf4j + logback 或者 slf4j + log4j 的方案。如下图中的第二部分和第三部分。</p>
-<p><img src="http://www.slf4j.org/images/concrete-bindings.png" alt></p>
-<h4 id="解决方法"><a href="#解决方法" class="headerlink" title="解决方法"></a>解决方法</h4><p>方案1：采用 SLF4J + logback 的方式【SLF4J 门面，Logback 是具体实现】 （SpringBoot 底层就是这么实现的，所以优选这个方案）</p>
-<p>方案2：采用 SLF4J + log4j 的方式【SLF4J 门面，log4j 是具体实现】 </p>
-<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjNMbLgzj8GvsEnqPhufHki.uN*gdYtMYSTrkFtCC.Zpf8ts95IP3OLac3d81ABhC6Q!!/mnull&amp;bo=2QhABkoJkAYDCW4!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-<h4 id="替换代码中的-commons-logging-和-jul"><a href="#替换代码中的-commons-logging-和-jul" class="headerlink" title="替换代码中的 commons-logging 和 jul"></a>替换代码中的 commons-logging 和 jul</h4><p>查询所有 pom 文件中的依赖，将 commons-logging 进行排除，然后在 parent 父模块的 pom 中引入 jcl-over-slf4j 进行替换。引入 jul-to-slf4j 进行替换  jul（因为  jul 是 java 自身实现的，所有无法像  commons-logging 一样进行排除）</p>
-<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjBEDxvwB2Of7d6P2jTDS7QYpuJGctvKQwBul55X7MNY3ei9cIjIKPFLpi40CTMrC.A!!/mnull&amp;bo=0gmSBdIJkgUDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
-<p>在 parent 中添加 jcl-over-slf4j 和  jul-to-slf4j</p>
-<pre class="line-numbers language-xml"><code class="language-xml"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>properties</span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>jcl.over.slf4j.version</span><span class="token punctuation">></span></span>1.7.25<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>jcl.over.slf4j.version</span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>jul-to-slf4j.version</span><span class="token punctuation">></span></span>1.7.25<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>jul-to-slf4j.version</span><span class="token punctuation">></span></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>properties</span><span class="token punctuation">></span></span>
-
-<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dependency</span><span class="token punctuation">></span></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>groupId</span><span class="token punctuation">></span></span>org.slf4j<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>groupId</span><span class="token punctuation">></span></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>artifactId</span><span class="token punctuation">></span></span>jcl-over-slf4j<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>artifactId</span><span class="token punctuation">></span></span><span class="token comment" spellcheck="true">&lt;!-- 替换commons-logging--></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>version</span><span class="token punctuation">></span></span>${jcl.over.slf4j.version}<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>version</span><span class="token punctuation">></span></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dependency</span><span class="token punctuation">></span></span>
-
-<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dependency</span><span class="token punctuation">></span></span>
-  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>groupId</span><span class="token punctuation">></span></span>org.slf4j<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>groupId</span><span class="token punctuation">></span></span>
-  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>artifactId</span><span class="token punctuation">></span></span>jul-to-slf4j<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>artifactId</span><span class="token punctuation">></span></span><span class="token comment" spellcheck="true">&lt;!-- 替换java.util.logging--></span>
-  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>version</span><span class="token punctuation">></span></span>${jul-to-slf4j.version}<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>version</span><span class="token punctuation">></span></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dependency</span><span class="token punctuation">></span></span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<p>并在 common 模块的 pom 文件中进行依赖的引入，这样所有直接或者间接依赖 common 的项目都有  jcl-over-slf4j 和 jul-to-slf4j 了。</p>
-<pre class="line-numbers language-xml"><code class="language-xml"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dependency</span><span class="token punctuation">></span></span>
-  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>groupId</span><span class="token punctuation">></span></span>org.slf4j<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>groupId</span><span class="token punctuation">></span></span>
-  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>artifactId</span><span class="token punctuation">></span></span>jcl-over-slf4j<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>artifactId</span><span class="token punctuation">></span></span><span class="token comment" spellcheck="true">&lt;!-- 替换commons-logging--></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dependency</span><span class="token punctuation">></span></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>dependency</span><span class="token punctuation">></span></span>
-  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>groupId</span><span class="token punctuation">></span></span>org.slf4j<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>groupId</span><span class="token punctuation">></span></span>
-  <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>artifactId</span><span class="token punctuation">></span></span>jul-to-slf4j<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>artifactId</span><span class="token punctuation">></span></span><span class="token comment" spellcheck="true">&lt;!-- 替换java.util.logging--></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>dependency</span><span class="token punctuation">></span></span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<p>测试</p>
-<pre class="line-numbers language-java"><code class="language-java"><span class="token keyword">package</span> com<span class="token punctuation">.</span>atguigu<span class="token punctuation">.</span>test<span class="token punctuation">;</span>
-
-<span class="token keyword">import</span> <span class="token keyword">static</span> org<span class="token punctuation">.</span>junit<span class="token punctuation">.</span>Assert<span class="token punctuation">.</span>*<span class="token punctuation">;</span>
-
-<span class="token keyword">import</span> org<span class="token punctuation">.</span>junit<span class="token punctuation">.</span>Test<span class="token punctuation">;</span>
-<span class="token keyword">import</span> org<span class="token punctuation">.</span>slf4j<span class="token punctuation">.</span>Logger<span class="token punctuation">;</span>  <span class="token comment" spellcheck="true">// 注意使用的是 slf4j 中的</span>
-<span class="token keyword">import</span> org<span class="token punctuation">.</span>slf4j<span class="token punctuation">.</span>LoggerFactory<span class="token punctuation">;</span>  <span class="token comment" spellcheck="true">// 注意使用的是 slf4j 中的</span>
-
-
-<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">Slf4jTest</span> <span class="token punctuation">{</span>
-
-    <span class="token keyword">public</span> <span class="token keyword">static</span> <span class="token keyword">void</span> <span class="token function">main</span><span class="token punctuation">(</span>String<span class="token punctuation">[</span><span class="token punctuation">]</span> args<span class="token punctuation">)</span> <span class="token punctuation">{</span>
-        Logger log <span class="token operator">=</span> LoggerFactory<span class="token punctuation">.</span><span class="token function">getLogger</span><span class="token punctuation">(</span>Slf4jTest<span class="token punctuation">.</span><span class="token keyword">class</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-        log<span class="token punctuation">.</span><span class="token function">debug</span><span class="token punctuation">(</span><span class="token string">"debug message: id = {}, name = {}"</span><span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">,</span> <span class="token string">"zhangsan"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-        log<span class="token punctuation">.</span><span class="token function">info</span><span class="token punctuation">(</span><span class="token string">"info message: id = {}, name = {}"</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">,</span> <span class="token string">"lisi"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-        log<span class="token punctuation">.</span><span class="token function">warn</span><span class="token punctuation">(</span><span class="token string">"warn message: id = {}, name = {}"</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">,</span> <span class="token string">"lisi"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-        log<span class="token punctuation">.</span><span class="token function">error</span><span class="token punctuation">(</span><span class="token string">"error message: id = {}, name = {}"</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">,</span> <span class="token string">"lisi"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-    <span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-<h4 id="logback-xml"><a href="#logback-xml" class="headerlink" title="logback.xml"></a>logback.xml</h4><p>每一个日志的实现框架都有自己的配置文件。使用slf4j以后，配置文件还是做成日志实现框架自己本身的配置文件</p>
-<pre class="line-numbers language-xml"><code class="language-xml"><span class="token prolog">&lt;?xml version="1.0" encoding="UTF-8"?></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>configuration</span><span class="token punctuation">></span></span>
-    <span class="token comment" spellcheck="true">&lt;!-- 指定日志输出的地方, 这里是 Console--></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>appender</span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>STDOUT<span class="token punctuation">"</span></span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>ch.qos.logback.core.ConsoleAppender<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>encoder</span><span class="token punctuation">></span></span>
-            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>pattern</span><span class="token punctuation">></span></span>%-4relative [%thread] %-5level %logger{35} - %msg %n<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>pattern</span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>encoder</span><span class="token punctuation">></span></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>appender</span><span class="token punctuation">></span></span>
-    <span class="token comment" spellcheck="true">&lt;!-- 日志：从低到高；只会打印指定级别以后的; additivity表示是否将日志信息反馈给root
-     DEBUG==》INFO===》WARN===》ERROR
-     &lt;logger name="com.atguigu.atcrowdfunding.mapper" level="debug" additivity="false">  
-         &lt;appender-ref ref="STDOUT"/>  
-     &lt;/logger>
-      --></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>root</span> <span class="token attr-name">level</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>DEBUG<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
-        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>appender-ref</span> <span class="token attr-name">ref</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>STDOUT<span class="token punctuation">"</span></span> <span class="token punctuation">/></span></span>
-    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>root</span><span class="token punctuation">></span></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>configuration</span><span class="token punctuation">></span></span>
-<span aria-hidden="true" class="line-numbers-rows"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></span></code></pre>
-
-          
-        
-      
-    </div>
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
   </section>
 
   
@@ -4922,7 +4911,7 @@ auth<span class="token punctuation">.</span><span class="token function">userDet
               
                 <a href="/archives/">
               
-                  <span class="site-state-item-count">321</span>
+                  <span class="site-state-item-count">322</span>
                   <span class="site-state-item-name">日志</span>
                 </a>
               </div>
