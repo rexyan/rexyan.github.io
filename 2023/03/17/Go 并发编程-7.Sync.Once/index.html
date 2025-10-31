@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="初始化单例资源初始化单例资源有很多方法，比如定义 package 级别的变量，这样程序在启动的时候就可以初始化： 12345package abcimport timevar startTime = time.Now() 或者在 init 函数中进行初始化： 1234567package abcvar startTime time.Timefunc init() &amp;#123;  startTime">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Go 并发编程-7.Sync.Once">
+<meta property="og:url" content="https://rexyan.github.io/2023/03/17/Go 并发编程-7.Sync.Once/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="初始化单例资源初始化单例资源有很多方法，比如定义 package 级别的变量，这样程序在启动的时候就可以初始化： 12345package abcimport timevar startTime = time.Now() 或者在 init 函数中进行初始化： 1234567package abcvar startTime time.Timefunc init() &amp;#123;  startTime">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/202303181520249.png">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.393Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Go 并发编程-7.Sync.Once">
+<meta name="twitter:description" content="初始化单例资源初始化单例资源有很多方法，比如定义 package 级别的变量，这样程序在启动的时候就可以初始化： 12345package abcimport timevar startTime = time.Now() 或者在 init 函数中进行初始化： 1234567package abcvar startTime time.Timefunc init() &amp;#123;  startTime">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/202303181520249.png">
+
+<link rel="canonical" href="https://rexyan.github.io/2023/03/17/Go 并发编程-7.Sync.Once/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Go 并发编程-7.Sync.Once | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2023/03/17/Go 并发编程-7.Sync.Once/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Go 并发编程-7.Sync.Once
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2023-03-17 23:55:57" itemprop="dateCreated datePublished" datetime="2023-03-17T23:55:57+00:00">2023-03-17</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Go/" itemprop="url" rel="index"><span itemprop="name">Go</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="初始化单例资源"><a href="#初始化单例资源" class="headerlink" title="初始化单例资源"></a>初始化单例资源</h3><p>初始化单例资源有很多方法，比如定义 package 级别的变量，这样程序在启动的时候就可以初始化：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> abc</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> time</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> startTime = time.Now()</span><br></pre></td></tr></table></figure>
+<p>或者在 init 函数中进行初始化：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> abc</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> startTime time.Time</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">init</span><span class="params">()</span></span> &#123;</span><br><span class="line">  startTime = time.Now()</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>又或者在 main 函数开始执行的时候，执行一个初始化的函数：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> abc</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> startTime time.Tim</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">initApp</span><span class="params">()</span></span> &#123;</span><br><span class="line">    startTime = time.Now()</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">  initApp()</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这三种方法都是线程安全的，并且后两种方法还可以根据传入的参数实现定制化的初始化操作。</p>
+<h3 id="延迟进行初始化"><a href="#延迟进行初始化" class="headerlink" title="延迟进行初始化"></a>延迟进行初始化</h3><p>但是很多时候我们是要延迟进行初始化的，所以有时候单例资源的初始化，我们会使用下面的方法：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">    <span class="string">"net"</span></span><br><span class="line">    <span class="string">"sync"</span></span><br><span class="line">    <span class="string">"time"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment">// 使用互斥锁保证线程(goroutine)安全</span></span><br><span class="line"><span class="keyword">var</span> connMu sync.Mutex</span><br><span class="line"><span class="keyword">var</span> conn net.Conn</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">getConn</span><span class="params">()</span> <span class="title">net</span>.<span class="title">Conn</span></span> &#123;</span><br><span class="line">    connMu.Lock()</span><br><span class="line">    <span class="keyword">defer</span> connMu.Unlock()</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 返回已创建好的连接</span></span><br><span class="line">    <span class="keyword">if</span> conn != <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> conn</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 创建连接</span></span><br><span class="line">    conn, _ = net.DialTimeout(<span class="string">"tcp"</span>, <span class="string">"baidu.com:80"</span>, <span class="number">10</span>*time.Second)</span><br><span class="line">    <span class="keyword">return</span> conn</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 使用连接</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">    conn := getConn()</span><br><span class="line">    <span class="keyword">if</span> conn == <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="built_in">panic</span>(<span class="string">"conn is nil"</span>)</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这种方式虽然实现起来简单，但是有性能问题。一旦连接创建好，每次请求的时候还是得竞争锁才能读取到这个连接，这是比较浪费资源的，因为连接如果创建好之后，其实就不需要锁的保护了。怎么办呢？</p>
+<h3 id="Once-使用场景"><a href="#Once-使用场景" class="headerlink" title="Once 使用场景"></a>Once 使用场景</h3><p><strong>Once 可以用来执行且仅仅执行一次动作，常常用于单例对象的初始化场景。</strong></p>
+<p><strong>sync.Once 只暴露了一个方法 Do，你可以多次调用 Do 方法，但是只有第一次调用 Do 方法时 f 参数才会执行，这里的 f 是一个无参数无返回值的函数。</strong></p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(o *Once)</span> <span class="title">Do</span><span class="params">(f <span class="keyword">func</span>()</span>)</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">    <span class="string">"fmt"</span></span><br><span class="line">    <span class="string">"sync"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">    <span class="keyword">var</span> once sync.Once</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 第一个初始化函数</span></span><br><span class="line">    f1 := <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">        fmt.Println(<span class="string">"in f1"</span>)</span><br><span class="line">    &#125;</span><br><span class="line">    once.Do(f1) <span class="comment">// 打印出 in f1</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 第二个初始化函数</span></span><br><span class="line">    f2 := <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">        fmt.Println(<span class="string">"in f2"</span>)</span><br><span class="line">    &#125;</span><br><span class="line">    once.Do(f2) <span class="comment">// 无输出</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>很多时候，还会将值和 Once 封装成一个新的数据结构，提供只初始化一次的值。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"> <span class="comment">// 值是3.0或者0.0的一个数据结构</span></span><br><span class="line"> <span class="keyword">var</span> threeOnce <span class="keyword">struct</span> &#123;</span><br><span class="line">  sync.Once</span><br><span class="line">  v *Float</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 返回此数据结构的值，如果还没有初始化为3.0，则初始化</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">three</span><span class="params">()</span> *<span class="title">Float</span></span> &#123;</span><br><span class="line">  threeOnce.Do(<span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123; <span class="comment">// 使用Once初始化</span></span><br><span class="line">    threeOnce.v = NewFloat(<span class="number">3.0</span>)</span><br><span class="line">  &#125;)</span><br><span class="line">  <span class="keyword">return</span> threeOnce.v</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在官方的 <a href="https://github.com/golang/go/blob/8535008765b4fcd5c7dc3fb2b73a856af4d51f9b/src/cmd/go/internal/modfetch/proxy.go#L103" target="_blank" rel="noopener">proxy</a> 中的实现也使用到了 once。<a href="https://juejin.cn/post/7124720007447052302" target="_blank" rel="noopener">掘金</a>上也有人写了一些单例的例子。</p>
+<p>总结一下 Once 并发原语解决的问题和使用场景：<strong>Once 常常用来初始化单例资源，或者并发访问只需初始化一次的共享资源，或者在测试的时候初始化一次测试资源。</strong></p>
+<h3 id="如何实现一个-Once"><a href="#如何实现一个-Once" class="headerlink" title="如何实现一个 Once"></a>如何实现一个 Once</h3><p>很多人认为实现一个 Once 一样的并发原语很简单，只需使用一个 flag 标记是否初始化过即可，最多是用 atomic 原子操作这个 flag，比如下面的实现：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">type</span> Once <span class="keyword">struct</span> &#123;</span><br><span class="line">    done <span class="keyword">uint32</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(o *Once)</span> <span class="title">Do</span><span class="params">(f <span class="keyword">func</span>()</span>)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> !atomic.CompareAndSwapUint32(&amp;o.done, <span class="number">0</span>, <span class="number">1</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span></span><br><span class="line">    &#125;</span><br><span class="line">    f()</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这个实现有一个很大的问题，就是如果参数 f 执行很慢的话，后续调用 Do 方法的 goroutine 虽然看到 done 已经设置为执行过了，但是获取某些初始化资源的时候可能会得到空的资源，因为 f 还没有执行完。</p>
+<p>以下为官方的实现。这第一次判断的时候没有上锁，然后在 doSlow 中进行了上锁的判断，并且进行了二次校验。这样做的原因是方便<strong>内联</strong>。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">type</span> Once <span class="keyword">struct</span> &#123;</span><br><span class="line">    done <span class="keyword">uint32</span></span><br><span class="line">    m    Mutex</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(o *Once)</span> <span class="title">Do</span><span class="params">(f <span class="keyword">func</span>()</span>)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> atomic.LoadUint32(&amp;o.done) == <span class="number">0</span> &#123;</span><br><span class="line">        o.doSlow(f)  <span class="comment">// </span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(o *Once)</span> <span class="title">doSlow</span><span class="params">(f <span class="keyword">func</span>()</span>)</span> &#123;</span><br><span class="line">    o.m.Lock()</span><br><span class="line">    <span class="keyword">defer</span> o.m.Unlock()</span><br><span class="line">    <span class="comment">// 双检查,double-check</span></span><br><span class="line">    <span class="keyword">if</span> o.done == <span class="number">0</span> &#123;</span><br><span class="line">        <span class="keyword">defer</span> atomic.StoreUint32(&amp;o.done, <span class="number">1</span>)</span><br><span class="line">        f()</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>虽然代码中使用了互斥锁来保证 doSlow 函数只会被一个 goroutine 调用一次，但是可能存在这样的情况：当一个 goroutine 获取到锁后，另一个 goroutine 也同时获取到了锁，但是在第一个 goroutine 执行完 f() 函数之前，第二个 goroutine 也执行了 f() 函数。这就违反了 Once 只执行一次的要求。</p>
+<p>为了避免这种情况发生，需要在加锁之后再次判断 done 的值，如果已经被设置为 1，那么就跳过执行 f()，否则继续执行 f() 并将 done 的值设置为 1。这就是所谓的“双检查锁定（double-checked locking）”机制，可以提高程序性能。</p>
+</blockquote>
+<blockquote>
+<p>怎么可能会两个 goroutine 同时获取到锁呢？</p>
+<p>在一般情况下，使用互斥锁确实可以保证同一时间只有一个 goroutine 能够获取到锁。但是在高并发场景下，因为 goroutine 的调度是由 Go 运行时进行管理的，并且无法精确控制每个 goroutine 的执行时间和顺序，所以就可能会出现多个 goroutine 同时尝试获取锁的情况。</p>
+<p>具体来说，在第一个 goroutine 获取到锁之后，如果此时第二个 goroutine 也同时获取到锁，则它们将按照不确定的顺序执行，这就可能导致第二个 goroutine 在第一个 goroutine 执行完 f() 函数之前也执行了 f() 函数，从而违反了 Once 只执行一次的要求。</p>
+<p>因此，为了防止这种情况的发生，需要在加锁之后再次检查 done 的值，以确保只有第一个获取到锁的 goroutine 才会执行 f() 函数。</p>
+</blockquote>
+<blockquote>
+<p>这么说 Mutex 并不可靠？还是可能会出现多个 goroutine 同时获取锁的情况？</p>
+<p>Mutex 是一种可靠的同步原语，它能够保证同一时间只有一个 goroutine 能够获取到锁。但是在高并发场景下，由于 goroutine 的调度是由 Go 运行时进行管理的，因此无法精确控制每个 goroutine 的执行时间和顺序，所以在极端情况下，仍然可能会出现多个 goroutine 同时竞争 Mutex 的情况。</p>
+<p>不过需要注意的是，这种情况出现的概率非常小，并且只有在高并发、长时间运行的场景下才会出现。对于大部分应用程序来说，Mutex 的可靠性已经足够满足需求，并且通过一些常见的优化技巧（如避免锁嵌套、减小锁粒度等），可以进一步提高程序的性能和可靠性。</p>
+</blockquote>
+<blockquote>
+<p>什么是内联？</p>
+<p>Go语言中的内联(inlining)是一种编译器优化技术，它通过将函数调用处直接替换为函数体来减少函数调用的开销，从而提高代码的执行效率。在Go语言中，可以使用go:linkname指令强制将一个函数标记为内联函数。</p>
+<p>内联可以减少函数调用时的栈操作和参数传递，但也会增加代码尺寸，因此需要权衡其优缺点。在Go语言中，编译器会根据函数的复杂度、调用次数等多个因素来决定是否对函数进行内联优化。</p>
+</blockquote>
+<blockquote>
+<p>上述代码中的 doSlow 用到了内联了吗？</p>
+<p>在这段代码中，并没有明确指定将 <code>doSlow</code> 函数内联化。实际上，在 Go 语言中，是否内联一个函数是由编译器来决定的，编译器会根据函数的大小、复杂度以及调用次数等多个因素来判断是否进行内联优化。</p>
+<p>如果编译器认为 <code>doSlow</code> 函数的规模适当并且被频繁调用，那么它很有可能会将其内联化，从而减少函数调用的开销。但如果编译器认为内联化不利于代码性能或者会增加代码大小，它就不会进行内联优化。</p>
+<p>因此，可以说这段代码中存在潜在的内联优化机会，但具体是否会进行内联需要看编译器的判断结果。</p>
+</blockquote>
+<blockquote>
+<p>内联要满足什么条件?</p>
+<p>在 Go 语言中，内联优化的条件包括：</p>
+<ol>
+<li>函数体的大小适中：如果函数体太大，那么内联会导致代码膨胀，不利于性能和可维护性；如果函数体太小，则内联带来的好处也不明显。</li>
+<li>函数的调用次数较多：内联只有在函数被频繁调用时才能发挥作用，如果函数很少被调用，则内联优化意义不大。</li>
+<li>函数没有递归调用：递归调用本身就是一个非常复杂的过程，内联递归函数会带来大量的代码膨胀和性能问题。</li>
+<li>函数没有指针引用或跨包调用：指针引用或跨包调用会增加内联处理的难度，因此编译器可能会放弃对这类函数进行内联优化。</li>
+</ol>
+<p>需要注意的是，虽然内联技术可以提高代码的执行效率，但它也会导致代码体积增大，因此使用内联技术时需要权衡其优缺点。在 Go 语言中，编译器会自动判断是否对函数进行内联优化，开发者无需手动干预。但如果确实需要将某个函数进行强制内联，可以使用 <code>go:inline</code> 标记来实现。</p>
+</blockquote>
+<blockquote>
+<p>举个例子示范下将某个函数进行强制内联？</p>
+<p>当一个函数在某些场景下需要频繁调用时，可以使用内联技术来优化性能。如果希望强制将某个函数进行内联，可以使用 <code>go:inline</code> 标记。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">&gt; package main</span><br><span class="line">&gt; </span><br><span class="line">&gt; import &quot;fmt&quot;</span><br><span class="line">&gt; </span><br><span class="line">&gt; // 将 add 函数标记为内联函数</span><br><span class="line">&gt; //go:inline</span><br><span class="line">&gt; func add(a, b int) int &#123;</span><br><span class="line">&gt;     return a + b</span><br><span class="line">&gt; &#125;</span><br><span class="line">&gt; </span><br><span class="line">&gt; // 在 main 函数中多次调用 add 函数</span><br><span class="line">&gt; func main() &#123;</span><br><span class="line">&gt;     for i := 0; i &lt; 10; i++ &#123;</span><br><span class="line">&gt;         sum := add(i, i+1)</span><br><span class="line">&gt;         fmt.Println(sum)</span><br><span class="line">&gt;     &#125;</span><br><span class="line">&gt; &#125;</span><br><span class="line">&gt;</span><br></pre></td></tr></table></figure>
+</blockquote>
+<blockquote>
+<p>在上面的代码中，我们将 <code>add</code> 函数标记为内联函数。在 <code>main</code> 函数中，我们通过循环多次调用 <code>add</code> 函数，这样就会触发编译器对 <code>add</code> 函数进行内联优化。由于该函数体非常简单，内联处理不会导致代码膨胀，反而能够提高代码的执行效率。</p>
+<p>需要注意的是，内联并不总是适合所有情况，应该根据具体的场景来选择是否使用内联技术。在实际应用中，开发者一般不需要手动指定内联函数，编译器会自动判断是否对函数进行内联优化。</p>
+</blockquote>
+<h3 id="Once-常见使用错误场景"><a href="#Once-常见使用错误场景" class="headerlink" title="Once 常见使用错误场景"></a>Once 常见使用错误场景</h3><h4 id="死锁"><a href="#死锁" class="headerlink" title="死锁"></a>死锁</h4><p>Do 方法会执行一次 f，但是如果 f 中再次调用这个 Once 的 Do 方法的话，就会导致死锁的情况出现。</p>
+<h4 id="资源未初始化"><a href="#资源未初始化" class="headerlink" title="资源未初始化"></a>资源未初始化</h4><p>如果 f 方法执行的时候 panic，或者 f 执行初始化资源的时候失败了，这个时候，Once 还是会认为初次执行已经成功了，即使再次调用 Do 方法，也不会再次执行 f。</p>
+<p>我们可以自己实现一个类似 Once 的并发原语，既可以返回当前调用 Do 方法是否正确完成，还可以在初始化失败后调用 Do 方法再次尝试初始化，直到初始化成功才不再初始化了。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// 一个功能更加强大的Once</span></span><br><span class="line"><span class="keyword">type</span> Once <span class="keyword">struct</span> &#123;</span><br><span class="line">    m    sync.Mutex</span><br><span class="line">    done <span class="keyword">uint32</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 传入的函数f有返回值error，如果初始化失败，需要返回失败的error</span></span><br><span class="line"><span class="comment">// Do方法会把这个error返回给调用者，Sync.Once 的 Do 没有返回值</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(o *Once)</span> <span class="title">Do</span><span class="params">(f <span class="keyword">func</span>()</span> <span class="title">error</span>) <span class="title">error</span></span> &#123;</span><br><span class="line">    <span class="keyword">if</span> atomic.LoadUint32(&amp;o.done) == <span class="number">1</span> &#123; <span class="comment">//fast path</span></span><br><span class="line">        <span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> o.slowDo(f)</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 如果还没有初始化</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(o *Once)</span> <span class="title">slowDo</span><span class="params">(f <span class="keyword">func</span>()</span> <span class="title">error</span>) <span class="title">error</span></span> &#123;</span><br><span class="line">    o.m.Lock()</span><br><span class="line">    <span class="keyword">defer</span> o.m.Unlock()</span><br><span class="line">    <span class="keyword">var</span> err error</span><br><span class="line">    <span class="keyword">if</span> o.done == <span class="number">0</span> &#123; <span class="comment">// 双检查，还没有初始化</span></span><br><span class="line">        err = f()</span><br><span class="line">        <span class="keyword">if</span> err == <span class="literal">nil</span> &#123; <span class="comment">// 初始化成功才将标记置为已初始化</span></span><br><span class="line">            atomic.StoreUint32(&amp;o.done, <span class="number">1</span>)</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> err</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>甚至我们可以拓展 sync.Once，来实现查询是否已初始化过了。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// Once 是一个扩展的sync.Once类型，提供了一个Done方法</span></span><br><span class="line"><span class="keyword">type</span> Once <span class="keyword">struct</span> &#123;</span><br><span class="line">    sync.Once</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Done 返回此Once是否执行过</span></span><br><span class="line"><span class="comment">// 如果执行过则返回true</span></span><br><span class="line"><span class="comment">// 如果没有执行过或者正在执行，返回false</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(o *Once)</span> <span class="title">Done</span><span class="params">()</span> <span class="title">bool</span></span> &#123;</span><br><span class="line">    <span class="keyword">return</span> atomic.LoadUint32((*<span class="keyword">uint32</span>)(unsafe.Pointer(&amp;o.Once))) == <span class="number">1</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">    <span class="keyword">var</span> flag Once</span><br><span class="line">    fmt.Println(flag.Done()) <span class="comment">//false</span></span><br><span class="line"></span><br><span class="line">    flag.Do(<span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">        time.Sleep(time.Second)</span><br><span class="line">    &#125;)</span><br><span class="line"></span><br><span class="line">    fmt.Println(flag.Done()) <span class="comment">//true</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/202303181520249.png" alt></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2023/03/17/Go 并发编程-6.Sync.Cond/" rel="prev" title="Go 并发编程-6.Sync.Cond">
+      <i class="fa fa-chevron-left"></i> Go 并发编程-6.Sync.Cond
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2023/03/19/Go 并发编程-8.Sync.Map/" rel="next" title="Go 并发编程-8.Sync.Map">
+      Go 并发编程-8.Sync.Map <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#初始化单例资源"><span class="nav-number">1.</span> <span class="nav-text">初始化单例资源</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#延迟进行初始化"><span class="nav-number">2.</span> <span class="nav-text">延迟进行初始化</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Once-使用场景"><span class="nav-number">3.</span> <span class="nav-text">Once 使用场景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#如何实现一个-Once"><span class="nav-number">4.</span> <span class="nav-text">如何实现一个 Once</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Once-常见使用错误场景"><span class="nav-number">5.</span> <span class="nav-text">Once 常见使用错误场景</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#死锁"><span class="nav-number">5.1.</span> <span class="nav-text">死锁</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#资源未初始化"><span class="nav-number">5.2.</span> <span class="nav-text">资源未初始化</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#总结"><span class="nav-number">6.</span> <span class="nav-text">总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

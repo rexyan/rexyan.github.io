@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="场景项目迁移，将数据库从腾讯云迁移到阿里云，阿里云上的数据库已经有了数据，现在要做的就是将腾讯云上的旧数据迁移到阿里云上。遇到的问题是主键重复的问题，因为新数据库上已经有了数据，而老数据库上导出的数据也含有主键的信息。 导出数据1mysqldump -u&amp;quot;用户名&amp;quot; -p&amp;quot;密码&amp;quot; -h&amp;quot;服务器地址&amp;quot; --databases 数据库名称 --">
+<meta name="keywords" content="数据库,mysqldump">
+<meta property="og:type" content="article">
+<meta property="og:title" content="数据库迁移主键重复问题">
+<meta property="og:url" content="https://rexyan.github.io/2018/07/11/数据库迁移主键重复问题/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="场景项目迁移，将数据库从腾讯云迁移到阿里云，阿里云上的数据库已经有了数据，现在要做的就是将腾讯云上的旧数据迁移到阿里云上。遇到的问题是主键重复的问题，因为新数据库上已经有了数据，而老数据库上导出的数据也含有主键的信息。 导出数据1mysqldump -u&amp;quot;用户名&amp;quot; -p&amp;quot;密码&amp;quot; -h&amp;quot;服务器地址&amp;quot; --databases 数据库名称 --">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.408Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="数据库迁移主键重复问题">
+<meta name="twitter:description" content="场景项目迁移，将数据库从腾讯云迁移到阿里云，阿里云上的数据库已经有了数据，现在要做的就是将腾讯云上的旧数据迁移到阿里云上。遇到的问题是主键重复的问题，因为新数据库上已经有了数据，而老数据库上导出的数据也含有主键的信息。 导出数据1mysqldump -u&amp;quot;用户名&amp;quot; -p&amp;quot;密码&amp;quot; -h&amp;quot;服务器地址&amp;quot; --databases 数据库名称 --">
+
+<link rel="canonical" href="https://rexyan.github.io/2018/07/11/数据库迁移主键重复问题/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>数据库迁移主键重复问题 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2018/07/11/数据库迁移主键重复问题/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          数据库迁移主键重复问题
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2018-07-11 17:59:57" itemprop="dateCreated datePublished" datetime="2018-07-11T17:59:57+00:00">2018-07-11</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/奇淫技巧/" itemprop="url" rel="index"><span itemprop="name">奇淫技巧</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="场景"><a href="#场景" class="headerlink" title="场景"></a>场景</h3><p>项目迁移，将数据库从腾讯云迁移到阿里云，阿里云上的数据库已经有了数据，现在要做的就是将腾讯云上的旧数据迁移到阿里云上。遇到的问题是主键重复的问题，因为新数据库上已经有了数据，而老数据库上导出的数据也含有主键的信息。</p>
+<h3 id="导出数据"><a href="#导出数据" class="headerlink" title="导出数据"></a>导出数据</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysqldump -u&quot;用户名&quot; -p&quot;密码&quot; -h&quot;服务器地址&quot; --databases 数据库名称 --set-gtid-purged=off --tables 表名 --no-create-info --log-error=/tmp/sql/mysqldump_error_log.err  | sed -e &quot;s/([0-9]*,/(NULL,/gi&quot; &gt; /tmp/sql/face_feature_1_n.sql</span><br></pre></td></tr></table></figure>
+<p>上述命令的意思是将导出指定数据库下的某张表的信息，并且将主键（第一列）设置为NULL。保存为 face_feature_1_n.sql 文件</p>
+<h3 id="参数解释"><a href="#参数解释" class="headerlink" title="参数解释"></a>参数解释</h3><ol>
+<li>–set-gtid-purged=off 是因为在导入的时候遇到错误，ERROR 1840 (HY000) at line 24: GTID_PURGED can only be set when GTID_EXECUTED is empty.所以在导出的时候设置set-gtid-purged=off</li>
+<li>sed 意为流编辑器（Stream Editor），在Shell脚本和Makefile中作为过滤器使用非常普遍，更多sed命令，参考 <a href="https://www.cnblogs.com/linux-wangkun/p/5745584.html" target="_blank" rel="noopener">https://www.cnblogs.com/linux-wangkun/p/5745584.html</a></li>
+</ol>
+<h3 id="导入数据"><a href="#导入数据" class="headerlink" title="导入数据"></a>导入数据</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysql -h&quot;服务器地址&quot; -u&quot;用户名&quot; -p&quot;密码&quot; --default-character-set=utf8 数据库 &lt; face_feature_1_n.sql</span><br></pre></td></tr></table></figure>
+<p>将face_feature_1_n.sql中的数据，导入到指定的数据库（因为face_feature_1_n.sql中的主键是为NULL，所有在插入的时候，会赋予新的值，从而达到主键不重复的问题）</p>
+<h3 id="带来的影响"><a href="#带来的影响" class="headerlink" title="带来的影响"></a>带来的影响</h3><p>其实这种方法也是投机取巧。恰好主键是表的第一列，但这样也可以满足我们的大部分需求了</p>
+<h3 id="其他方法"><a href="#其他方法" class="headerlink" title="其他方法"></a>其他方法</h3><p>因为我们这里的业务是将数据从腾讯迁移到阿里，涉及到数据库的连通性等等问题。之前也考虑过直接写一个python脚本，将原来的数据存储为dataframe，然后再导入新数据库，但是因为公司DBA那边不行，所以只能老老实实的写mysql的东西。为了解决我们以上的场景方案，不考虑跨服务器的话，我们还可以使用以下方法<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">INSERT newly_created_table_name (all, columns, except, the, auto_increment, column)</span><br><span class="line">       SELECT all, columns, except, the, auto_increment, column</span><br><span class="line">         FROM renamed_table_name</span><br></pre></td></tr></table></figure></p>
+<p>那就是在查询的时候，直接不查询id那一列，并直接将查询的结果插入到新的数据表中，显然这明显不符合我们的场景，所以就放弃了。</p>
+<h3 id="mysqldump其他参数"><a href="#mysqldump其他参数" class="headerlink" title="mysqldump其他参数"></a>mysqldump其他参数</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br><span class="line">193</span><br><span class="line">194</span><br><span class="line">195</span><br><span class="line">196</span><br><span class="line">197</span><br><span class="line">198</span><br><span class="line">199</span><br><span class="line">200</span><br><span class="line">201</span><br><span class="line">202</span><br><span class="line">203</span><br><span class="line">204</span><br><span class="line">205</span><br><span class="line">206</span><br><span class="line">207</span><br><span class="line">208</span><br><span class="line">209</span><br><span class="line">210</span><br><span class="line">211</span><br><span class="line">212</span><br><span class="line">213</span><br><span class="line">214</span><br><span class="line">215</span><br><span class="line">216</span><br><span class="line">217</span><br><span class="line">218</span><br><span class="line">219</span><br><span class="line">220</span><br><span class="line">221</span><br><span class="line">222</span><br><span class="line">223</span><br><span class="line">224</span><br><span class="line">225</span><br><span class="line">226</span><br><span class="line">227</span><br><span class="line">228</span><br><span class="line">229</span><br><span class="line">230</span><br><span class="line">231</span><br><span class="line">232</span><br><span class="line">233</span><br><span class="line">234</span><br><span class="line">235</span><br><span class="line">236</span><br><span class="line">237</span><br><span class="line">238</span><br><span class="line">239</span><br><span class="line">240</span><br><span class="line">241</span><br><span class="line">242</span><br><span class="line">243</span><br><span class="line">244</span><br></pre></td><td class="code"><pre><span class="line">--all-databases  , -A</span><br><span class="line">导出全部数据库。</span><br><span class="line">mysqldump  -uroot -p --all-databases</span><br><span class="line">--all-tablespaces  , -Y</span><br><span class="line">导出全部表空间。</span><br><span class="line">mysqldump  -uroot -p --all-databases --all-tablespaces</span><br><span class="line">--no-tablespaces  , -y</span><br><span class="line">不导出任何表空间信息。</span><br><span class="line">mysqldump  -uroot -p --all-databases --no-tablespaces</span><br><span class="line">--add-drop-database</span><br><span class="line">每个数据库创建之前添加drop数据库语句。</span><br><span class="line">mysqldump  -uroot -p --all-databases --add-drop-database</span><br><span class="line">--add-drop-table</span><br><span class="line">每个数据表创建之前添加drop数据表语句。(默认为打开状态，使用--skip-add-drop-table取消选项)</span><br><span class="line">mysqldump  -uroot -p --all-databases  (默认添加drop语句)</span><br><span class="line">mysqldump  -uroot -p --all-databases –skip-add-drop-table  (取消drop语句)</span><br><span class="line">--add-locks</span><br><span class="line">在每个表导出之前增加LOCK TABLES并且之后UNLOCK  TABLE。(默认为打开状态，使用--skip-add-locks取消选项)</span><br><span class="line">mysqldump  -uroot -p --all-databases  (默认添加LOCK语句)</span><br><span class="line">mysqldump  -uroot -p --all-databases –skip-add-locks   (取消LOCK语句)</span><br><span class="line">--allow-keywords</span><br><span class="line">允许创建是关键词的列名字。这由表名前缀于每个列名做到。</span><br><span class="line">mysqldump  -uroot -p --all-databases --allow-keywords</span><br><span class="line">--apply-slave-statements</span><br><span class="line">在&apos;CHANGE MASTER&apos;前添加&apos;STOP SLAVE&apos;，并且在导出的最后添加&apos;START SLAVE&apos;。</span><br><span class="line">mysqldump  -uroot -p --all-databases --apply-slave-statements</span><br><span class="line">--character-sets-dir</span><br><span class="line">字符集文件的目录</span><br><span class="line">mysqldump  -uroot -p --all-databases  --character-sets-dir=/usr/local/mysql/share/mysql/charsets</span><br><span class="line">--comments</span><br><span class="line">附加注释信息。默认为打开，可以用--skip-comments取消</span><br><span class="line">mysqldump  -uroot -p --all-databases  (默认记录注释)</span><br><span class="line">mysqldump  -uroot -p --all-databases --skip-comments   (取消注释)</span><br><span class="line">--compatible</span><br><span class="line">导出的数据将和其它数据库或旧版本的MySQL 相兼容。值可以为ansi、mysql323、mysql40、postgresql、oracle、mssql、db2、maxdb、no_key_options、no_tables_options、no_field_options等，</span><br><span class="line">要使用几个值，用逗号将它们隔开。它并不保证能完全兼容，而是尽量兼容。</span><br><span class="line">mysqldump  -uroot -p --all-databases --compatible=ansi</span><br><span class="line">--compact</span><br><span class="line">导出更少的输出信息(用于调试)。去掉注释和头尾等结构。可以使用选项：--skip-add-drop-table  --skip-add-locks --skip-comments --skip-disable-keys</span><br><span class="line">mysqldump  -uroot -p --all-databases --compact</span><br><span class="line">--complete-insert,  -c</span><br><span class="line">使用完整的insert语句(包含列名称)。这么做能提高插入效率，但是可能会受到max_allowed_packet参数的影响而导致插入失败。</span><br><span class="line">mysqldump  -uroot -p --all-databases --complete-insert</span><br><span class="line">--compress, -C</span><br><span class="line">在客户端和服务器之间启用压缩传递所有信息</span><br><span class="line">mysqldump  -uroot -p --all-databases --compress</span><br><span class="line">--create-options,  -a</span><br><span class="line">在CREATE TABLE语句中包括所有MySQL特性选项。(默认为打开状态)</span><br><span class="line">mysqldump  -uroot -p --all-databases</span><br><span class="line">--databases,  -B</span><br><span class="line">导出几个数据库。参数后面所有名字参量都被看作数据库名。</span><br><span class="line">mysqldump  -uroot -p --databases test mysql</span><br><span class="line">--debug</span><br><span class="line">输出debug信息，用于调试。默认值为：d:t,/tmp/mysqldump.trace</span><br><span class="line">mysqldump  -uroot -p --all-databases --debug</span><br><span class="line">mysqldump  -uroot -p --all-databases --debug=” d:t,/tmp/debug.trace”</span><br><span class="line">--debug-check</span><br><span class="line">检查内存和打开文件使用说明并退出。</span><br><span class="line">mysqldump  -uroot -p --all-databases --debug-check</span><br><span class="line">--debug-info</span><br><span class="line">输出调试信息并退出</span><br><span class="line">mysqldump  -uroot -p --all-databases --debug-info</span><br><span class="line">--default-character-set</span><br><span class="line">设置默认字符集，默认值为utf8</span><br><span class="line">mysqldump  -uroot -p --all-databases --default-character-set=utf8</span><br><span class="line">--delayed-insert</span><br><span class="line">采用延时插入方式（INSERT DELAYED）导出数据</span><br><span class="line">mysqldump  -uroot -p --all-databases --delayed-insert</span><br><span class="line">--delete-master-logs</span><br><span class="line">master备份后删除日志. 这个参数将自动激活--master-data。</span><br><span class="line">mysqldump  -uroot -p --all-databases --delete-master-logs</span><br><span class="line">--disable-keys</span><br><span class="line">对于每个表，用/*!40000 ALTER TABLE tbl_name DISABLE KEYS */;和/*!40000 ALTER TABLE tbl_name ENABLE KEYS */;语句引用INSERT语句。这样可以更快地导入dump出来的文件，因为它是在插入所有行后创建索引的。该选项只适合MyISAM表，默认为打开状态。</span><br><span class="line">mysqldump  -uroot -p --all-databases </span><br><span class="line">--dump-slave</span><br><span class="line">该选项将主的binlog位置和文件名追加到导出数据的文件中(show slave status)。设置为1时，将会以CHANGE MASTER命令输出到数据文件；设置为2时，会在change前加上注释。该选项将会打开--lock-all-tables，除非--single-transaction被指定。该选项会自动关闭--lock-tables选项。默认值为0。</span><br><span class="line">mysqldump  -uroot -p --all-databases --dump-slave=1</span><br><span class="line">mysqldump  -uroot -p --all-databases --dump-slave=2</span><br><span class="line"></span><br><span class="line">--master-data</span><br><span class="line">该选项将当前服务器的binlog的位置和文件名追加到输出文件中(show master status)。如果为1，将会输出CHANGE MASTER 命令；如果为2，输出的CHANGE  MASTER命令前添加注释信息。该选项将打开--lock-all-tables 选项，除非--single-transaction也被指定（在这种情况下，全局读锁在开始导出时获得很短的时间；其他内容参考下面的--single-transaction选项）。该选项自动关闭--lock-tables选项。</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --master-data=1;</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --master-data=2;</span><br><span class="line">--events, -E</span><br><span class="line">导出事件。</span><br><span class="line">mysqldump  -uroot -p --all-databases --events</span><br><span class="line">--extended-insert,  -e</span><br><span class="line">使用具有多个VALUES列的INSERT语法。这样使导出文件更小，并加速导入时的速度。默认为打开状态，使用--skip-extended-insert取消选项。</span><br><span class="line">mysqldump  -uroot -p --all-databases</span><br><span class="line">mysqldump  -uroot -p --all-databases--skip-extended-insert   (取消选项)</span><br><span class="line">--fields-terminated-by</span><br><span class="line">导出文件中忽略给定字段。与--tab选项一起使用，不能用于--databases和--all-databases选项</span><br><span class="line">mysqldump  -uroot -p test test --tab=”/home/mysql” --fields-terminated-by=”#”</span><br><span class="line">--fields-enclosed-by</span><br><span class="line">输出文件中的各个字段用给定字符包裹。与--tab选项一起使用，不能用于--databases和--all-databases选项</span><br><span class="line">mysqldump  -uroot -p test test --tab=”/home/mysql” --fields-enclosed-by=”#”</span><br><span class="line">--fields-optionally-enclosed-by</span><br><span class="line">输出文件中的各个字段用给定字符选择性包裹。与--tab选项一起使用，不能用于--databases和--all-databases选项</span><br><span class="line">mysqldump  -uroot -p test test --tab=”/home/mysql”  --fields-enclosed-by=”#” --fields-optionally-enclosed-by  =”#”</span><br><span class="line">--fields-escaped-by</span><br><span class="line">输出文件中的各个字段忽略给定字符。与--tab选项一起使用，不能用于--databases和--all-databases选项</span><br><span class="line">mysqldump  -uroot -p mysql user --tab=”/home/mysql” --fields-escaped-by=”#”</span><br><span class="line">--flush-logs</span><br><span class="line">开始导出之前刷新日志。</span><br><span class="line">请注意：假如一次导出多个数据库(使用选项--databases或者--all-databases)，将会逐个数据库刷新日志。除使用--lock-all-tables或者--master-data外。在这种情况下，日志将会被刷新一次，相应的所以表同时被锁定。因此，如果打算同时导出和刷新日志应该使用--lock-all-tables 或者--master-data 和--flush-logs。</span><br><span class="line">mysqldump  -uroot -p --all-databases --flush-logs</span><br><span class="line">--flush-privileges</span><br><span class="line">在导出mysql数据库之后，发出一条FLUSH  PRIVILEGES 语句。为了正确恢复，该选项应该用于导出mysql数据库和依赖mysql数据库数据的任何时候。</span><br><span class="line">mysqldump  -uroot -p --all-databases --flush-privileges</span><br><span class="line">--force</span><br><span class="line">在导出过程中忽略出现的SQL错误。</span><br><span class="line">mysqldump  -uroot -p --all-databases --force</span><br><span class="line">--help</span><br><span class="line">显示帮助信息并退出。</span><br><span class="line">mysqldump  --help</span><br><span class="line">--hex-blob</span><br><span class="line">使用十六进制格式导出二进制字符串字段。如果有二进制数据就必须使用该选项。影响到的字段类型有BINARY、VARBINARY、BLOB。</span><br><span class="line">mysqldump  -uroot -p --all-databases --hex-blob</span><br><span class="line">--host, -h</span><br><span class="line">需要导出的主机信息</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases</span><br><span class="line">--ignore-table</span><br><span class="line">不导出指定表。指定忽略多个表时，需要重复多次，每次一个表。每个表必须同时指定数据库和表名。例如：--ignore-table=database.table1 --ignore-table=database.table2 ……</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --ignore-table=mysql.user</span><br><span class="line">--include-master-host-port</span><br><span class="line">在--dump-slave产生的&apos;CHANGE  MASTER TO..&apos;语句中增加&apos;MASTER_HOST=&lt;host&gt;，MASTER_PORT=&lt;port&gt;&apos;  </span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --include-master-host-port</span><br><span class="line">--insert-ignore</span><br><span class="line">在插入行时使用INSERT IGNORE语句.</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --insert-ignore</span><br><span class="line">--lines-terminated-by</span><br><span class="line">输出文件的每行用给定字符串划分。与--tab选项一起使用，不能用于--databases和--all-databases选项。</span><br><span class="line">mysqldump  -uroot -p --host=localhost test test --tab=”/tmp/mysql”  --lines-terminated-by=”##”</span><br><span class="line">--lock-all-tables,  -x</span><br><span class="line">提交请求锁定所有数据库中的所有表，以保证数据的一致性。这是一个全局读锁，并且自动关闭--single-transaction 和--lock-tables 选项。</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --lock-all-tables</span><br><span class="line">--lock-tables,  -l</span><br><span class="line">开始导出前，锁定所有表。用READ  LOCAL锁定表以允许MyISAM表并行插入。对于支持事务的表例如InnoDB和BDB，--single-transaction是一个更好的选择，因为它根本不需要锁定表。</span><br><span class="line">请注意当导出多个数据库时，--lock-tables分别为每个数据库锁定表。因此，该选项不能保证导出文件中的表在数据库之间的逻辑一致性。不同数据库表的导出状态可以完全不同。</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --lock-tables</span><br><span class="line">--log-error</span><br><span class="line">附加警告和错误信息到给定文件</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases  --log-error=/tmp/mysqldump_error_log.err</span><br><span class="line">--max_allowed_packet</span><br><span class="line">服务器发送和接受的最大包长度。</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --max_allowed_packet=10240</span><br><span class="line">--net_buffer_length</span><br><span class="line">TCP/IP和socket连接的缓存大小。</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --net_buffer_length=1024</span><br><span class="line">--no-autocommit</span><br><span class="line">使用autocommit/commit 语句包裹表。</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --no-autocommit</span><br><span class="line">--no-create-db,  -n</span><br><span class="line">只导出数据，而不添加CREATE DATABASE 语句。</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --no-create-db</span><br><span class="line">--no-create-info,  -t</span><br><span class="line">只导出数据，而不添加CREATE TABLE 语句。</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --no-create-info</span><br><span class="line">--no-data, -d</span><br><span class="line">不导出任何数据，只导出数据库表结构。</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --no-data</span><br><span class="line">--no-set-names,  -N</span><br><span class="line">等同于--skip-set-charset</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --no-set-names</span><br><span class="line">--opt</span><br><span class="line">等同于--add-drop-table,  --add-locks, --create-options, --quick, --extended-insert, --lock-tables,  --set-charset, --disable-keys 该选项默认开启,  可以用--skip-opt禁用.</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --opt</span><br><span class="line">--order-by-primary</span><br><span class="line">如果存在主键，或者第一个唯一键，对每个表的记录进行排序。在导出MyISAM表到InnoDB表时有效，但会使得导出工作花费很长时间。 </span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --order-by-primary</span><br><span class="line">--password, -p</span><br><span class="line">连接数据库密码</span><br><span class="line">--pipe(windows系统可用)</span><br><span class="line">使用命名管道连接mysql</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --pipe</span><br><span class="line">--port, -P</span><br><span class="line">连接数据库端口号</span><br><span class="line">--protocol</span><br><span class="line">使用的连接协议，包括：tcp, socket, pipe, memory.</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --protocol=tcp</span><br><span class="line">--quick, -q</span><br><span class="line">不缓冲查询，直接导出到标准输出。默认为打开状态，使用--skip-quick取消该选项。</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases </span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --skip-quick</span><br><span class="line">--quote-names,-Q</span><br><span class="line">使用（`）引起表和列名。默认为打开状态，使用--skip-quote-names取消该选项。</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --skip-quote-names</span><br><span class="line">--replace</span><br><span class="line">使用REPLACE INTO 取代INSERT INTO.</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --replace</span><br><span class="line">--result-file,  -r</span><br><span class="line">直接输出到指定文件中。该选项应该用在使用回车换行对（\\r\\n）换行的系统上（例如：DOS，Windows）。该选项确保只有一行被使用。</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --result-file=/tmp/mysqldump_result_file.txt</span><br><span class="line">--routines, -R</span><br><span class="line">导出存储过程以及自定义函数。</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --routines</span><br><span class="line">--set-charset</span><br><span class="line">添加&apos;SET NAMES  default_character_set&apos;到输出文件。默认为打开状态，使用--skip-set-charset关闭选项。</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases </span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --skip-set-charset</span><br><span class="line">--single-transaction</span><br><span class="line">该选项在导出数据之前提交一个BEGIN SQL语句，BEGIN 不会阻塞任何应用程序且能保证导出时数据库的一致性状态。它只适用于多版本存储引擎，仅InnoDB。本选项和--lock-tables 选项是互斥的，因为LOCK  TABLES 会使任何挂起的事务隐含提交。要想导出大表的话，应结合使用--quick 选项。</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --single-transaction</span><br><span class="line">--dump-date</span><br><span class="line">将导出时间添加到输出文件中。默认为打开状态，使用--skip-dump-date关闭选项。</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --skip-dump-date</span><br><span class="line">--skip-opt</span><br><span class="line">禁用–opt选项.</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --skip-opt</span><br><span class="line">--socket,-S</span><br><span class="line">指定连接mysql的socket文件位置，默认路径/tmp/mysql.sock</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --socket=/tmp/mysqld.sock</span><br><span class="line">--tab,-T</span><br><span class="line">为每个表在给定路径创建tab分割的文本文件。注意：仅仅用于mysqldump和mysqld服务器运行在相同机器上。注意使用--tab不能指定--databases参数</span><br><span class="line">mysqldump  -uroot -p --host=localhost test test --tab=&quot;/home/mysql&quot;</span><br><span class="line">--tables</span><br><span class="line">覆盖--databases (-B)参数，指定需要导出的表名，在后面的版本会使用table取代tables。</span><br><span class="line">mysqldump  -uroot -p --host=localhost --databases test --tables test</span><br><span class="line">--triggers</span><br><span class="line">导出触发器。该选项默认启用，用--skip-triggers禁用它。</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --triggers</span><br><span class="line">--tz-utc</span><br><span class="line">在导出顶部设置时区TIME_ZONE=&apos;+00:00&apos; ，以保证在不同时区导出的TIMESTAMP 数据或者数据被移动其他时区时的正确性。</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --tz-utc</span><br><span class="line">--user, -u</span><br><span class="line">指定连接的用户名。</span><br><span class="line">--verbose, --v</span><br><span class="line">输出多种平台信息。</span><br><span class="line">--version, -V</span><br><span class="line">输出mysqldump版本信息并退出</span><br><span class="line">--where, -w</span><br><span class="line">只转储给定的WHERE条件选择的记录。请注意如果条件包含命令解释符专用空格或字符，一定要将条件引用起来。</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --where=” user=’root’”</span><br><span class="line">--xml, -X</span><br><span class="line">导出XML格式.</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --xml</span><br><span class="line">--plugin_dir</span><br><span class="line">客户端插件的目录，用于兼容不同的插件版本。</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --plugin_dir=”/usr/local/lib/plugin”</span><br><span class="line">--default_auth</span><br><span class="line">客户端插件默认使用权限。</span><br><span class="line">mysqldump  -uroot -p --host=localhost --all-databases --default-auth=”/usr/local/lib/plugin/&lt;PLUGIN&gt;”</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/数据库/" rel="tag"><i class="fa fa-tag"></i> 数据库</a>
+              <a href="/tags/mysqldump/" rel="tag"><i class="fa fa-tag"></i> mysqldump</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2018/07/10/Conda 常用命令/" rel="prev" title="Conda 常用命令">
+      <i class="fa fa-chevron-left"></i> Conda 常用命令
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2018/07/13/Ubuntu子系统Docker无法启动/" rel="next" title="Ubuntu子系统Docker无法启动">
+      Ubuntu子系统Docker无法启动 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#场景"><span class="nav-number">1.</span> <span class="nav-text">场景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#导出数据"><span class="nav-number">2.</span> <span class="nav-text">导出数据</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#参数解释"><span class="nav-number">3.</span> <span class="nav-text">参数解释</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#导入数据"><span class="nav-number">4.</span> <span class="nav-text">导入数据</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#带来的影响"><span class="nav-number">5.</span> <span class="nav-text">带来的影响</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#其他方法"><span class="nav-number">6.</span> <span class="nav-text">其他方法</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#mysqldump其他参数"><span class="nav-number">7.</span> <span class="nav-text">mysqldump其他参数</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

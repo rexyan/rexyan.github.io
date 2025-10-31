@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="RDD 的操作分类transfromation (转换)transfromation 是 lazy 的，只有遇到 action 的时候才会真正的去执行，触发计算。 map将 func 函数作用到数据集的每一个元素上。12345678910111213141516171819202122232425262728293031from pyspark import SparkConf, SparkCon">
+<meta name="keywords" content="Spark">
+<meta property="og:type" content="article">
+<meta property="og:title" content="3. Spark RDD 编程">
+<meta property="og:url" content="https://rexyan.github.io/2019/02/25/3. Spark RDD 编程/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="RDD 的操作分类transfromation (转换)transfromation 是 lazy 的，只有遇到 action 的时候才会真正的去执行，触发计算。 map将 func 函数作用到数据集的每一个元素上。12345678910111213141516171819202122232425262728293031from pyspark import SparkConf, SparkCon">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.384Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="3. Spark RDD 编程">
+<meta name="twitter:description" content="RDD 的操作分类transfromation (转换)transfromation 是 lazy 的，只有遇到 action 的时候才会真正的去执行，触发计算。 map将 func 函数作用到数据集的每一个元素上。12345678910111213141516171819202122232425262728293031from pyspark import SparkConf, SparkCon">
+
+<link rel="canonical" href="https://rexyan.github.io/2019/02/25/3. Spark RDD 编程/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>3. Spark RDD 编程 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2019/02/25/3. Spark RDD 编程/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          3. Spark RDD 编程
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-02-25 22:44:57" itemprop="dateCreated datePublished" datetime="2019-02-25T22:44:57+00:00">2019-02-25</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="RDD-的操作分类"><a href="#RDD-的操作分类" class="headerlink" title="RDD 的操作分类"></a>RDD 的操作分类</h3><h4 id="transfromation-转换"><a href="#transfromation-转换" class="headerlink" title="transfromation (转换)"></a>transfromation (转换)</h4><p>transfromation 是 lazy 的，只有遇到 action 的时候才会真正的去执行，触发计算。</p>
+<h5 id="map"><a href="#map" class="headerlink" title="map"></a>map</h5><p>将 func 函数作用到数据集的每一个元素上。<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> pyspark <span class="keyword">import</span> SparkConf, SparkContext</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">"__main__"</span>:</span><br><span class="line">    conf = SparkConf().setMaster(<span class="string">"local[2]"</span>).setAppName(<span class="string">"test"</span>)</span><br><span class="line">    sc = SparkContext(conf=conf)</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">my_map</span><span class="params">()</span>:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        将每个元素 * 2</span></span><br><span class="line"><span class="string">        :return:</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        data = [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>]</span><br><span class="line">        rdd1 = sc.parallelize(data)</span><br><span class="line">        rdd2 = rdd1.map(<span class="keyword">lambda</span> x: x * <span class="number">2</span>)</span><br><span class="line">        print(rdd2.collect())</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">my_app2</span><span class="params">()</span>:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        将每个单词变成 （x, 1）的格式</span></span><br><span class="line"><span class="string">        :return:</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        data = [<span class="string">"Unable"</span>, <span class="string">"to"</span>, <span class="string">"native-hadoop"</span>, <span class="string">"library"</span>, <span class="string">"for"</span>, <span class="string">"your"</span>, <span class="string">"platform"</span>]</span><br><span class="line">        rdd3 = sc.parallelize(data)</span><br><span class="line">        rdd4 = rdd3.map(<span class="keyword">lambda</span> x: (x, <span class="number">1</span>))</span><br><span class="line">        print(rdd4.collect())</span><br><span class="line"></span><br><span class="line">    my_map()</span><br><span class="line">    my_app2()</span><br><span class="line"></span><br><span class="line">    sc.stop()</span><br></pre></td></tr></table></figure></p>
+<h5 id="Filter"><a href="#Filter" class="headerlink" title="Filter"></a>Filter</h5><p>选出所有 func 返回值为 true 的元素。<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">my_filter</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="string">"""</span></span><br><span class="line"><span class="string">    筛选出大于3的元素</span></span><br><span class="line"><span class="string">    :return:</span></span><br><span class="line"><span class="string">    """</span></span><br><span class="line">    data = [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>]</span><br><span class="line">    rdd5 = sc.parallelize(data)</span><br><span class="line">    rdd6 = rdd5.filter(<span class="keyword">lambda</span> x: x &gt; <span class="number">3</span>)</span><br><span class="line">    print(rdd6.collect())</span><br></pre></td></tr></table></figure></p>
+<h5 id="flatMap"><a href="#flatMap" class="headerlink" title="flatMap"></a>flatMap</h5><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">my_faltmap</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="string">"""</span></span><br><span class="line"><span class="string">    ['hello', 'spark', 'hello', 'world', 'hello', 'world']</span></span><br><span class="line"><span class="string">    :return:</span></span><br><span class="line"><span class="string">    """</span></span><br><span class="line">    data = [<span class="string">"hello spark"</span>, <span class="string">"hello world"</span>, <span class="string">"hello world"</span>]</span><br><span class="line">    rdd7 = sc.parallelize(data)</span><br><span class="line">    rdd8 = rdd7.flatMap(<span class="keyword">lambda</span> line: line.split(<span class="string">" "</span>))</span><br><span class="line">    print(rdd8.collect())</span><br></pre></td></tr></table></figure>
+<h5 id="groupByKey"><a href="#groupByKey" class="headerlink" title="groupByKey"></a>groupByKey</h5><p>把相同 key 的数据分发到一起</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">my_groupby</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="string">"""</span></span><br><span class="line"><span class="string">    分组</span></span><br><span class="line"><span class="string">    :return:</span></span><br><span class="line"><span class="string">    """</span></span><br><span class="line">    data = [<span class="string">"hello spark"</span>, <span class="string">"hello world"</span>, <span class="string">"hello world"</span>]</span><br><span class="line">    rdd9 = sc.parallelize(data)</span><br><span class="line">    rdd10 = rdd9.flatMap(<span class="keyword">lambda</span> line: line.split(<span class="string">" "</span>)).map(<span class="keyword">lambda</span> x: (x, <span class="number">1</span>))</span><br><span class="line">    print(rdd10.collect())</span><br><span class="line">    <span class="comment"># [('hello', 1), ('spark', 1), ('hello', 1), ('world', 1), ('hello', 1), ('world', 1)]</span></span><br><span class="line"></span><br><span class="line">    group_rdd = rdd10.groupByKey()</span><br><span class="line">    print(group_rdd.collect())</span><br><span class="line">    <span class="comment"># [('world', &lt;pyspark.resultiterable.ResultIterable object at 0x1057c6e10&gt;),(..., ...)]</span></span><br><span class="line"></span><br><span class="line">    group_rdd2 = group_rdd.map(<span class="keyword">lambda</span> x: &#123;x[<span class="number">0</span>]: list(x[<span class="number">1</span>])&#125;)</span><br><span class="line">    print(group_rdd2.collect())</span><br><span class="line">    <span class="comment"># [&#123;'world': [1, 1]&#125;, &#123;'hello': [1, 1, 1]&#125;, &#123;'spark': [1]&#125;]</span></span><br></pre></td></tr></table></figure>
+<h5 id="reduceByKey"><a href="#reduceByKey" class="headerlink" title="reduceByKey"></a>reduceByKey</h5><p>把相同 key 的数据分发到一起进行相应的计算<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">my_reducebykey</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="string">"""</span></span><br><span class="line"><span class="string">    :return:</span></span><br><span class="line"><span class="string">    """</span></span><br><span class="line">    data = [<span class="string">"hello spark"</span>, <span class="string">"hello world"</span>, <span class="string">"hello world"</span>]</span><br><span class="line">    rdd9 = sc.parallelize(data)</span><br><span class="line">    rdd10 = rdd9.flatMap(<span class="keyword">lambda</span> line: line.split(<span class="string">" "</span>)).map(<span class="keyword">lambda</span> x: (x, <span class="number">1</span>))</span><br><span class="line">    print(rdd10.collect())</span><br><span class="line">    <span class="comment"># [('hello', 1), ('spark', 1), ('hello', 1), ('world', 1), ('hello', 1), ('world', 1)]</span></span><br><span class="line"></span><br><span class="line">    reduce_by_key_rdd = rdd10.reduceByKey(<span class="keyword">lambda</span> a, b: a + b)</span><br><span class="line">    print(reduce_by_key_rdd.collect())</span><br><span class="line">    <span class="comment"># [('world', 2), ('hello', 3), ('spark', 1)]</span></span><br></pre></td></tr></table></figure></p>
+<h5 id="sortByKey"><a href="#sortByKey" class="headerlink" title="sortByKey"></a>sortByKey</h5><p>sortByKey 的作用是根据 key 进行排序，默认是根据 key 进行升序排序。<br>例如：将上面的结果 [(‘world’, 2), (‘hello’, 3), (‘spark’, 1)]  按照后面的数字进行降序排序</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">my_sortbykey</span><span class="params">()</span>:</span></span><br><span class="line">    data = [<span class="string">"hello spark"</span>, <span class="string">"hello world"</span>, <span class="string">"hello world"</span>]</span><br><span class="line">    rdd9 = sc.parallelize(data)</span><br><span class="line">    rdd10 = rdd9.flatMap(<span class="keyword">lambda</span> line: line.split(<span class="string">" "</span>)).map(<span class="keyword">lambda</span> x: (x, <span class="number">1</span>))</span><br><span class="line">    print(rdd10.collect())</span><br><span class="line">    <span class="comment"># [('hello', 1), ('spark', 1), ('hello', 1), ('world', 1), ('hello', 1), ('world', 1)]</span></span><br><span class="line"></span><br><span class="line">    reduce_by_key_rdd = rdd10.reduceByKey(<span class="keyword">lambda</span> a, b: a + b)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># sortByKey 默认按照 key 排升序</span></span><br><span class="line">    sort_by_key = reduce_by_key_rdd.sortByKey()</span><br><span class="line">    print(sort_by_key.collect())</span><br><span class="line">    <span class="comment"># [('hello', 3), ('spark', 1), ('world', 2)]</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># sortByKey 默认按照 key 排降序</span></span><br><span class="line">    sort_by_key = reduce_by_key_rdd.sortByKey(<span class="literal">False</span>)</span><br><span class="line">    print(sort_by_key.collect())</span><br><span class="line">    <span class="comment"># [('world', 2), ('spark', 1), ('hello', 3)]</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># 根据后面的数字进行排序，解决思路是将 key 和 value 进行交换。此时 value 变成了 key，</span></span><br><span class="line">    <span class="comment"># 然后根据 key 进行排序，排序之后，再将 key 和 value 进s行交换，将位置交换回来</span></span><br><span class="line"></span><br><span class="line">    print(sort_by_key.map(<span class="keyword">lambda</span> x:(x[<span class="number">1</span>], x[<span class="number">0</span>])).sortByKey().map(<span class="keyword">lambda</span> x:(x[<span class="number">1</span>], x[<span class="number">0</span>])).collect())</span><br><span class="line">    <span class="comment"># [('spark', 1), ('world', 2), ('hello', 3)]</span></span><br><span class="line"></span><br><span class="line">    print(sort_by_key.map(<span class="keyword">lambda</span> x: (x[<span class="number">1</span>], x[<span class="number">0</span>])).sortByKey(<span class="literal">False</span>).map(<span class="keyword">lambda</span> x: (x[<span class="number">1</span>], x[<span class="number">0</span>])).collect())</span><br><span class="line">    <span class="comment"># [('hello', 3), ('world', 2), ('spark', 1)]</span></span><br></pre></td></tr></table></figure>
+<h5 id="union"><a href="#union" class="headerlink" title="union"></a>union</h5><p>将两个 RDD 进行合并</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">my_union</span><span class="params">()</span>:</span></span><br><span class="line">    rdd1 = sc.parallelize([<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>])</span><br><span class="line">    rdd2 = sc.parallelize([<span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>])</span><br><span class="line">    print(rdd1.union(rdd2).collect())</span><br><span class="line">    <span class="comment"># [1, 2, 3, 4, 5, 6]</span></span><br></pre></td></tr></table></figure>
+<h5 id="distinct"><a href="#distinct" class="headerlink" title="distinct"></a>distinct</h5><p>去重<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">my_distinct</span><span class="params">()</span>:</span></span><br><span class="line">    rdd1 = sc.parallelize([<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">6</span>])</span><br><span class="line">    rdd2 = sc.parallelize([<span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>])</span><br><span class="line">    rdd3 = rdd1.union(rdd2)</span><br><span class="line">    print(rdd3.distinct().collect())</span><br><span class="line">    <span class="comment"># [4, 1, 5, 2, 6, 3]</span></span><br></pre></td></tr></table></figure></p>
+<h5 id="join"><a href="#join" class="headerlink" title="join"></a>join</h5><p>默认内连接，可以进行 leftOuterJoin，rightOuterJoin，fullOuterJoin<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">my_join</span><span class="params">()</span>:</span></span><br><span class="line">    rdd1 = sc.parallelize([(<span class="string">"A"</span>, <span class="string">"a1"</span>), (<span class="string">"C"</span>, <span class="string">"c1"</span>), (<span class="string">"D"</span>, <span class="string">"d1"</span>), (<span class="string">"F"</span>, <span class="string">"f1"</span>), (<span class="string">"F"</span>, <span class="string">"f2"</span>)])</span><br><span class="line">    rdd2 = sc.parallelize([(<span class="string">"A"</span>, <span class="string">"a2"</span>), (<span class="string">"C"</span>, <span class="string">"c2"</span>), (<span class="string">"C"</span>, <span class="string">"c3"</span>), (<span class="string">"E"</span>, <span class="string">"e1"</span>)])</span><br><span class="line">    print(rdd1.join(rdd2).collect())</span><br><span class="line">    <span class="comment"># [('A', ('a1', 'a2')), ('C', ('c1', 'c2')), ('C', ('c1', 'c3'))] -- 内连接结果</span></span><br><span class="line"></span><br><span class="line">    print(rdd1.leftOuterJoin(rdd2).collect())</span><br><span class="line">    <span class="comment"># [('A', ('a1', 'a2')), ('F', ('f1', None)), ('F', ('f2', None)), ('C', ('c1', 'c2')), ('C', ('c1', 'c3')), ('D', ('d1', None))] -- 左外连接结果</span></span><br><span class="line"></span><br><span class="line">    print(rdd1.rightOuterJoin(rdd2).collect())</span><br><span class="line">    <span class="comment"># [('A', ('a1', 'a2')), ('C', ('c1', 'c2')), ('C', ('c1', 'c3')), ('E', (None, 'e1'))] -- 右外连接</span></span><br><span class="line"></span><br><span class="line">    print(rdd1.fullOuterJoin(rdd2).collect())</span><br><span class="line">    <span class="comment"># [('A', ('a1', 'a2')), ('F', ('f1', None)), ('F', ('f2', None)), ('C', ('c1', 'c2')), ('C', ('c1', 'c3')), ('D', ('d1', None)), ('E', (None, 'e1'))] -- 全连接</span></span><br></pre></td></tr></table></figure></p>
+<h4 id="action-动作"><a href="#action-动作" class="headerlink" title="action(动作)"></a>action(动作)</h4><p>将计算的结果进行返回。</p>
+<h5 id="collect-count-take-reduce"><a href="#collect-count-take-reduce" class="headerlink" title="collect, count, take, reduce"></a>collect, count, take, reduce</h5><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">my_action</span><span class="params">()</span>:</span></span><br><span class="line">    data = [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>, <span class="number">7</span>, <span class="number">8</span>, <span class="number">9</span>]</span><br><span class="line">    rdd = sc.parallelize(data)</span><br><span class="line">    print(rdd.collect())</span><br><span class="line">    print(rdd.max())</span><br><span class="line">    print(rdd.take(<span class="number">3</span>))  <span class="comment"># 取前三个</span></span><br><span class="line">    print(rdd.mean())</span><br><span class="line">    print(rdd.min())</span><br><span class="line">    print(rdd.sum())</span><br><span class="line">    print(rdd.reduce(<span class="keyword">lambda</span> x, y: x + y))</span><br><span class="line">    print(rdd.foreach(<span class="keyword">lambda</span> x: print(x)))  <span class="comment"># 打印出每个元素</span></span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Spark/" rel="tag"><i class="fa fa-tag"></i> Spark</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/02/24/2. Spark Core 核心 RDD/" rel="prev" title="2. Spark Core 核心 RDD">
+      <i class="fa fa-chevron-left"></i> 2. Spark Core 核心 RDD
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/03/23/DevOps 概述和 Kubernetes 架构/" rel="next" title="DevOps 概述和 Kubernetes 架构">
+      DevOps 概述和 Kubernetes 架构 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#RDD-的操作分类"><span class="nav-number">1.</span> <span class="nav-text">RDD 的操作分类</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#transfromation-转换"><span class="nav-number">1.1.</span> <span class="nav-text">transfromation (转换)</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#map"><span class="nav-number">1.1.1.</span> <span class="nav-text">map</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#Filter"><span class="nav-number">1.1.2.</span> <span class="nav-text">Filter</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#flatMap"><span class="nav-number">1.1.3.</span> <span class="nav-text">flatMap</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#groupByKey"><span class="nav-number">1.1.4.</span> <span class="nav-text">groupByKey</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#reduceByKey"><span class="nav-number">1.1.5.</span> <span class="nav-text">reduceByKey</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#sortByKey"><span class="nav-number">1.1.6.</span> <span class="nav-text">sortByKey</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#union"><span class="nav-number">1.1.7.</span> <span class="nav-text">union</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#distinct"><span class="nav-number">1.1.8.</span> <span class="nav-text">distinct</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#join"><span class="nav-number">1.1.9.</span> <span class="nav-text">join</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#action-动作"><span class="nav-number">1.2.</span> <span class="nav-text">action(动作)</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#collect-count-take-reduce"><span class="nav-number">1.2.1.</span> <span class="nav-text">collect, count, take, reduce</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

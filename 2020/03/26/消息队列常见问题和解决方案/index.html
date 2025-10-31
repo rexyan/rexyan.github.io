@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="消息队列消息队列的一些简单介绍可以参考文章 作用削峰以电商双十一或者疫情期间在线视频课堂举例，由于在短时间内接收到了大量的请求，服务器可能无法处理这么多，而且现在的系统根本处理不了这么多请求，如果请求直接进来后，可能会导致系统或者数据库等方面出现问题。轻则卡顿，重则宕机。为此引入消息队列，将请求转至队列当中，消费者（系统）以自己能处理的速度进行处理消费。这样就能保证系统的可用性。淘宝双十一结账出现">
+<meta name="keywords" content="Java 大数据,消息队列">
+<meta property="og:type" content="article">
+<meta property="og:title" content="消息队列常见问题和解决方案">
+<meta property="og:url" content="https://rexyan.github.io/2020/03/26/消息队列常见问题和解决方案/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="消息队列消息队列的一些简单介绍可以参考文章 作用削峰以电商双十一或者疫情期间在线视频课堂举例，由于在短时间内接收到了大量的请求，服务器可能无法处理这么多，而且现在的系统根本处理不了这么多请求，如果请求直接进来后，可能会导致系统或者数据库等方面出现问题。轻则卡顿，重则宕机。为此引入消息队列，将请求转至队列当中，消费者（系统）以自己能处理的速度进行处理消费。这样就能保证系统的可用性。淘宝双十一结账出现">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%971.png">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.409Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="消息队列常见问题和解决方案">
+<meta name="twitter:description" content="消息队列消息队列的一些简单介绍可以参考文章 作用削峰以电商双十一或者疫情期间在线视频课堂举例，由于在短时间内接收到了大量的请求，服务器可能无法处理这么多，而且现在的系统根本处理不了这么多请求，如果请求直接进来后，可能会导致系统或者数据库等方面出现问题。轻则卡顿，重则宕机。为此引入消息队列，将请求转至队列当中，消费者（系统）以自己能处理的速度进行处理消费。这样就能保证系统的可用性。淘宝双十一结账出现">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%971.png">
+
+<link rel="canonical" href="https://rexyan.github.io/2020/03/26/消息队列常见问题和解决方案/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>消息队列常见问题和解决方案 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2020/03/26/消息队列常见问题和解决方案/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          消息队列常见问题和解决方案
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-03-26 23:05:57" itemprop="dateCreated datePublished" datetime="2020-03-26T23:05:57+00:00">2020-03-26</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Java-大数据/" itemprop="url" rel="index"><span itemprop="name">Java 大数据</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="消息队列"><a href="#消息队列" class="headerlink" title="消息队列"></a>消息队列</h2><p>消息队列的一些简单介绍可以参考<a href="https://juejin.im/post/5cb025fb5188251b0351ef48" target="_blank" rel="noopener">文章</a></p>
+<h3 id="作用"><a href="#作用" class="headerlink" title="作用"></a>作用</h3><h4 id="削峰"><a href="#削峰" class="headerlink" title="削峰"></a>削峰</h4><p>以电商双十一或者疫情期间在线视频课堂举例，由于在短时间内接收到了大量的请求，服务器可能无法处理这么多，而且现在的系统根本处理不了这么多请求，如果请求直接进来后，可能会导致系统或者数据库等方面出现问题。轻则卡顿，重则宕机。为此引入消息队列，将请求转至队列当中，消费者（系统）以自己能处理的速度进行处理消费。这样就能保证系统的可用性。淘宝双十一结账出现的 “前方拥堵，服务即将恢复” 等问题就是削峰处理的一种表现。</p>
+<h4 id="解耦"><a href="#解耦" class="headerlink" title="解耦"></a>解耦</h4><p>例如 A 系统发送个数据到 BCD 三个系统 ，目前是以接口调用的方式进行发送，那如果现在 E 系统也要这个数据，那么就还得再次进行接入 ，假如数据内容发生变化，那么还得继续接入新的接口，这样随着业务的发展，接口会越来越多，使用场景会越来越复杂，系统之间的耦合性和越来越高！如果 A 系统宕机了怎么办？</p>
+<p>消息队列就能很好的解决上面系统所面临的问题，以降低系统之间耦合性来保证系统的稳定性？</p>
+<h4 id="异步"><a href="#异步" class="headerlink" title="异步"></a>异步</h4><p>随着系统之间的交互越来越多，特别是当技术下沉之后。一个系统可以依赖好几个系统的服务，每个系统之间的交互和请求方式都能带来不小的延时。针对于系统通知，系统任务，系统之间的数据传递采用异步的方式能解决很多问题。</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%971.png" alt></p>
+<p>例如，上述图中可能为某系统的注册功能，用户注册后需要给新用户进行短信的发送和优惠券的发放。如果采用同步的方式进行，假如用户提交信息到 xx 系统需要 100ms，调用短信系统需要 100 ms，调用优惠券系统需要 300ms，最后数据存库可能需要 200ms。那么同步方式总的耗时为100+100+300+200=700ms。给用户的感觉就是很慢，体验很不好，甚至可能导致用户的流失！</p>
+<h3 id="副作用"><a href="#副作用" class="headerlink" title="副作用"></a>副作用</h3><p>使用消息队列之后，并不都是带来一些好处的。同时也可系统带来了很多的问题和挑战。例如：</p>
+<ol>
+<li>系统可用性降低：如果队列崩溃，那么相关的系统都会受到影响。</li>
+<li>系统复杂性提高：如果保证消息不被重复消费？如何保证消息不丢失？如果保证消息消费的顺序？这些问题都是引入队列后需要考虑的。</li>
+<li>一致性问题：以上面新用户注册为例，用户注册成功了，但是队列崩溃导致优惠券没有被成功发放和数据最终没有成功落库，用户下次再次登录提示了用户不存在？？因为现在的大型系统都是分布式的，所以各个系统之间的交互就涉及到一致性的问题，不能出现用户注册成功但是优惠券发送失败或者落库失败等问题。解决的问题就是引入分布式事务，让这几个步骤一起成功或者一起失败！</li>
+</ol>
+<h3 id="选型"><a href="#选型" class="headerlink" title="选型"></a>选型</h3><h4 id="各消息队列对比"><a href="#各消息队列对比" class="headerlink" title="各消息队列对比"></a>各消息队列对比</h4><table>
+<thead>
+<tr>
+<th>特性</th>
+<th>ActiveMQ</th>
+<th>RabbitMQ</th>
+<th>RocketMQ</th>
+<th>Kafka</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>单机吞吐量</td>
+<td>万级，吞吐量比RocketMQ和Kafka要低了一个数量级。</td>
+<td>万级，吞吐量比RocketMQ和Kafka要低了一个数量级。</td>
+<td>10万级，RocketMQ也是可以支撑高吞吐的一种MQ</td>
+<td>10万级别，这是kafka最大的优点，就是吞吐量高。 一般配合大数据类的系统来进行实时数据计算、日志采集等场景。</td>
+</tr>
+<tr>
+<td>topic数量对吞吐量的影响</td>
+<td></td>
+<td></td>
+<td>topic可以达到几百，几千个的级别，吞吐量会有较小幅度的下降， 这是RocketMQ 的一大优势，在同等机器下，可以支撑大量的topic。</td>
+<td>topic从几十个到几百个的时候，吞吐量会大幅度下降。 所以在同等机器下，kafka尽量保证topic数量不要过多。如果要 支撑大规模topic，需要增加更多的机器资源。</td>
+</tr>
+<tr>
+<td>时效性</td>
+<td>ms级</td>
+<td>微秒级，这是rabbitmq的一大特点，延迟是最低的</td>
+<td>ms级</td>
+<td>延迟在ms级以内</td>
+</tr>
+<tr>
+<td>可用性</td>
+<td>高，基于主从架构实现高可用性</td>
+<td>高，基于主从架构实现高可用性</td>
+<td>非常高，分布式架构</td>
+<td>非常高，kafka是分布式的，一个数据多个副本，少数机器宕机，不会丢失数据，不会导致不可用</td>
+</tr>
+<tr>
+<td>消息可靠性</td>
+<td>有较低的概率丢失数据</td>
+<td></td>
+<td>经过参数优化配置，可以做到0丢失</td>
+<td>经过参数优化配置，消息可以做到0丢失</td>
+</tr>
+<tr>
+<td>功能支持</td>
+<td>MQ领域的功能极其完备</td>
+<td>基于erlang开发，所以并发能力很强，性能极其好，延时很低</td>
+<td>MQ功能较为完善，还是分布式的，扩展性好</td>
+<td>功能较为简单，主要支持简单的MQ功能，在大数据领域的实时计算以及日志采集被大规模使用，是事实上的标准</td>
+</tr>
+<tr>
+<td>优劣势总结</td>
+<td>非常成熟，功能强大，在业内大量的公司以及项目中都有应用，偶尔会有较低概率丢失消息， 现在社区以及国内应用都越来越少，官方社区现在对ActiveMQ 5.x维护越来越少，几个月才发布一个版本 “  主要是基于解耦和异步来用的，较少在大规模吞吐的场景中使用。</td>
+<td>erlang语言开发，性能极其好，延时很低； 吞吐量到万级，MQ功能比较完备。 而且开源提供的管理界面非常棒，用起来很好用。 社区相对比较活跃，几乎每个月都发布几个版本。 在国内一些互联网公司近几年用 rabbitmq也比较多一些。 但是问题也是显而易见的，RabbitMQ确实吞吐量会低一些，这是因为他做的实现机制比较重。 erlang语言本身带来的问题。很难读源码，很难定制和掌控。</td>
+<td>接口简单易用，而且毕竟在阿里大规模应用过，有阿里品牌保障。日处理消息上百亿之多，可以做到大规模吞吐，性能也非常好，分布式扩展也很方便，社区维护还可以，可以支撑大规模的topic数量，支持复杂MQ业务场景。</td>
+<td>kafka的特点其实很明显，就是仅仅提供较少的核心功能，但是提供超高的吞吐量，ms级的延迟，极高的可用性以及可靠性，而且分布式可以任意扩展。 同时kafka最好是支撑较少的topic数量即可，保证其超高吞吐量。 而且kafka唯一的一点劣势是有可能消息重复消费，那么对数据准确性会造成极其轻微的影响，在大数据领域中以及日志采集中，这点轻微影响可以忽略。 这个特性天然适合大数据实时计算以及日志收集。</td>
+</tr>
+</tbody>
+</table>
+<h3 id="如何保证高可用"><a href="#如何保证高可用" class="headerlink" title="如何保证高可用"></a>如何保证高可用</h3><h4 id="RabbitMQ"><a href="#RabbitMQ" class="headerlink" title="RabbitMQ"></a>RabbitMQ</h4><p>rabbitmq有三种模式：单机模式，普通集群模式，镜像集群模式</p>
+<ol>
+<li><p>单机模式:  就是demo级别的，一般就是你本地启动了玩玩儿的，没人生产用单机模式。</p>
+</li>
+<li><p>普通集群模式：意思就是在多台机器上启动多个 rabbitmq 实例，每个机器启动一个。但是你创建的 queue，只会放在一个 rabbtimq 实例上，但是每个实例都同步 queue 的元数据。完了你消费的时候，实际上如果连接到了另外一个实例，那么那个实例会从 queue 所在实例上拉取数据过来。</p>
+<p>这种方式确实很麻烦，也不怎么好，没做到所谓的分布式，就是个普通集群。因为这导致你要么消费者每次随机连接一个实例然后拉取数据，要么固定连接那个 queue 所在实例消费数据，前者有数据拉取的开销，后者导致单实例性能瓶颈。</p>
+<p>而且如果那个放 queue 的实例宕机了，会导致接下来其他实例就无法从那个实例拉取，如果你开启了消息持久化，让 rabbitmq 落地存储消息的话，消息不一定会丢，得等这个实例恢复了，然后才可以继续从这个queue 拉取数据。</p>
+<p>这就没有什么所谓的高可用性可言了，这方案主要是提高吞吐量的，就是说让集群中多个节点来服务某个queue的读写操作。</p>
+</li>
+<li><p>镜像集群模式：这种模式，才是所谓的 rabbitmq 的高可用模式，跟普通集群模式不一样的是，你创建的queue，无论元数据还是 queue 里的消息都会存在于多个实例上，然后每次你写消息到 queue 的时候，都会自动把消息到多个实例的 queue 里进行消息同步。</p>
+<p>这样的话，好处在于，你任何一个机器宕机了，没事儿，别的机器都可以用。坏处在于，第一，这个性能开销也太大了吧，消息同步所有机器，导致网络带宽压力和消耗很重！第二，这么玩儿，就没有扩展性可言了，如果某个 queue 负载很重，你加机器，新增的机器也包含了这个 queue 的所有数据，并没有办法线性扩展你的queue。</p>
+<p>怎么开启这个镜像集群模式呢？其实很简单 rabbitmq 有很好的管理控制台，就是在后台新增一个策略，这个策略是镜像集群模式的策略，指定的时候可以要求数据同步到所有节点的，也可以要求就同步到指定数量的节点，然后你再次创建 queue 的时候，应用这个策略，就会自动将数据同步到其他的节点上去了。</p>
+</li>
+</ol>
+<h4 id="kafka"><a href="#kafka" class="headerlink" title="kafka"></a>kafka</h4><p>kafka一个最基本的架构认识：多个broker组成，每个broker是一个节点；你创建一个topic，这个topic可以划分为多个partition，每个partition可以存在于不同的broker上，每个partition就放一部分数据。</p>
+<p>这就是天然的分布式消息队列，就是说一个topic的数据，是分散放在多个机器上的，每个机器就放一部分数据。实际上rabbitmq之类的，并不是分布式消息队列，他就是传统的消息队列，只不过提供了一些集群、HA的机制而已，因为无论怎么玩儿，rabbitmq一个queue的数据都是放在一个节点里的，镜像集群下，也是每个节点都放这个queue的完整数据。</p>
+<p>kafka 0.8以前，是没有HA机制的，就是任何一个broker 宕机了，那个 broker上的 partition 就废了，没法写也没法读，没有什么高可用性可言。</p>
+<p>kafka 0.8 以后，提供了HA 机制，就是replica副本机制。每个 partition 的数据都会同步到吉他机器上，形成自己的多个 replica 副本。然后所有 replica 会选举一个 leader 出来，那么生产和消费都跟这个 leader 打交道，然后其他 replica 就是 follower。写的时候，leader 会负责把数据同步到所有 follower 上去，读的时候就直接读leader 上数据即可。只能读写 leader？很简单，要是你可以随意读写每个 follower，那么就要 care 数据一致性的问题，系统复杂度太高，很容易出问题。kafka 会均匀的将一个 partition 的所有 replica 分布在不同的机器上，这样才可以提高容错性。</p>
+<p>这么搞，就有所谓的高可用性了，因为如果某个 broker 宕机了，没事儿，那个broker上面的 partition 在其他机器上都有副本的，如果这上面有某个 partition 的 leader（broker 宕机 leader 肯定也没了），那么此时会重新选举一个新的 leader 出来，大家继续读写那个新的 leader 即可。这就有所谓的高可用性了。</p>
+<p>写数据的时候，生产者就写 leader，然后 leader 将数据落地写本地磁盘，接着其他 follower 自己主动从 leader来 pull 数据。一旦所有 follower 同步好数据了，就会发送 ack 给 leader，leader 收到所有 follower 的 ack 之后，就会返回写成功的消息给生产者。（当然，这只是其中一种模式，还可以适当调整这个行为）</p>
+<p>消费的时候，只会从 leader 去读，但是只有消息已经被所有 follower 都同步成功返回 ack 的时候（就是所有 follower 都同步到了这个消息），这个消息才会被消费者读到。</p>
+<h3 id="如果解决重复消费"><a href="#如果解决重复消费" class="headerlink" title="如果解决重复消费"></a>如果解决重复消费</h3><p>kafka 实际上有个 offset 的概念，就是每个消息写进去，都有一个 offset，代表他的序号，然后 consumer 消费了数据之后，每隔一段时间，会把自己消费过的消息的 offset 提交一下，代表我已经消费过了，下次我要是重启啥的，你就让我继续从上次消费到的 offset 来继续消费吧。</p>
+<p>但是凡事总有意外，比如我们之前生产经常遇到的，就是你有时候重启系统，看你怎么重启了，如果碰到点着急的，直接kill进程了，再重启。这会导致 consumer 有些消息处理了，但是没来得及提交 offset，尴尬了。重启之后，少数消息会再次消费一次。</p>
+<p>其实重复消费不可怕，可怕的是你没考虑到重复消费之后，怎么保证幂等性。</p>
+<p>给你举个例子吧。假设你有个系统，消费一条往数据库里插入一条，要是你一个消息重复两次，你不就插入了两条，这数据不就错了？但是你要是消费到第二次的时候，自己判断一下已经消费过了，直接扔了，不就保留了一条数据？</p>
+<p>一条数据重复出现两次，数据库里就只有一条数据，这就保证了系统的幂等性</p>
+<p>幂等性，我通俗点说，就一个数据，或者一个请求，给你重复来多次，你得确保对应的数据是不会改变的，不能出错。</p>
+<p>那所以第二个问题来了，怎么保证消息队列消费的幂等性？</p>
+<p>其实还是得结合业务来思考，我这里给几个思路：</p>
+<ol>
+<li><p>比如你拿个数据要写库，你先根据主键查一下，如果这数据都有了，你就别插入了，update一下好吧</p>
+</li>
+<li><p>比如你是写redis，那没问题了，反正每次都是set，天然幂等性</p>
+</li>
+<li><p>比如你不是上面两个场景，那做的稍微复杂一点，你需要让生产者发送每条数据的时候，里面加一个全局唯一的id，类似订单id之类的东西，然后你这里消费到了之后，先根据这个id去比如redis里查一下，之前消费过吗？如果没有消费过，你就处理，然后这个id写redis。如果消费过了，那你就别处理了，保证别重复处理相同的消息即可。</p>
+</li>
+<li><p>还有比如基于数据库的唯一键来保证重复数据不会重复插入多条，我们之前线上系统就有这个问题，就是拿到数据的时候，每次重启可能会有重复，因为kafka消费者还没来得及提交offset，重复数据拿到了以后我们插入的时候，因为有唯一键约束了，所以重复数据只会插入报错，不会导致数据库中出现脏数据</p>
+</li>
+</ol>
+<h3 id="如何确保消息不丢失"><a href="#如何确保消息不丢失" class="headerlink" title="如何确保消息不丢失"></a>如何确保消息不丢失</h3><p>消息丢失和消息重复消费对于业务来说都是致命的问题，假如用户创建了多个订单，但是某个订单信息丢失了，或者用户支付信息在传输过程中丢失了，导致用户支付了，但是业务系统却没有收到用户支付成功的消息，那这样的问题就非常非常严重了。</p>
+<p>丢数据，mq一般分为两种，要么是mq自己弄丢了，要么是我们消费的时候弄丢了。</p>
+<h4 id="RabbitMQ-1"><a href="#RabbitMQ-1" class="headerlink" title="RabbitMQ"></a>RabbitMQ</h4><ol>
+<li><p>生产者弄丢了数据</p>
+<p>生产者将数据发送到 rabbitmq 的时候，可能数据就在半路给搞丢了，因为网络啥的问题，都有可能。此时可以选择用rabbitmq提供的事务功能，就是生产者发送数据之前开启 rabbitmq 事务（channel.txSelect），然后发送消息，如果消息没有成功被rabbitmq接收到，那么生产者会收到异常报错，此时就可以回滚事务（channel.txRollback），然后重试发送消息；如果收到了消息，那么可以提交事务（channel.txCommit）。但是问题是，rabbitmq 事务机制一搞，基本上吞吐量会下来，因为太耗性能。</p>
+<p>所以一般来说，如果你要确保说写 rabbitmq 的消息别丢，可以开启 confirm 模式，在生产者那里设置开启confirm 模式之后，你每次写的消息都会分配一个唯一的id，然后如果写入了 rabbitmq 中，rabbitmq 会给你回传一个 ack 消息，告诉你说这个消息 ok 了。如果 rabbitmq 没能处理这个消息，会回调你一个 nack 接口，告诉你这个消息接收失败，你可以重试。而且你可以结合这个机制自己在内存里维护每个消息 id 的状态，如果超过一定时间还没接收到这个消息的回调，那么你可以重发。</p>
+<p>务机制和cnofirm机制最大的不同在于，事务机制是同步的，你提交一个事务之后会阻塞在那儿，但是confirm机制是异步的，你发送个消息之后就可以发送下一个消息，然后那个消息rabbitmq接收了之后会异步回调你一个接口通知你这个消息接收到了。</p>
+</li>
+</ol>
+<p>​        所以一般在生产者这块避免数据丢失，都是用confirm机制的。</p>
+<ol start="2">
+<li><p>rabbitmq 弄丢了数据</p>
+<p>就是 rabbitmq 自己弄丢了数据，这个你必须开启 rabbitmq 的持久化，就是消息写入之后会持久化到磁盘，哪怕是 rabbitmq 自己挂了，恢复之后会自动读取之前存储的数据，一般数据不会丢。除非极其罕见的是，rabbitmq还没持久化，自己就挂了，可能导致少量数据会丢失的，但是这个概率较小。</p>
+<p>设置持久化有两个步骤，第一个是创建queue的时候将其设置为持久化的，这样就可以保证 rabbitmq 持久化queue 的元数据，但是不会持久化 queue 里的数据；第二个是发送消息的时候将消息的 deliveryMode 设置为 2，就是将消息设置为持久化的，此时 rabbitmq 就会将消息持久化到磁盘上去。必须要同时设置这两个持久化才行，rabbitmq 哪怕是挂了，再次重启，也会从磁盘上重启恢复 queue，恢复这个 queue 里的数据。 </p>
+<p>而且持久化可以跟生产者那边的 confirm 机制配合起来，只有消息被持久化到磁盘之后，才会通知生产者 ack了，所以哪怕是在持久化到磁盘之前，rabbitmq挂 了，数据丢了，生产者收不到 ack，你也是可以自己重发的。</p>
+<p>哪怕是你给 rabbitmq 开启了持久化机制，也有一种可能，就是这个消息写到了 rabbitmq 中，但是还没来得及持久化到磁盘上，结果不巧，此时 rabbitmq 挂了，就会导致内存里的一点点数据会丢失。</p>
+</li>
+<li><p>消费端弄丢了数据</p>
+<p>rabbitmq如果丢失了数据，主要是因为你消费的时候，刚消费到，还没处理，结果进程挂了，比如重启了，那么就尴尬了，rabbitmq认为你都消费了，这数据就丢了。</p>
+<p>这个时候得用rabbitmq提供的ack机制，简单来说，就是你关闭rabbitmq自动ack，可以通过一个api来调用就行，然后每次你自己代码里确保处理完的时候，再程序里ack一把。这样的话，如果你还没处理完，不就没有ack？那rabbitmq就认为你还没处理完，这个时候rabbitmq会把这个消费分配给别的consumer去处理，消息是不会丢的。</p>
+</li>
+</ol>
+<h4 id="KafKa"><a href="#KafKa" class="headerlink" title="KafKa"></a>KafKa</h4><ol>
+<li><p>消费端弄丢了数据</p>
+<p>唯一可能导致消费者弄丢数据的情况，就是说，你那个消费到了这个消息，然后消费者那边自动提交了offset，让kafka以为你已经消费好了这个消息，其实你刚准备处理这个消息，你还没处理，你自己就挂了，此时这条消息就丢咯。</p>
+<p>这不是一样么，大家都知道kafka会自动提交offset，那么只要关闭自动提交offset，在处理完之后自己手动提交offset，就可以保证数据不会丢。但是此时确实还是会重复消费，比如你刚处理完，还没提交offset，结果自己挂了，此时肯定会重复消费一次，自己保证幂等性就好了。</p>
+<p>生产环境碰到的一个问题，就是说我们的kafka消费者消费到了数据之后是写到一个内存的queue里先缓冲一下，结果有的时候，你刚把消息写入内存queue，然后消费者会自动提交offset。</p>
+<p>然后此时我们重启了系统，就会导致内存queue里还没来得及处理的数据就丢失了</p>
+</li>
+<li><p>kafka弄丢了数据</p>
+<p>这块比较常见的一个场景，就是kafka某个broker宕机，然后重新选举partiton的leader时。大家想想，要是此时其他的follower刚好还有些数据没有同步，结果此时leader挂了，然后选举某个follower成leader之后，他不就少了一些数据？这就丢了一些数据啊。</p>
+<p>生产环境也遇到过，我们也是，之前kafka的leader机器宕机了，将follower切换为leader之后，就会发现说这个数据就丢了</p>
+<p>所以此时一般是要求起码设置如下4个参数：</p>
+<ol>
+<li><p>给这个topic设置replication.factor参数：这个值必须大于1，要求每个partition必须有至少2个副本</p>
+</li>
+<li><p>在kafka服务端设置min.insync.replicas参数：这个值必须大于1，这个是要求一个leader至少感知到有至少一个follower还跟自己保持联系，没掉队，这样才能确保leader挂了还有一个follower吧</p>
+</li>
+<li><p>在producer端设置acks=all：这个是要求每条数据，必须是写入所有replica之后，才能认为是写成功了</p>
+</li>
+<li><p>在producer端设置retries=MAX（很大很大很大的一个值，无限次重试的意思）：这个是要求一旦写入失败，就无限重试，卡在这里了</p>
+</li>
+</ol>
+<p>我们生产环境就是按照上述要求配置的，这样配置之后，至少在kafka broker端就可以保证在leader所在broker发生故障，进行leader切换时，数据不会丢失</p>
+</li>
+<li><p>生产者会不会弄丢数据</p>
+<p>如果按照上述的思路设置了ack=all，一定不会丢，要求是，你的leader接收到消息，所有的follower都同步到了消息之后，才认为本次写成功了。如果没满足这个条件，生产者会自动不断的重试，重试无限次。</p>
+</li>
+</ol>
+<h3 id="如何保证消息的顺序"><a href="#如何保证消息的顺序" class="headerlink" title="如何保证消息的顺序"></a>如何保证消息的顺序</h3><p>保证消息的顺序处理在某些系统中是非常重要的。例如订单，数据的有序插入等需求。</p>
+<ol>
+<li><p>rabbitmq：拆分多个queue，每个queue一个consumer，就是多一些queue而已，确实是麻烦点；或者就一个queue但是对应一个consumer，然后这个consumer内部用内存队列做排队，然后分发给底层不同的worker来处理</p>
+</li>
+<li><p>kafka：一个topic，一个partition，一个consumer，内部单线程消费，写N个内存queue，然后N个线程分别消费一个内存queue即可</p>
+</li>
+</ol>
+<h3 id="如何处理消息积压"><a href="#如何处理消息积压" class="headerlink" title="如何处理消息积压"></a>如何处理消息积压</h3><p>消息积压是很常见的现象，但是也是非常棘手的问题，因为一般都是一些线上的系统。例如数仓数据通过 kafka 到达 mind3 就发现过很多次的积压。那么如何解决这种问题呢？</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Java-大数据/" rel="tag"><i class="fa fa-tag"></i> Java 大数据</a>
+              <a href="/tags/消息队列/" rel="tag"><i class="fa fa-tag"></i> 消息队列</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/03/24/47. Spring Security 演示/" rel="prev" title="47. Spring Security 演示">
+      <i class="fa fa-chevron-left"></i> 47. Spring Security 演示
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/04/07/48. SpringBoot/" rel="next" title="48. SpringBoot">
+      48. SpringBoot <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#消息队列"><span class="nav-number">1.</span> <span class="nav-text">消息队列</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#作用"><span class="nav-number">1.1.</span> <span class="nav-text">作用</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#削峰"><span class="nav-number">1.1.1.</span> <span class="nav-text">削峰</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#解耦"><span class="nav-number">1.1.2.</span> <span class="nav-text">解耦</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#异步"><span class="nav-number">1.1.3.</span> <span class="nav-text">异步</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#副作用"><span class="nav-number">1.2.</span> <span class="nav-text">副作用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#选型"><span class="nav-number">1.3.</span> <span class="nav-text">选型</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#各消息队列对比"><span class="nav-number">1.3.1.</span> <span class="nav-text">各消息队列对比</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#如何保证高可用"><span class="nav-number">1.4.</span> <span class="nav-text">如何保证高可用</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#RabbitMQ"><span class="nav-number">1.4.1.</span> <span class="nav-text">RabbitMQ</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#kafka"><span class="nav-number">1.4.2.</span> <span class="nav-text">kafka</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#如果解决重复消费"><span class="nav-number">1.5.</span> <span class="nav-text">如果解决重复消费</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#如何确保消息不丢失"><span class="nav-number">1.6.</span> <span class="nav-text">如何确保消息不丢失</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#RabbitMQ-1"><span class="nav-number">1.6.1.</span> <span class="nav-text">RabbitMQ</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#KafKa"><span class="nav-number">1.6.2.</span> <span class="nav-text">KafKa</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#如何保证消息的顺序"><span class="nav-number">1.7.</span> <span class="nav-text">如何保证消息的顺序</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#如何处理消息积压"><span class="nav-number">1.8.</span> <span class="nav-text">如何处理消息积压</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

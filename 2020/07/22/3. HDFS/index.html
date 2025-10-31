@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="HDFS 优缺点优点 高容错性，数据自动保存多个副本，某个副本丢失之后，可以自动恢复。 适合处理大数据，能处理规模达到 GB，TB 甚至 PB 以上级别的数据 构建在廉价机器上  缺点 不适合低延迟数据访问 不适合存储大量的小文件。HDFS存储了大量的小文件，会降低NN的服务能力，NN负责文件元数据(属性，块的映射) 的管理，NN在运行时，必须将当前集群中存储所有文件的元数据全部加载到内存，而 N">
+<meta name="keywords" content="Hadoop,HDSF">
+<meta property="og:type" content="article">
+<meta property="og:title" content="3. HDSF">
+<meta property="og:url" content="https://rexyan.github.io/2020/07/22/3. HDFS/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="HDFS 优缺点优点 高容错性，数据自动保存多个副本，某个副本丢失之后，可以自动恢复。 适合处理大数据，能处理规模达到 GB，TB 甚至 PB 以上级别的数据 构建在廉价机器上  缺点 不适合低延迟数据访问 不适合存储大量的小文件。HDFS存储了大量的小文件，会降低NN的服务能力，NN负责文件元数据(属性，块的映射) 的管理，NN在运行时，必须将当前集群中存储所有文件的元数据全部加载到内存，而 N">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjPCErh4nU5IJ2ytAesDnSWvaMA1nQmh4qkrml26NjScHlowUae9Gzkc.gufZS95AIQ!!/mnull&bo=AAXQAgAF0AIRCT4!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5lojx.BMs2fTxuXMI9OOqKDwGgACGPWIyHXg8gICI8s7iIuw6QmCZUYJiaf2nsg9TXehiQlyg2staQ7CGYqursc!/mnull&bo=egmAAuQJnAIDCa4!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5lv2Uh5SQkwYnguvSotKibTvubXCseFJczfzVw3FduXJe1PBUNUJI0SQKfn4aRxJWN5CF*sAqReoesVYZzpYfGE!/mnull&bo=7gliAu4JYgIDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5pUkRF09GK7hwFjqCu3SCXM4penA7Q5nPZigxO9H5EqObidvS6rZddlwPY8tvd40Ca3Hb6G4KQrUCyusr0yQHA8!/mnull&bo=CQTcAQkE3AEDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5le4lLfCseNDfvkx*N53RYlY2WE6Bcwm0aZZaksdQhIDPe2hkGPL7Q8jUqnQDik4op4.a7x47gs*b8FIGdwj9kw!/mnull&bo=AAQAAgAEAAIDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5raEB8XfClaS2743SVeOwznBz*.4Mg8cxBQh2v37p5h*38X9C9H66ysIFgcjGnLVDneML9qTSn9eEbE1dzE.nN0!/mnull&bo=bAqOAWwKjgEDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5pe3vvEY0sVfqYfaei0Ye*vIqBFpzXyrG7LBVoolrq.p4oUuX*zTvxNJ26mecbRfmE0GZ12gFP3ac*Wz1sHjq3g!/mnull&bo=AgT.AQIE*gEDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5oELVvn.wO34VpS2itK92hKEIZxE9SqiSq9j*fJZVff7yQQfvfN20SKKHitSwTj4jct0vA5j4*KXdu*8rvxR3UE!/mnull&bo=8gmAAgALxAIDCZg!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5qsTQQsLBSMU0hVtZ0NriXuwrXNXlZPhIS9tJjA6AnCE9kIGS8wDBGBnFtCOIXGHM*imcHtl112qZF4i31*x2FA!/mnull&bo=FwZFARcGRQEDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5qsTQQsLBSMU0hVtZ0NriXuNw2ZtLl7105MSSQ2sT7Ov3pqrOiB24DdwZFWh08sp0qD9hxmqE57pDWcoGXK3hok!/mnull&bo=VgWAApYJfgQDCRg!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5lPjlSDmKa4XwpkQPDNsyxkhGuTwGDSVNCMvKSN*EWspPQoD3UVOWWXpnO5BOFNvlgOIZA1EJICDRblziSbbhr0!/mnull&bo=YwWyAGMFsgADCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5tAOnDWZzYFUvxBojPsx*qTn*soZhmrRvNOdoSnTm8T6MdNt2s1d9Dq*nAVaUqFg5ZGydBUuQlsCMFM69ugFGYA!/mnull&bo=EQVwAhEFcAIDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5udfkVQUBwgzgTu1XQuDOdxusW0xFqYlbnDHmm4fd49w1S9Cb9adXIQEE3LtdPrdcm22.LJV2cOEhsFnDVkKORY!/mnull&bo=KwWQASsFkAEDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5udfkVQUBwgzgTu1XQuDOdyD0uw3eOvzHfHAMGF9sHNVLCVB8.l6qdLYk.TfcyLsFXM1AWwMcSJ5f6OOALXROr8!/mnull&bo=PgJAAj4CQAIDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5tAOnDWZzYFUvxBojPsx*qTJesE1fdtvG*iZcUdACNNeZ7SFKR5uwm*BbwMtYjxG1CNglma3e79HVByKeEg0txI!/mnull&bo=dAWAAh8HRAMDCYA!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5niRxpMjWzU0JH6JmFSQhPnZCEak8bBMMfk9HvGuoLP3Uxo3C7Qy2NtWDfgn7pagdonELoeoIgKZGQMaieeDGWs!/mnull&bo=dwWAAhAHOwMDCfM!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5uop.ZdhHhsRmAC1BkzjBA97HmeLNl9kSwq7Rwpw9FrFvelPZT0LzscP8dmxkp8UMR5HfybuJEzQadjox9DbpBI!/mnull&bo=3AQRAdwEEQEDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5tAOnDWZzYFUvxBojPsx*qSYexbEgNR8nbDxEu9Xoy0q3ngSFyXv2zKkMy2mFCCphwriulAx3w1iwzy4PI7XaZs!/mnull&bo=ugToALoE6AADCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5iH.o8D7oFE934TLaJQdjMOBL5Dv1b9c76YYJdhs.jVEVeJoELi9FcAo9MJjZ2Tq0R7vhK6j1*m0.NyRSMhSHfA!/mnull&bo=.APdAfgD3QEDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5kP*h6unlPTbuijUhG0tIl4oqcq1zGsW1XqZ0mkfD5wwXq8aNzeyTNiBDpLnVWZt.8L.tsS7JuiGojRGjQDMjuc!/mnull&bo=*wO4Af8DuAEDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5rjtI5dzb5UcXN58Ddfomf8VCp0Ra1UoPAFSCucBv8aexstqfG66RpXS0yIfmRWsRRVHM9FJwW1pXtcX7fzsk7M!/mnull&bo=mQTOAJkEzgADCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5vyqYeyWICy4Z0xN6Q587GmcJhE1i2J4B2BoLP.vB390pyEjXdf9QwDyNPnwhdycwtJPySbpKwZNyu2io.OteP8!/mnull&bo=mQSdAJkEnQADCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5hpxeDKQ01ac1Mgyl8uB9KYcYn1ml9nWdWvqCN9TiZZqBRwBAxZwuqSQ7FWt*WXEA9ZjiJbRsE9jx9*by7F9Ov8!/mnull&bo=qgT8AKoE*AADCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5hpxeDKQ01ac1Mgyl8uB9Ka8Y9uQgsNxvJKMR5e*YScyN1V8U.ayGmD4L**9nN1W4wLhbidDhbKnydk5qHWt65s!/mnull&bo=lgQGAZYEBgEDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5scAULILqOtAlyV4SzsAREgR01Kq15ryWbKrGp1rlJFUVxySUoj9XtY8.EP0XVKxr3aqgvoItJN7pgxgy3pWjSY!/mnull&bo=eQTFAXkExQEDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5iiHJ.W399anGzLqQNo68XhRuN1.i5FndH*4K8m5NvssbgyOnbLWCM239wbCPf3k5kcgGLZUAQif7w.IwY3U12k!/mnull&bo=*QNqAf0DagEDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5iiHJ.W399anGzLqQNo68XiFFLws0zFZ8k6mLwTAVJ9PKzOgAT3c5P0DV4rlcHxrl5vI1gKtjggxrUgo9nuS3AM!/mnull&bo=BgRpAgYEaQIDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.384Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="3. HDSF">
+<meta name="twitter:description" content="HDFS 优缺点优点 高容错性，数据自动保存多个副本，某个副本丢失之后，可以自动恢复。 适合处理大数据，能处理规模达到 GB，TB 甚至 PB 以上级别的数据 构建在廉价机器上  缺点 不适合低延迟数据访问 不适合存储大量的小文件。HDFS存储了大量的小文件，会降低NN的服务能力，NN负责文件元数据(属性，块的映射) 的管理，NN在运行时，必须将当前集群中存储所有文件的元数据全部加载到内存，而 N">
+<meta name="twitter:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjPCErh4nU5IJ2ytAesDnSWvaMA1nQmh4qkrml26NjScHlowUae9Gzkc.gufZS95AIQ!!/mnull&bo=AAXQAgAF0AIRCT4!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+
+<link rel="canonical" href="https://rexyan.github.io/2020/07/22/3. HDFS/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>3. HDSF | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2020/07/22/3. HDFS/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          3. HDSF
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-07-22 23:41:57" itemprop="dateCreated datePublished" datetime="2020-07-22T23:41:57+00:00">2020-07-22</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Java-大数据进阶/" itemprop="url" rel="index"><span itemprop="name">Java 大数据进阶</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="HDFS-优缺点"><a href="#HDFS-优缺点" class="headerlink" title="HDFS 优缺点"></a>HDFS 优缺点</h3><h4 id="优点"><a href="#优点" class="headerlink" title="优点"></a>优点</h4><ol>
+<li>高容错性，数据自动保存多个副本，某个副本丢失之后，可以自动恢复。</li>
+<li>适合处理大数据，能处理规模达到 GB，TB 甚至 PB 以上级别的数据</li>
+<li>构建在廉价机器上</li>
+</ol>
+<h4 id="缺点"><a href="#缺点" class="headerlink" title="缺点"></a>缺点</h4><ol>
+<li>不适合低延迟数据访问</li>
+<li>不适合存储大量的小文件。HDFS存储了大量的小文件，会降低NN的服务能力，NN负责文件元数据(属性，块的映射) 的管理，NN在运行时，必须将当前集群中存储所有文件的元数据全部加载到内存，而 NN 的内存是有限的。</li>
+<li>不支持文件的并发写入，文件的随机修改。一个文件同一时刻只能由一个客户端进行写入，不允许多个线程同时写，而且仅支持对数据的追加，不支持随机修改。</li>
+</ol>
+<h3 id="组成架构"><a href="#组成架构" class="headerlink" title="组成架构"></a>组成架构</h3><p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjPCErh4nU5IJ2ytAesDnSWvaMA1nQmh4qkrml26NjScHlowUae9Gzkc.gufZS95AIQ!!/mnull&amp;bo=AAXQAgAF0AIRCT4!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p><strong>NameNode</strong>:</p>
+<ol>
+<li>管理 HDFS 的名称空间</li>
+<li>配置副本策略</li>
+<li>管理数据块映射信息</li>
+<li>处理客户端读写请求</li>
+</ol>
+<p><strong>DataNode</strong>：</p>
+<ol>
+<li>存储实际的数据块</li>
+<li>执行数据块的读写操作</li>
+</ol>
+<p><strong>Client</strong>：</p>
+<ol>
+<li>文件切分。文件上传 HDFS 的时候， Client 将文件切分成一个一个的 Block， 然后进行上传</li>
+<li>与 NameNode 交互，获取文件的位置信息</li>
+<li>与 DataNode 交互， 读取或者写入数据</li>
+<li>Client 提供一些命令来管理 HDFS， 比如 NameNode 格式化</li>
+<li>Client 可以通过一些命令来访问 HDFS， 比如对 HDFS 增删查改操作</li>
+</ol>
+<p><strong>Secondary NameNode</strong>：</p>
+<ol>
+<li>并非 NameNode 的热备。当 NameNode 挂掉 的时候，它并不能马上替换 NameNode 并提供服务</li>
+<li>可以辅助 NameNode，分担其工作量，比如定期合并 Fsimage 和 Edits，并推送给 NameNode </li>
+<li>在紧急情况下，可辅助恢复 NameNode</li>
+</ol>
+<h3 id="块大小"><a href="#块大小" class="headerlink" title="块大小"></a>块大小</h3><p>HDFS中的文件在物理，上是分块存储(Block) ，块的大小可以通过配置参数(dfs.blocksize)来规定，默认大小在Hadoop2.x 版本中是128M（每个块最多存储128M的数据，如果当前块存储的数据不满128M存了多少数据，就占用多少的磁盘空间，一个块只属于一个文件），老版本中是64M。</p>
+<p>为什么块大小不能设置太小，也不能设置太大。决定因素是什么？</p>
+<ol>
+<li>HDFS 的块设置太小,会增加寻址时间，程序一直在找块的开始位置。</li>
+<li>如果块设置的太大，从磁盘传输数据的时间会明显大于定位这个块开始位置所需的时间。导致程序在处理这块数据时，会非常慢。</li>
+</ol>
+<p>总结: HDFS块的大小设置主要取决于磁盘传输速率。（如果寻址时间约为10ms, 即查找到目标block的时间为10ms。<strong>寻址时间为传输时间的1%时, 则为最佳状态</strong>。因此，传输时间=10ms/0.01=1000ms=1s，而目前磁盘的传输速率普遍为100MB/s。所以块的大小取 2 的 n次方最接近 100 的值，即 128M）</p>
+<h3 id="常用命令"><a href="#常用命令" class="headerlink" title="常用命令"></a>常用命令</h3><ul>
+<li>help：输出这个命令参数</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -help put</span><br><span class="line">-put [-f] [-p] [-l] &lt;localsrc&gt; ... &lt;dst&gt; :</span><br><span class="line">  Copy files from the local file system into fs. Copying fails if the file already</span><br><span class="line">  exists, unless the -f flag is given.</span><br><span class="line">  Flags:</span><br><span class="line">                                                                       </span><br><span class="line">  -p  Preserves access and modification times, ownership and the mode. </span><br><span class="line">  -f  Overwrites the destination if it already exists.                 </span><br><span class="line">  -l  Allow DataNode to lazily persist the file to disk. Forces        </span><br><span class="line">         replication factor of 1. This flag will result in reduced</span><br><span class="line">         durability. Use with care.</span><br></pre></td></tr></table></figure>
+<ul>
+<li>ls: 显示目录信息</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -ls /</span><br><span class="line">Found 6 items</span><br><span class="line">drwx------   - rexyan supergroup          0 2020-07-12 19:47 /tmp</span><br><span class="line">drwxr-xr-x   - rexyan supergroup          0 2020-07-12 14:48 /wcinput</span><br><span class="line">drwxr-xr-x   - rexyan supergroup          0 2020-07-12 14:53 /wcinput2</span><br><span class="line">drwxr-xr-x   - rexyan supergroup          0 2020-07-12 18:33 /wcinput3</span><br><span class="line">drwxr-xr-x   - rexyan supergroup          0 2020-07-12 18:36 /wcoutput3</span><br><span class="line">drwxr-xr-x   - rexyan supergroup          0 2020-07-12 19:47 /wcoutput4</span><br></pre></td></tr></table></figure>
+<ul>
+<li>mkdir：在HDFS上创建目录</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -mkdir /test_command</span><br><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -ls /</span><br><span class="line">Found 7 items</span><br><span class="line">drwxr-xr-x   - rexyan supergroup          0 2020-07-22 23:44 /test_command</span><br><span class="line">drwx------   - rexyan supergroup          0 2020-07-12 19:47 /tmp</span><br><span class="line">drwxr-xr-x   - rexyan supergroup          0 2020-07-12 14:48 /wcinput</span><br><span class="line">drwxr-xr-x   - rexyan supergroup          0 2020-07-12 14:53 /wcinput2</span><br><span class="line">drwxr-xr-x   - rexyan supergroup          0 2020-07-12 18:33 /wcinput3</span><br><span class="line">drwxr-xr-x   - rexyan supergroup          0 2020-07-12 18:36 /wcoutput3</span><br><span class="line">drwxr-xr-x   - rexyan supergroup          0 2020-07-12 19:47 /wcoutput4</span><br></pre></td></tr></table></figure>
+<ul>
+<li>moveFromLocal：从本地剪切文件粘贴到HDFS</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[rexyan@hadoop10 ~]$ echo "hadoop test command" &gt;&gt; command.txt  # 创建文件 command.txt</span><br><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -moveFromLocal command.txt /test_command # 将文件剪切到 hdfs 中</span><br></pre></td></tr></table></figure>
+<ul>
+<li>copyFromLocal：从本地文件系统中拷贝文件到HDFS路径去</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[rexyan@hadoop10 ~]$ echo "hadoop test command" &gt;&gt; command2.txt </span><br><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -copyFromLocal command2.txt /test_command</span><br></pre></td></tr></table></figure>
+<ul>
+<li>put：等同于copyFromLocal</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[rexyan@hadoop10 ~]$ echo "hadoop test command" &gt;&gt; command3.txt  </span><br><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -put command3.txt  /test_command</span><br></pre></td></tr></table></figure>
+<ul>
+<li>copyToLocal：从HDFS拷贝到本地</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -copyToLocal /test_command/command.txt /tmp/  # 将文件从 HDFS 上拷贝到本地 /tmp 目录中</span><br></pre></td></tr></table></figure>
+<ul>
+<li>get：等同于copyToLocal，就是从HDFS下载文件到本地</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -get /test_command/command2.txt /tmp/</span><br></pre></td></tr></table></figure>
+<ul>
+<li>appendToFile：追加一个文件到已经存在的文件末尾</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -cat /test_command/command.txt # 先查看文件内容</span><br><span class="line">hadoop test command</span><br><span class="line">[rexyan@hadoop10 ~]$ echo "append content" &gt;&gt; append.txt  # 创建一个文件</span><br><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -appendToFile append.txt /test_command/command.txt # 追加文件内容</span><br><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -cat /test_command/command.txt # 查询追加的文件的内容</span><br><span class="line">hadoop test command</span><br><span class="line">append content</span><br><span class="line">[rexyan@hadoop10 ~]$</span><br></pre></td></tr></table></figure>
+<ul>
+<li>cat：显示文件内容</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -cat /test_command/command.txt # 查看文件的内容</span><br><span class="line">hadoop test command</span><br><span class="line">append content</span><br></pre></td></tr></table></figure>
+<ul>
+<li>chgrp 、-chmod、-chown：Linux文件系统中的用法一样，修改文件所属权限。</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -chmod 666 /test_command/command.txt  # 修改权限</span><br><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -chown zhangsan:zhangsan /test_command/command.txt # 修改所属人和组</span><br></pre></td></tr></table></figure>
+<ul>
+<li>cp ：从HDFS的一个路径拷贝到HDFS的另一个路径</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -cp /test_command/command.txt /wcinput  # 拷贝文件</span><br><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -ls /wcinput # 查看结果</span><br><span class="line">Found 1 items</span><br><span class="line">-rw-r--r--   3 rexyan supergroup         35 2020-07-23 00:01 /wcinput/command.txt</span><br><span class="line">[rexyan@hadoop10 ~]$</span><br></pre></td></tr></table></figure>
+<ul>
+<li>mv：在HDFS目录中移动文件</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">rexyan@hadoop10 ~]$ hadoop fs -mv /test_command/command3.txt /wcinput</span><br></pre></td></tr></table></figure>
+<ul>
+<li>tail：显示一个文件的末尾</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -tail  /wcinput/command.txt   </span><br><span class="line">hadoop test command</span><br><span class="line">append content</span><br><span class="line">[rexyan@hadoop10 ~]$</span><br></pre></td></tr></table></figure>
+<ul>
+<li>rm：删除文件或文件夹</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -rm  /wcinput/command.txt</span><br></pre></td></tr></table></figure>
+<ul>
+<li>rmdir：删除空目录</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -rmdir /wcinput2</span><br></pre></td></tr></table></figure>
+<ul>
+<li>du统计文件夹的大小信息</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -du /test_command   # 查看 test_command 目录下每个文件的大小</span><br><span class="line">35  /test_command/command.txt</span><br><span class="line">20  /test_command/command2.txt</span><br><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -du -s /test_command # 查看 test_command 目录的大小</span><br><span class="line">55  /test_command</span><br><span class="line">[rexyan@hadoop10 ~]$</span><br></pre></td></tr></table></figure>
+<ul>
+<li>setrep：设置HDFS中文件的副本数量。这里设置的副本数只是记录在NameNode的元数据中，是否真的会有这么多副本，还得看DataNode的数量。因为目前只有3台设备，最多也就3个副本，只有节点数的增加到10台时，副本数才能达到10。</li>
+</ul>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -setrep 2 /test_command/command.txt</span><br><span class="line">Replication 2 set: /test_command/command.txt</span><br></pre></td></tr></table></figure>
+<h3 id="Java-Client"><a href="#Java-Client" class="headerlink" title="Java Client"></a>Java Client</h3><p><strong>创建目录 (使用代码配置)</strong></p>
+<p>参数优先级排序：客户端代码中设置的值 &gt; ClassPath下的用户自定义配置文件 &gt; 然后是服务器的默认配置</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.yanrs.hdfs;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> org.apache.hadoop.conf.Configuration;</span><br><span class="line"><span class="keyword">import</span> org.apache.hadoop.fs.FileSystem;</span><br><span class="line"><span class="keyword">import</span> org.apache.hadoop.fs.Path;</span><br><span class="line"><span class="keyword">import</span> org.junit.Test;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> java.io.IOException;</span><br><span class="line"><span class="keyword">import</span> java.net.URI;</span><br><span class="line"><span class="keyword">import</span> java.net.URISyntaxException;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">HDFSClient</span> </span>&#123;</span><br><span class="line">    <span class="meta">@Test</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">testMkdirs</span><span class="params">()</span> <span class="keyword">throws</span> IOException, URISyntaxException, InterruptedException </span>&#123;</span><br><span class="line">        <span class="comment">// 1 获取文件系统</span></span><br><span class="line">        Configuration configuration = <span class="keyword">new</span> Configuration();</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 配置在集群上运行 方式1</span></span><br><span class="line">        <span class="comment">// configuration.set("fs.defaultFS", "hdfs://hadoop102:9000");</span></span><br><span class="line">        <span class="comment">// FileSystem fs = FileSystem.get(configuration);</span></span><br><span class="line">      	</span><br><span class="line">      	<span class="comment">// 配置在集群上运行 方式2</span></span><br><span class="line">        FileSystem fs = FileSystem.get(<span class="keyword">new</span> URI(<span class="string">"hdfs://hadoop10:9000"</span>), configuration, <span class="string">"rexyan"</span>);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 2 创建目录</span></span><br><span class="line">        fs.mkdirs(<span class="keyword">new</span> Path(<span class="string">"/test_java_client"</span>));</span><br><span class="line">        <span class="comment">// 3 关闭资源</span></span><br><span class="line">        fs.close();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>创建目录 (使用配置文件配置)</strong></p>
+<p>参数优先级排序：客户端代码中设置的值 &gt; ClassPath下的用户自定义配置文件 &gt; 然后是服务器的默认配置</p>
+<p>创建 <code>hdfs-site.xml</code> 配置文件，内容如下：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span></span><br><span class="line"><span class="meta">&lt;?xml-stylesheet type="text/xsl" href="configuration.xsl"?&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="tag">&lt;<span class="name">configuration</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">name</span>&gt;</span>dfs.replication<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">value</span>&gt;</span>1<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">configuration</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p>测试上传文件，上传后看副本数量是否是配置文件中设置的1个</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">testMkdirConfigForXml</span><span class="params">()</span> <span class="keyword">throws</span> IOException, URISyntaxException, InterruptedException </span>&#123;</span><br><span class="line">  Configuration configuration = <span class="keyword">new</span> Configuration();</span><br><span class="line">  FileSystem fs = FileSystem.get(<span class="keyword">new</span> URI(<span class="string">"hdfs://hadoop10:9000"</span>), configuration, <span class="string">"rexyan"</span>);</span><br><span class="line">  fs.copyFromLocalFile(<span class="keyword">false</span>, <span class="keyword">true</span>, <span class="keyword">new</span> Path(<span class="string">"/tmp/testFile"</span>), <span class="keyword">new</span> Path(<span class="string">"/test_java_client"</span>));</span><br><span class="line">  fs.close();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>查看效果</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5lojx.BMs2fTxuXMI9OOqKDwGgACGPWIyHXg8gICI8s7iIuw6QmCZUYJiaf2nsg9TXehiQlyg2staQ7CGYqursc!/mnull&amp;bo=egmAAuQJnAIDCa4!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p><strong>重命名</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">testRename</span><span class="params">()</span> <span class="keyword">throws</span> IOException, URISyntaxException, InterruptedException </span>&#123;</span><br><span class="line">  Configuration configuration = <span class="keyword">new</span> Configuration();</span><br><span class="line">  FileSystem fs = FileSystem.get(<span class="keyword">new</span> URI(<span class="string">"hdfs://hadoop10:9000"</span>), configuration, <span class="string">"rexyan"</span>);</span><br><span class="line">  fs.rename(<span class="keyword">new</span> Path(<span class="string">"/test_java_client/testFile"</span>), <span class="keyword">new</span> Path(<span class="string">"/test_java_client/newTestFile"</span>));</span><br><span class="line">  fs.close();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>查看文件详情</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">testFileInfo</span><span class="params">()</span> <span class="keyword">throws</span> IOException, URISyntaxException, InterruptedException </span>&#123;</span><br><span class="line">  Configuration configuration = <span class="keyword">new</span> Configuration();</span><br><span class="line">  FileSystem fs = FileSystem.get(<span class="keyword">new</span> URI(<span class="string">"hdfs://hadoop10:9000"</span>), configuration, <span class="string">"rexyan"</span>);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 递归获取 / 目录下的文件信息</span></span><br><span class="line">  RemoteIterator&lt;LocatedFileStatus&gt; listFiles = fs.listFiles(<span class="keyword">new</span> Path(<span class="string">"/"</span>), <span class="keyword">true</span>);</span><br><span class="line">  <span class="keyword">while</span> (listFiles.hasNext())&#123;</span><br><span class="line">    LocatedFileStatus status = listFiles.next();</span><br><span class="line"></span><br><span class="line">    System.out.println(<span class="string">"-----------"</span> + status.getPath().getName() + <span class="string">"-----------"</span> );</span><br><span class="line">    System.out.println(status.getAccessTime());</span><br><span class="line">    System.out.println(status.getBlockSize());</span><br><span class="line">    System.out.println(status.getModificationTime());</span><br><span class="line">    System.out.println(status.getGroup());</span><br><span class="line">    System.out.println(status.getOwner());</span><br><span class="line">    System.out.println(status.getLen());</span><br><span class="line">    System.out.println(status.getPermission());</span><br><span class="line">    System.out.println(status.getReplication());</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 获取文件块信息</span></span><br><span class="line">    BlockLocation[] blockLocations = status.getBlockLocations();</span><br><span class="line">    <span class="keyword">for</span> (BlockLocation blockLocation:blockLocations) &#123;</span><br><span class="line">      <span class="comment">// 块名称</span></span><br><span class="line">      String[] names = blockLocation.getNames();</span><br><span class="line">      <span class="keyword">for</span> (String name:names) &#123;</span><br><span class="line">        System.out.println(name);</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="comment">// 块所在机器IP</span></span><br><span class="line">      String[] hosts = blockLocation.getHosts();</span><br><span class="line">      <span class="keyword">for</span> (String host:hosts) &#123;</span><br><span class="line">        System.out.println(host);</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="comment">// 块大小</span></span><br><span class="line">      System.out.println(blockLocation.getLength());</span><br><span class="line">      <span class="comment">// 块偏移量</span></span><br><span class="line">      System.out.println(blockLocation.getOffset());</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">// 3 关闭资源</span></span><br><span class="line">  fs.close();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>判断是文件还是文件夹</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">testIsFile</span><span class="params">()</span> <span class="keyword">throws</span> IOException, URISyntaxException, InterruptedException </span>&#123;</span><br><span class="line">  Configuration configuration = <span class="keyword">new</span> Configuration();</span><br><span class="line">  FileSystem fs = FileSystem.get(<span class="keyword">new</span> URI(<span class="string">"hdfs://hadoop10:9000"</span>), configuration, <span class="string">"rexyan"</span>);</span><br><span class="line">  System.out.println(fs.isDirectory(<span class="keyword">new</span> Path(<span class="string">"/test_java_client/newTestFile"</span>)));</span><br><span class="line">  System.out.println(fs.isFile(<span class="keyword">new</span> Path(<span class="string">"/test_java_client/newTestFile"</span>)));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>文件下载</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">testDownFile</span><span class="params">()</span> <span class="keyword">throws</span> IOException, URISyntaxException, InterruptedException </span>&#123;</span><br><span class="line">  Configuration configuration = <span class="keyword">new</span> Configuration();</span><br><span class="line">  FileSystem fs = FileSystem.get(<span class="keyword">new</span> URI(<span class="string">"hdfs://hadoop10:9000"</span>), configuration, <span class="string">"rexyan"</span>);</span><br><span class="line">  fs.copyToLocalFile(<span class="keyword">new</span> Path(<span class="string">"/test_java_client/newTestFile"</span>), <span class="keyword">new</span> Path(<span class="string">"/tmp/newTestFile"</span>));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>文件夹删除</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">testRemoveFile</span><span class="params">()</span> <span class="keyword">throws</span> IOException, URISyntaxException, InterruptedException </span>&#123;</span><br><span class="line">  Configuration configuration = <span class="keyword">new</span> Configuration();</span><br><span class="line">  FileSystem fs = FileSystem.get(<span class="keyword">new</span> URI(<span class="string">"hdfs://hadoop10:9000"</span>), configuration, <span class="string">"rexyan"</span>);</span><br><span class="line">  fs.delete(<span class="keyword">new</span> Path(<span class="string">"/test_java_client/newTestFile"</span>), <span class="keyword">true</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>自定义上传</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">testCustomizeUpload</span><span class="params">()</span> <span class="keyword">throws</span> IOException, URISyntaxException, InterruptedException </span>&#123;</span><br><span class="line">  Configuration configuration = <span class="keyword">new</span> Configuration();</span><br><span class="line">  FileSystem fs = FileSystem.get(<span class="keyword">new</span> URI(<span class="string">"hdfs://hadoop10:9000"</span>), configuration, <span class="string">"rexyan"</span>);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 创建输入流</span></span><br><span class="line">  FileInputStream fileInputStream = <span class="keyword">new</span> FileInputStream(<span class="keyword">new</span> File(<span class="string">"/tmp/testFile"</span>));</span><br><span class="line">  <span class="comment">// 创建输出流</span></span><br><span class="line">  FSDataOutputStream fsDataOutputStream = fs.create(<span class="keyword">new</span> Path(<span class="string">"/test_java_client/uploadFile"</span>));</span><br><span class="line">  <span class="comment">// 流的拷贝</span></span><br><span class="line">  IOUtils.copyBytes(fileInputStream, fsDataOutputStream, <span class="number">1024</span>);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 关闭资源</span></span><br><span class="line">  IOUtils.closeStream(fsDataOutputStream);</span><br><span class="line">  IOUtils.closeStream(fileInputStream);</span><br><span class="line">  fs.close();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>自定义下载</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">testCustomizeDown</span><span class="params">()</span> <span class="keyword">throws</span> IOException, URISyntaxException, InterruptedException </span>&#123;</span><br><span class="line">  Configuration configuration = <span class="keyword">new</span> Configuration();</span><br><span class="line">  FileSystem fs = FileSystem.get(<span class="keyword">new</span> URI(<span class="string">"hdfs://hadoop10:9000"</span>), configuration, <span class="string">"rexyan"</span>);</span><br><span class="line">  <span class="comment">// 获取输入流</span></span><br><span class="line">  FSDataInputStream dataInputStream = fs.open(<span class="keyword">new</span> Path(<span class="string">"/test_java_client/uploadFile"</span>));</span><br><span class="line">  <span class="comment">// 创建输出流</span></span><br><span class="line">  FileOutputStream fileOutputStream = <span class="keyword">new</span> FileOutputStream(<span class="keyword">new</span> File(<span class="string">"/tmp/downFile"</span>));</span><br><span class="line">  <span class="comment">// 流的拷贝</span></span><br><span class="line">  IOUtils.copyBytes(dataInputStream, fileOutputStream, <span class="number">1024</span>);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 关闭资源</span></span><br><span class="line">  IOUtils.closeStream(dataInputStream);</span><br><span class="line">  IOUtils.closeStream(fileOutputStream);</span><br><span class="line">  fs.close();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>定位下载</strong></p>
+<p>先上传一个大于 128M 的文件到 HDFS 上</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5lv2Uh5SQkwYnguvSotKibTvubXCseFJczfzVw3FduXJe1PBUNUJI0SQKfn4aRxJWN5CF*sAqReoesVYZzpYfGE!/mnull&amp;bo=7gliAu4JYgIDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>下载第一块文件</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">testFirstBlockDown</span><span class="params">()</span> <span class="keyword">throws</span> IOException, URISyntaxException, InterruptedException </span>&#123;</span><br><span class="line">  Configuration configuration = <span class="keyword">new</span> Configuration();</span><br><span class="line">  FileSystem fs = FileSystem.get(<span class="keyword">new</span> URI(<span class="string">"hdfs://hadoop10:9000"</span>), configuration, <span class="string">"rexyan"</span>);</span><br><span class="line">  <span class="comment">// 获取输入流</span></span><br><span class="line">  FSDataInputStream dataInputStream = fs.open(<span class="keyword">new</span> Path(<span class="string">"/test_java_client/bigfile"</span>));</span><br><span class="line">  <span class="comment">// 创建输出流</span></span><br><span class="line">  FileOutputStream fileOutputStream = <span class="keyword">new</span> FileOutputStream(<span class="keyword">new</span> File(<span class="string">"/tmp/bigfile.part1"</span>));</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 下载 1024 * 128（也就是 128M 的文件的大小）</span></span><br><span class="line">  <span class="keyword">byte</span>[] bytes = <span class="keyword">new</span> <span class="keyword">byte</span>[<span class="number">1024</span>];</span><br><span class="line">  <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; <span class="number">1024</span> * <span class="number">128</span>; i++) &#123;</span><br><span class="line">    dataInputStream.read(bytes);</span><br><span class="line">    fileOutputStream.write(bytes);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">// 关闭资源</span></span><br><span class="line">  IOUtils.closeStream(dataInputStream);</span><br><span class="line">  IOUtils.closeStream(fileOutputStream);</span><br><span class="line">  fs.close();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>下载第二块文件</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Test</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">testSecondBlockDown</span><span class="params">()</span> <span class="keyword">throws</span> IOException, URISyntaxException, InterruptedException </span>&#123;</span><br><span class="line">  Configuration configuration = <span class="keyword">new</span> Configuration();</span><br><span class="line">  FileSystem fs = FileSystem.get(<span class="keyword">new</span> URI(<span class="string">"hdfs://hadoop10:9000"</span>), configuration, <span class="string">"rexyan"</span>);</span><br><span class="line">  <span class="comment">// 获取输入流</span></span><br><span class="line">  FSDataInputStream dataInputStream = fs.open(<span class="keyword">new</span> Path(<span class="string">"/test_java_client/bigfile"</span>));</span><br><span class="line">  <span class="comment">// 创建输出流</span></span><br><span class="line">  FileOutputStream fileOutputStream = <span class="keyword">new</span> FileOutputStream(<span class="keyword">new</span> File(<span class="string">"/tmp/bigfile.part2"</span>));</span><br><span class="line">  <span class="comment">// 定位数据文件</span></span><br><span class="line">  dataInputStream.seek(<span class="number">1024</span>*<span class="number">1024</span>*<span class="number">128</span>);</span><br><span class="line">  <span class="comment">// 拷贝下载 128M 之后的数据</span></span><br><span class="line">  IOUtils.copyBytes(dataInputStream, fileOutputStream, <span class="number">1024</span>);</span><br><span class="line">  <span class="comment">// 关闭资源</span></span><br><span class="line">  IOUtils.closeStream(dataInputStream);</span><br><span class="line">  IOUtils.closeStream(fileOutputStream);</span><br><span class="line">  fs.close();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><a href="https://github.com/rexyan/it_guigu/tree/master/hadoop_hdfs" target="_blank" rel="noopener">代码地址</a></p>
+<h3 id="Python-Client"><a href="#Python-Client" class="headerlink" title="Python Client"></a>Python Client</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> hdfs <span class="keyword">import</span> InsecureClient</span><br><span class="line"></span><br><span class="line">client = InsecureClient(<span class="string">'http://hadoop10:50070'</span>, user=<span class="string">'rexyan'</span>)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">get_file_content</span><span class="params">(file_path)</span>:</span></span><br><span class="line">    <span class="string">"""</span></span><br><span class="line"><span class="string">    读取文件内容</span></span><br><span class="line"><span class="string">    :param file_path:</span></span><br><span class="line"><span class="string">    :return:</span></span><br><span class="line"><span class="string">    """</span></span><br><span class="line">    <span class="keyword">with</span> client.read(file_path, encoding=<span class="string">"utf-8"</span>, buffer_size=<span class="number">1024</span>) <span class="keyword">as</span> reader:</span><br><span class="line">        context = reader.read()</span><br><span class="line">        <span class="keyword">return</span> context</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">upload_file</span><span class="params">(local_path, origin_path)</span>:</span></span><br><span class="line">    <span class="string">"""</span></span><br><span class="line"><span class="string">    上传本地文件到 HDFS 中</span></span><br><span class="line"><span class="string">    :param local_path:</span></span><br><span class="line"><span class="string">    :param origin_path:</span></span><br><span class="line"><span class="string">    :return:</span></span><br><span class="line"><span class="string">    """</span></span><br><span class="line">    <span class="keyword">with</span> open(local_path, encoding=<span class="string">"utf-8"</span>) <span class="keyword">as</span> reader, client.write(origin_path, encoding=<span class="string">"utf-8"</span>) <span class="keyword">as</span> writer:</span><br><span class="line">        <span class="keyword">for</span> content <span class="keyword">in</span> reader:</span><br><span class="line">            writer.write(content)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">get_file_info</span><span class="params">(origin_path)</span>:</span></span><br><span class="line">    <span class="string">"""</span></span><br><span class="line"><span class="string">    获取文件信息</span></span><br><span class="line"><span class="string">    :param origin_path: </span></span><br><span class="line"><span class="string">    :return: </span></span><br><span class="line"><span class="string">    """</span></span><br><span class="line">    <span class="comment"># 文件/路径 信息</span></span><br><span class="line">    content = client.content(origin_path)</span><br><span class="line">    print(content)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># 文件夹下所有文件名称</span></span><br><span class="line">    fnames = client.list(origin_path)</span><br><span class="line">    print(fnames)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># 文件/路径 状态信息</span></span><br><span class="line">    status = client.status(origin_path)</span><br><span class="line">    print(status)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># 重命名</span></span><br><span class="line">    <span class="comment"># client.rename('dat/features', 'features')</span></span><br><span class="line">    <span class="comment"># 删除文件</span></span><br><span class="line">    <span class="comment"># client.delete('dat', recursive=True)</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</span><br><span class="line">    <span class="comment"># print(get_file_content("/test_java_client/uploadFile"))</span></span><br><span class="line">    <span class="comment"># upload_file("/tmp/testFile", "/test_python_client/uploadFile")</span></span><br><span class="line">    get_file_info(<span class="string">"/"</span>)</span><br></pre></td></tr></table></figure>
+<p>更多信息可参考 <a href="https://hdfscli.readthedocs.io/en/latest/quickstart.html#instantiating-a-client" target="_blank" rel="noopener">此处</a></p>
+<p><a href="https://github.com/rexyan/it_guigu/tree/master/hadoop_hdfs_python" target="_blank" rel="noopener">代码地址</a></p>
+<h3 id="HDFS的写数据流程"><a href="#HDFS的写数据流程" class="headerlink" title="HDFS的写数据流程"></a>HDFS的写数据流程</h3><p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5pUkRF09GK7hwFjqCu3SCXM4penA7Q5nPZigxO9H5EqObidvS6rZddlwPY8tvd40Ca3Hb6G4KQrUCyusr0yQHA8!/mnull&amp;bo=CQTcAQkE3AEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<h4 id="正常写流程"><a href="#正常写流程" class="headerlink" title="正常写流程"></a>正常写流程</h4><ol>
+<li>服务端启动 HDFS 中的 NN 和 DN 进程</li>
+<li>客户端创建一个分布式文件系统客户端，由客户端向 NN 发送请求，请求上传文件</li>
+<li>NN处理请求，检查客户端是否有权限上传，路径是否合法等</li>
+<li>检查通过，NN 响应客户端可以上传</li>
+<li>客户端根据自己设置的块大小，开始上传第一个块，默认 0-128M, NN 根据客户端上传文件的副本数(默认为3)，根据机架感知策略选取指定数量的 DN节点返回</li>
+<li>客户端根据返回的 DN节点，请求建立传输通道，客户端向最近(网络距离最近)的DN节点发起通道建立请求，由这个DN节点依次向通道中的(距离当前DN距离最近)下一个节点发送建立通道请求，各个节点发送响应 ，通道建立成功</li>
+<li>客户端开始往第一个 DN 上传第一个Block（先从磁盘读取数据放到一个本地内存缓存），以 Packet 为单位（64K的数据），第一个 DN 收到一个 Packet 就会传给第二个 DN，第二个DN 收到后传给第三个 DN；第一个 DN 每传一个 packet 会放入一个应答队列等待应答。</li>
+<li>一个 Block 块的数据传输完成之后，通道关闭，DN 向 NN上报消息，已经收到某个块</li>
+<li>第一个 Block 块传输完成，第二块开始传输，依次重复⑤-⑧，直到最后一个块传输完成，NN向客户端响应传输完成！</li>
+</ol>
+<h4 id="异常写流程"><a href="#异常写流程" class="headerlink" title="异常写流程"></a>异常写流程</h4><ol>
+<li>1-6 步骤同上</li>
+<li>客户端每读取64K的数据，封装为一个packet，封装成功的packet，放入到一个队列中，这个队列称为dataQuene(待发送数据包) 在发送时，先将dataQuene 中的 packet 按顺序发送，发送后再放入到 ackquene (正在发送的队列) 中。每个节点在收到 packe t后，都会向客户端发送 ack 确认消息。如果一个 packet 在发送后，已经收到了所有 DN 返回的 ack 确认消息，这个 packet 会在 ackquene 中删除，假如一个 packet 在发送后，未收到 DN 返回的 ack 确认消息，则传输中止，ackquene 中的 packet 会回滚到 dataQuene。然后重新建立通道，剔除坏的DN节点。建立完成之后，继续传输！<br> 只要有一个 DN 节点收到了数据，DN 上报 NN 已经接收完此块，NN就认为当前块已经传输成功，NN会自动维护副本数！</li>
+</ol>
+<h3 id="机架感知"><a href="#机架感知" class="headerlink" title="机架感知"></a>机架感知</h3><p>在 HDFS 写数据的过程中，NameNode会选择距离待上传数据最近距离的 DataNode 接收数据。那么这个最近距离怎么计算呢？</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5le4lLfCseNDfvkx*N53RYlY2WE6Bcwm0aZZaksdQhIDPe2hkGPL7Q8jUqnQDik4op4.a7x47gs*b8FIGdwj9kw!/mnull&amp;bo=AAQAAgAEAAIDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<h3 id="Hadoop-2-7-2-副本选择"><a href="#Hadoop-2-7-2-副本选择" class="headerlink" title="Hadoop 2.7.2 副本选择"></a>Hadoop 2.7.2 副本选择</h3><p>默认是三个副本，在客户端上传的时候可以选择上传的大小和副本的数量。查看 hdfs-default.xml 文件，可以看到副本数默认为 3</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5raEB8XfClaS2743SVeOwznBz*.4Mg8cxBQh2v37p5h*38X9C9H66ysIFgcjGnLVDneML9qTSn9eEbE1dzE.nN0!/mnull&amp;bo=bAqOAWwKjgEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>在 shell 段进行文件上传的时候，可以使用 <code>-D+配置名称</code> 来设置副本数量</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hadoop fs -Ddfs.replication=1 -put xsync /replication_test</span><br></pre></td></tr></table></figure>
+<p>第一个副本在 client 所在的节点上，如果客户端在集群外，那么就随机选择一个节点</p>
+<p>第二个副本和第一个副本要位于相同的机架，但是节点随机</p>
+<p>第三个副本位于不同的机架，节点随机</p>
+<h3 id="HDFS-读数据流程"><a href="#HDFS-读数据流程" class="headerlink" title="HDFS 读数据流程"></a>HDFS 读数据流程</h3><p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5pe3vvEY0sVfqYfaei0Ye*vIqBFpzXyrG7LBVoolrq.p4oUuX*zTvxNJ26mecbRfmE0GZ12gFP3ac*Wz1sHjq3g!/mnull&amp;bo=AgT.AQIE*gEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<ol>
+<li>客户端通过Distributed FileSystem向NameNode请求下载文件，NameNode通过查询元数据，找到文件块所在的DataNode地址。</li>
+<li>挑选一台DataNode（就近原则）服务器，请求读取数据。</li>
+<li>DataNode开始传输数据给客户端（从磁盘里面读取数据输入流，以Packet为单位来做校验）。</li>
+<li>客户端以Packet为单位接收，先在本地缓存，然后写入目标文件。</li>
+</ol>
+<h3 id="NN-和-2NN-工作机制"><a href="#NN-和-2NN-工作机制" class="headerlink" title="NN 和 2NN 工作机制"></a>NN 和 2NN 工作机制</h3><p><strong>Fsimage</strong>：NameNode 内存中元数据序列化后形成的文件。</p>
+<p><strong>Edits</strong>：记录客户端更新元数据信息的每一步操作（可通过 Edits 运算出元数据）。NameNode 启动时，先滚动Edits 并生成一个空的 edits.inprogress，然后加载 Edits 和 Fsimage 到内存中，此时 NameNode 内存就持有最新的元数据信息。Client 开始对 NameNode 发送元数据的增删改的请求，这些请求的操作首先会被记录到edits.inprogress 中（查询元数据的操作不会被记录在 Edits 中，因为查询操作不会更改元数据信息），如果此时NameNode 挂掉，重启后会从 Edits 中读取元数据的信息。然后，NameNode 会在内存中执行元数据的增删改的操作。</p>
+<p>由于 Edits 中记录的操作会越来越多，Edits 文件会越来越大，导致 NameNode 在启动加载 Edits 时会很慢，所以需要对Edits和Fsimage进行合并（所谓合并，就是将Edits和Fsimage加载到内存中，照着Edits中的操作一步步执行，最终形成新的Fsimage）。SecondaryNameNode的作用就是帮助NameNode进行Edits和Fsimage的合并工作。SecondaryNameNode 首先会询问 NameNode 是否需要 CheckPoint（触发 CheckPoint 需要满足两个条件中的任意一个，定时时间【SecondaryNameNode每隔一小时执行一次】到和Edits中数据写满了【一分钟检查一次操作次数，当操作次数达到1百万时，SecondaryNameNode执行一次】）。SecondaryNameNode 执行 CheckPoint 操作，首先会让 NameNode 滚动 Edits 并生成一个空的 edits.inprogress，滚动 Edits 的目的是给 Edits 打个标记，以后所有新的操作都写入 edits.inprogress，其他未合并的 Edits 和 Fsimage 会拷贝到 SecondaryNameNode 的本地，然后将拷贝的 Edits 和 Fsimage 加载到内存中进行合并，生成 fsimage.chkpoint，然后将 fsimage.chkpoint 拷贝给 NameNode，重命名为 Fsimage 后替换掉原来的 Fsimage。NameNode 在启动时就只需要加载之前未合并的Edits 和 Fsimage 即可，因为合并过的 Edits 中的元数据信息已经被记录在 Fsimage 中。</p>
+<h4 id="CheckPoint"><a href="#CheckPoint" class="headerlink" title="CheckPoint"></a>CheckPoint</h4><h5 id="触发条件"><a href="#触发条件" class="headerlink" title="触发条件"></a>触发条件</h5><p>拉取 <code>/opt/module/hadoop-2.7.2/share/hadoop/hdfs/hadoop-hdfs-2.7.2.jar</code> jar 包，解压得到 <code>hdfs-default.xml</code> 文件。可以看到出触发 CheckPoint 的设置</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5oELVvn.wO34VpS2itK92hKEIZxE9SqiSq9j*fJZVff7yQQfvfN20SKKHitSwTj4jct0vA5j4*KXdu*8rvxR3UE!/mnull&amp;bo=8gmAAgALxAIDCZg!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>目录切换至 10 机器 <code>/opt/module/hadoop-2.7.2/data/tmp/dfs/name/current</code> 查看 edits 和 fsimage 信息</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5qsTQQsLBSMU0hVtZ0NriXuwrXNXlZPhIS9tJjA6AnCE9kIGS8wDBGBnFtCOIXGHM*imcHtl112qZF4i31*x2FA!/mnull&amp;bo=FwZFARcGRQEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>namenode 在启动的时候也会检查是否进行 CheckPoint，如果满足条件，那么也会进行 CheckPoint。从下图可以看出，启动 namenode 会先加载 fsimage 文件，然后加载 edits 文件，之后进行 CheckPoint 检查，满足条件就将 edits 合并到一个新的 fsimage 文件中，之后 HDFS 会进行安全模式，安全模式中只能读取部分数据，不能写数据。</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5qsTQQsLBSMU0hVtZ0NriXuNw2ZtLl7105MSSQ2sT7Ov3pqrOiB24DdwZFWh08sp0qD9hxmqE57pDWcoGXK3hok!/mnull&amp;bo=VgWAApYJfgQDCRg!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<h5 id="手动执行"><a href="#手动执行" class="headerlink" title="手动执行"></a>手动执行</h5><p>也可以进入安全模式后，手动的进行 CheckPoint，让其生成新的 fsimage 文件。生成新的 fsimage 文件后，之前原来的 fsimage 会被删除【最多保存两个 fsimage】。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">hadoop dfsadmin -safemode get  # 获取安全模式状态</span><br><span class="line">hadoop dfsadmin -safemode enter  # 进入安全模式</span><br><span class="line">hadoop dfsadmin -saveNamespace # 手动进行 CheckPoint</span><br><span class="line">hadoop dfsadmin -safemode leave  # 离开安全模式</span><br></pre></td></tr></table></figure>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5lPjlSDmKa4XwpkQPDNsyxkhGuTwGDSVNCMvKSN*EWspPQoD3UVOWWXpnO5BOFNvlgOIZA1EJICDRblziSbbhr0!/mnull&amp;bo=YwWyAGMFsgADCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<h4 id="NN-中存储的信息"><a href="#NN-中存储的信息" class="headerlink" title="NN 中存储的信息"></a>NN 中存储的信息</h4><p>NN 的元数据分为两部分，一部分是 inodes 信息，该信息是记录在 fsimage 文件中或者 edits 文件中的。另一部分是 blocklist 块的位置信息，这部分信息不是记录在 fsimage 文件中或者 edits 文件中的，而是每次 DN 在启动后自动上报的。</p>
+<p>停止所有的 datanode 和 namenode，然后单独启动 namenode，可以看到在安全模式中，namenode 在等待 datanode 上传 blocklist 块的位置信息。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">hadoop-daemon.sh stop datanode  # 在 10，11，12 上停止 datanode </span><br><span class="line">hadoop-daemon.sh stop namenode  # 在 10 上停止 datanode </span><br><span class="line">hadoop-daemon.sh start namenode # 在 10 上启动 namenode</span><br></pre></td></tr></table></figure>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5tAOnDWZzYFUvxBojPsx*qTn*soZhmrRvNOdoSnTm8T6MdNt2s1d9Dq*nAVaUqFg5ZGydBUuQlsCMFM69ugFGYA!/mnull&amp;bo=EQVwAhEFcAIDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>即下图中，红色部分的 inodes 信息是记录在 fsimage 文件中或者 edits 文件中的。蓝色部分的 blocklist 块位置信息是由 datanode 上传的。</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5udfkVQUBwgzgTu1XQuDOdxusW0xFqYlbnDHmm4fd49w1S9Cb9adXIQEE3LtdPrdcm22.LJV2cOEhsFnDVkKORY!/mnull&amp;bo=KwWQASsFkAEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5udfkVQUBwgzgTu1XQuDOdyD0uw3eOvzHfHAMGF9sHNVLCVB8.l6qdLYk.TfcyLsFXM1AWwMcSJ5f6OOALXROr8!/mnull&amp;bo=PgJAAj4CQAIDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<h5 id="查看-fsimage-内容"><a href="#查看-fsimage-内容" class="headerlink" title="查看 fsimage 内容"></a>查看 fsimage 内容</h5><p>在 10 机器上执行以下命令，oiv  代表查看 fsimage 内容，-p 指定输出格式为 XML，-i 指定 fsimage，-o 是将结果文件的位置</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hdfs oiv -p XML -i fsimage_0000000000000000916 -o ~/fsimage.xml</span><br></pre></td></tr></table></figure>
+<p>查看 fsimage.xml 文件，内容如下，可以看到只有一些 inodes 数据信息，但是没有块信息，因为块信息是各个 datanode 节点上传的。</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5tAOnDWZzYFUvxBojPsx*qTJesE1fdtvG*iZcUdACNNeZ7SFKR5uwm*BbwMtYjxG1CNglma3e79HVByKeEg0txI!/mnull&amp;bo=dAWAAh8HRAMDCYA!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<h5 id="查看-Edits-内容"><a href="#查看-Edits-内容" class="headerlink" title="查看 Edits 内容"></a>查看 Edits 内容</h5><p>在 10 机器上执行以下命令，oev  代表查看 edits 内容，-p 指定输出格式为 XML，-i 指定 edits，-o 是将结果文件的位置</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hdfs oev -p XML -i edits_0000000000000000866-0000000000000000878  -o ~/edits.xml</span><br></pre></td></tr></table></figure>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5niRxpMjWzU0JH6JmFSQhPnZCEak8bBMMfk9HvGuoLP3Uxo3C7Qy2NtWDfgn7pagdonELoeoIgKZGQMaieeDGWs!/mnull&amp;bo=dwWAAhAHOwMDCfM!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<h4 id="安全模式"><a href="#安全模式" class="headerlink" title="安全模式"></a>安全模式</h4><p>NN在启动时，当NN将所有的元数据加载完成后，等待DN来上报块的信息，当NN中所保存的所有块的最小副本数(默认为1) /  块的总数 &gt;  99.99%时，NN会自动离开安全模式。在安全模式，客户端只能进行有限读操作【已经上报完成的块信息可以被读取】，但是不能进行写操作。</p>
+<p>下图中每个 datanode 都有 10 个块</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5uop.ZdhHhsRmAC1BkzjBA97HmeLNl9kSwq7Rwpw9FrFvelPZT0LzscP8dmxkp8UMR5HfybuJEzQadjox9DbpBI!/mnull&amp;bo=3AQRAdwEEQEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>然后在 10 机器上上传3个文件，副本数设置为1，根据机架感知，这三个文件都会在 10 机器上，块信息如下:</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5tAOnDWZzYFUvxBojPsx*qSYexbEgNR8nbDxEu9Xoy0q3ngSFyXv2zKkMy2mFCCphwriulAx3w1iwzy4PI7XaZs!/mnull&amp;bo=ugToALoE6AADCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>然后停止 hdfs 服务，停止 namenode 和 datanode。再次重新启动 namenode，11 和 12 机器上的 datanode，会发现 hdfs 服务会一直处于安全模式，因为 11 或 12 机器上的所有块的最小副本数之和为 10（10个块，每个块至少一个副本）/ 13 不大于 99.99%，所以会处于安全模式。</p>
+<p>还可以手动进入和离开安全模式</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">hadoop dfsadmin -safemode get  # 获取安全模式状态</span><br><span class="line">hadoop dfsadmin -safemode enter  # 进入安全模式</span><br><span class="line">hadoop dfsadmin -safemode leave  # 离开安全模式</span><br></pre></td></tr></table></figure>
+<h4 id="元数据的恢复和备份"><a href="#元数据的恢复和备份" class="headerlink" title="元数据的恢复和备份"></a>元数据的恢复和备份</h4><h5 id="从-2NN-恢复元数据"><a href="#从-2NN-恢复元数据" class="headerlink" title="从 2NN 恢复元数据"></a>从 2NN 恢复元数据</h5><p>停止 hdfs 服务，删除 10 机器 namenode 的 current 元数据目录</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[rexyan@hadoop10 name]$ stop-dfs.sh</span><br><span class="line">[rexyan@hadoop10 name]$ pwd </span><br><span class="line">/opt/module/hadoop-2.7.2/data/tmp/dfs/name</span><br><span class="line">[rexyan@hadoop10 name]$ rm -rf current/</span><br></pre></td></tr></table></figure>
+<p>将 12 机器上的 2NN 的数据拷贝到 10 上来</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[rexyan@hadoop10 name]$ scp -r rexyan@hadoop12:/opt/module/hadoop-2.7.2/data/tmp/dfs/namesecondary/current ./</span><br></pre></td></tr></table></figure>
+<p>重新启动 namenode 即可。因为 2nn 并不是实时同步 nn 的数据的，所以可能会有部分元数据丢失。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hadoop-daemon.sh start namenode</span><br></pre></td></tr></table></figure>
+<p>如果出现元数据丢失，那么启动的时候 hdfs 服务会一直处于安全模式，我们可以使用 <code>hadoop dfsadmin -safemode leave</code> 离开安全模式，离开后删除坏的块信息就能解决问题。</p>
+<h5 id="备份元数据"><a href="#备份元数据" class="headerlink" title="备份元数据"></a>备份元数据</h5><p>为了防止 nn 存储数据的磁盘出现问题，在存储元数据时，可以配置多个存储元数据的目录，即可以将元数据存储在不同磁盘上。</p>
+<p>修改 namenode 所在 10 机器的 hdfs-site.xml 文件，添加如下配置，<code>tmp/dfs/data1</code> 和 <code>tmp/dfs/data2</code> 分别为两个备份目录</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">name</span>&gt;</span>dfs.datanode.data.dir<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">value</span>&gt;</span>file:///tmp/dfs/data1,file:///tmp/dfs/data2<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p>然后查看 <code>/tmp/dfs/data1</code> 和 <code>/tmp/dfs/data2</code> 目录，就能看到备份的数据。</p>
+<h3 id="DN-工作机制"><a href="#DN-工作机制" class="headerlink" title="DN 工作机制"></a>DN 工作机制</h3><p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5iH.o8D7oFE934TLaJQdjMOBL5Dv1b9c76YYJdhs.jVEVeJoELi9FcAo9MJjZ2Tq0R7vhK6j1*m0.NyRSMhSHfA!/mnull&amp;bo=.APdAfgD3QEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<ol>
+<li>一个数据块在 DataNode 上以文件形式存储在磁盘上，包括两个文件，一个是数据本身，一个是元数据包括数据块的长度，块数据的校验和，以及时间戳。</li>
+<li>DataNode 启动后向 NameNode 注册，通过后，周期性（1小时）的向 NameNode 上报所有的块信息。</li>
+<li>心跳是每3秒一次，心跳返回结果带有 NameNode 给该 DataNode 的命令如复制块数据到另一台机器，或删除某个数据块。如果超过10分钟没有收到某个 DataNode 的心跳，则认为该节点不可用。</li>
+<li>集群运行中可以安全加入和退出一些机器。</li>
+</ol>
+<h4 id="DN-不可用的场景"><a href="#DN-不可用的场景" class="headerlink" title="DN 不可用的场景"></a>DN 不可用的场景</h4><p>DN 和 NN 之间的心跳是 3 秒一次，超过 3s 后并不会认为该 DN 不可用，而是得等到 15 分钟后才将 DN 标记为死亡状态</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5kP*h6unlPTbuijUhG0tIl4oqcq1zGsW1XqZ0mkfD5wwXq8aNzeyTNiBDpLnVWZt.8L.tsS7JuiGojRGjQDMjuc!/mnull&amp;bo=*wO4Af8DuAEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<h4 id="DN-数据完整性"><a href="#DN-数据完整性" class="headerlink" title="DN 数据完整性"></a>DN 数据完整性</h4><p>DN 在将数据块信息上报 NN 的时候，会进行数据完整性的校验。即当 DataNode 读取 Block 的时候，它会计算CheckSum值，如果计算后的 CheckSum，与 Block 创建时值不一样，说明 Block 已经损坏，Client 会读取其他DataNode 上的 Block。DataNode 还会在其文件创建后周期性验证 CheckSum。</p>
+<h4 id="服役新节点"><a href="#服役新节点" class="headerlink" title="服役新节点"></a>服役新节点</h4><p>克隆新机器，配置 IP 为 192.168.1.13，hostname 为 hadoop13。并安装 JDK，Hadoop </p>
+<p>配置新机器的 hosts 映射，在其他机器添加本机的 hosts 映射</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">192.168.1.10 hadoop10</span><br><span class="line">192.168.1.11 hadoop11</span><br><span class="line">192.168.1.12 hadoop12</span><br><span class="line">192.168.1.13 hadoop13</span><br></pre></td></tr></table></figure>
+<p>在 core-site.xml 配置 nn 的地址</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">configuration</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">name</span>&gt;</span>fs.defaultFS<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">value</span>&gt;</span>hdfs://hadoop10:9000<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"></span><br><span class="line">  <span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">name</span>&gt;</span>hadoop.tmp.dir<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">value</span>&gt;</span>/opt/module/hadoop-2.7.2/data/tmp<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">  <span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">configuration</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p>在 yarn-site.xml 配置 rm 的地址</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">configuration</span>&gt;</span></span><br><span class="line">    <span class="comment">&lt;!-- 获取数据的方式 --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">name</span>&gt;</span>yarn.nodemanager.aux-services<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">value</span>&gt;</span>mapreduce_shuffle<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">&lt;!-- 指定YARN的ResourceManager的地址 --&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">name</span>&gt;</span>yarn.resourcemanager.hostname<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">value</span>&gt;</span>hadoop10<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">configuration</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p>启动新 DN 节点，然后就可以看到新节点已经加入了</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5rjtI5dzb5UcXN58Ddfomf8VCp0Ra1UoPAFSCucBv8aexstqfG66RpXS0yIfmRWsRRVHM9FJwW1pXtcX7fzsk7M!/mnull&amp;bo=mQTOAJkEzgADCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<h4 id="退役旧节点"><a href="#退役旧节点" class="headerlink" title="退役旧节点"></a>退役旧节点</h4><h5 id="白名单隔离"><a href="#白名单隔离" class="headerlink" title="白名单隔离"></a>白名单隔离</h5><p>只有在白名单里面的节点才能访问 namenode，新建 whitenamelist 文件，内容如下：会将上述加入集群的 hadoop13 隔离，不让其加入集群</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">hadoop10</span><br><span class="line">hadoop11</span><br><span class="line">hadoop12</span><br></pre></td></tr></table></figure>
+<p>在 hdfs-site.xml 中添加如下配置</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">   <span class="tag">&lt;<span class="name">name</span>&gt;</span>dfs.hosts<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">   <span class="tag">&lt;<span class="name">value</span>&gt;</span>/home/rexyan/whitenamelist<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p>然后重启 namenode 或者使用下面命令重新读取 <code>dfs.hosts</code> 参数，注意，以下命令只针对配置黑白名单有用</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hadoop dfsadmin -refreshNodes</span><br></pre></td></tr></table></figure>
+<p>配置完成之后就会发现 hadoop13 已经不在集群中了</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5vyqYeyWICy4Z0xN6Q587GmcJhE1i2J4B2BoLP.vB390pyEjXdf9QwDyNPnwhdycwtJPySbpKwZNyu2io.OteP8!/mnull&amp;bo=mQSdAJkEnQADCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<h5 id="黑名单退役"><a href="#黑名单退役" class="headerlink" title="黑名单退役"></a>黑名单退役</h5><p>恢复 hadoop13 机器，让其重新加入集群。并且上传一个文件到 hadoop13 中，副本数指定为 1（也就是只让 hadoop13 中有这个文件）</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hadoop fs -Ddfs.replication=1 -put hadoop-hdfs-2.7.2.jar /</span><br></pre></td></tr></table></figure>
+<p>然后在 hadoop10 上的 hdfs-site.xml 中配置黑名单，新建 blacknamelist 文件，内容如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hadoop13</span><br></pre></td></tr></table></figure>
+<p>hdfs-site.xml 中新增配置如下：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">   <span class="tag">&lt;<span class="name">name</span>&gt;</span>dfs.hosts.exclude<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">   <span class="tag">&lt;<span class="name">value</span>&gt;</span>/home/rexyan/blacknamelist<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p>执行下面命令刷新节点信息<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hadoop dfsadmin -refreshNodes</span><br></pre></td></tr></table></figure></p>
+<p>查看状态，会发现 hadoop13 所在的节点处于 Decommissioned In Progress 状态，此状态就是将 hadoop13 的数据移交到其他节点上，因为我们之前上传了文件到 hdfs 中，且该文件是只属于 hadoop13 的。</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5hpxeDKQ01ac1Mgyl8uB9KYcYn1ml9nWdWvqCN9TiZZqBRwBAxZwuqSQ7FWt*WXEA9ZjiJbRsE9jx9*by7F9Ov8!/mnull&amp;bo=qgT8AKoE*AADCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>等待一段时间后状态就会变成 Decommissioned，代表退役完成。</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5hpxeDKQ01ac1Mgyl8uB9Ka8Y9uQgsNxvJKMR5e*YScyN1V8U.ayGmD4L**9nN1W4wLhbidDhbKnydk5qHWt65s!/mnull&amp;bo=lgQGAZYEBgEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>注意⚠️：如果配置了白名单，那么在配置黑名单的时候要保证在白名单中也有此节点。因为白名单是限制访问，如果白名单中没有此节点，那么不能访问也就不能完成退役。</p>
+<h4 id="DN-多目录配置"><a href="#DN-多目录配置" class="headerlink" title="DN 多目录配置"></a>DN 多目录配置</h4><p>DataNode 也可以配置成多个目录，每个目录存储的数据不一样。即：数据不是副本。注意，这里和 namenode 不一样，不是备份！而是将数据写入新目录。哪个机器需要加添加多目录那么就在哪台机器上进行配置，例如在 hadoop12 上完成多目录的配置，那么就新建一个 new_data 目录，并且对 hdfs-site.xml 添加内容</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[rexyan@hadoop12 hadoop-2.7.2]$ mkdir new_data # 新建目录，在真实场景中，该目录应该存在于新磁盘上</span><br><span class="line">[rexyan@hadoop12 hadoop-2.7.2]$ pwd  # 显示目录路径</span><br><span class="line">/opt/module/hadoop-2.7.2</span><br><span class="line">[rexyan@hadoop12 hadoop-2.7.2]$</span><br></pre></td></tr></table></figure>
+<p>编辑 hdfs-site.xml 添加以下内容：<br><figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">   <span class="tag">&lt;<span class="name">name</span>&gt;</span>dfs.datanode.data.dir<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">   <span class="tag">&lt;<span class="name">value</span>&gt;</span>file:///$&#123;hadoop.tmp.dir&#125;/dfs/data,file:///opt/module/hadoop-2.7.2/new_data<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br></pre></td></tr></table></figure></p>
+<p>重启 hadoop12 的datanode，然后上传两个文件。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[rexyan@hadoop12 ~]$ hadoop fs -put file3 /</span><br><span class="line">[rexyan@hadoop12 ~]$ hadoop fs -put file4 /</span><br></pre></td></tr></table></figure>
+<p>file3 和 file4 两个文件在都存在 hadoop12 的节点上，且 file3 的块ID 为1073741862，fiel4 的块 ID 为1073741863</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5scAULILqOtAlyV4SzsAREgR01Kq15ryWbKrGp1rlJFUVxySUoj9XtY8.EP0XVKxr3aqgvoItJN7pgxgy3pWjSY!/mnull&amp;bo=eQTFAXkExQEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>查看两个存储数据的目录，会发现一个目录存储了一个文件的块信息</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5iiHJ.W399anGzLqQNo68XhRuN1.i5FndH*4K8m5NvssbgyOnbLWCM239wbCPf3k5kcgGLZUAQif7w.IwY3U12k!/mnull&amp;bo=*QNqAf0DagEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5iiHJ.W399anGzLqQNo68XiFFLws0zFZ8k6mLwTAVJ9PKzOgAT3c5P0DV4rlcHxrl5vI1gKtjggxrUgo9nuS3AM!/mnull&amp;bo=BgRpAgYEaQIDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<h3 id="解决HDFS上小文件的存储"><a href="#解决HDFS上小文件的存储" class="headerlink" title="解决HDFS上小文件的存储"></a>解决HDFS上小文件的存储</h3><ol>
+<li>从源头上解决，在上传时，将多个小文件归档，tar -zcvf xxx.tar.gz  小文件列表</li>
+<li>如果小文件已经上传到HDFS了，可以使用在线归档。在线归档的功能实际是一个MR程序，这个程序将HDFS已经存在的多个小文件归档为一个归档文件！</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Hadoop/" rel="tag"><i class="fa fa-tag"></i> Hadoop</a>
+              <a href="/tags/HDSF/" rel="tag"><i class="fa fa-tag"></i> HDSF</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/07/12/2. Hadoop 分布式/" rel="prev" title="2. Hadoop 分布式">
+      <i class="fa fa-chevron-left"></i> 2. Hadoop 分布式
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/07/27/JSONP 单点登录方案/" rel="next" title="JSONP 单点登录方案">
+      JSONP 单点登录方案 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#HDFS-优缺点"><span class="nav-number">1.</span> <span class="nav-text">HDFS 优缺点</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#优点"><span class="nav-number">1.1.</span> <span class="nav-text">优点</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#缺点"><span class="nav-number">1.2.</span> <span class="nav-text">缺点</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#组成架构"><span class="nav-number">2.</span> <span class="nav-text">组成架构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#块大小"><span class="nav-number">3.</span> <span class="nav-text">块大小</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#常用命令"><span class="nav-number">4.</span> <span class="nav-text">常用命令</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Java-Client"><span class="nav-number">5.</span> <span class="nav-text">Java Client</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Python-Client"><span class="nav-number">6.</span> <span class="nav-text">Python Client</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#HDFS的写数据流程"><span class="nav-number">7.</span> <span class="nav-text">HDFS的写数据流程</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#正常写流程"><span class="nav-number">7.1.</span> <span class="nav-text">正常写流程</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#异常写流程"><span class="nav-number">7.2.</span> <span class="nav-text">异常写流程</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#机架感知"><span class="nav-number">8.</span> <span class="nav-text">机架感知</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Hadoop-2-7-2-副本选择"><span class="nav-number">9.</span> <span class="nav-text">Hadoop 2.7.2 副本选择</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#HDFS-读数据流程"><span class="nav-number">10.</span> <span class="nav-text">HDFS 读数据流程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#NN-和-2NN-工作机制"><span class="nav-number">11.</span> <span class="nav-text">NN 和 2NN 工作机制</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#CheckPoint"><span class="nav-number">11.1.</span> <span class="nav-text">CheckPoint</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#触发条件"><span class="nav-number">11.1.1.</span> <span class="nav-text">触发条件</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#手动执行"><span class="nav-number">11.1.2.</span> <span class="nav-text">手动执行</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#NN-中存储的信息"><span class="nav-number">11.2.</span> <span class="nav-text">NN 中存储的信息</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#查看-fsimage-内容"><span class="nav-number">11.2.1.</span> <span class="nav-text">查看 fsimage 内容</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#查看-Edits-内容"><span class="nav-number">11.2.2.</span> <span class="nav-text">查看 Edits 内容</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#安全模式"><span class="nav-number">11.3.</span> <span class="nav-text">安全模式</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#元数据的恢复和备份"><span class="nav-number">11.4.</span> <span class="nav-text">元数据的恢复和备份</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#从-2NN-恢复元数据"><span class="nav-number">11.4.1.</span> <span class="nav-text">从 2NN 恢复元数据</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#备份元数据"><span class="nav-number">11.4.2.</span> <span class="nav-text">备份元数据</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#DN-工作机制"><span class="nav-number">12.</span> <span class="nav-text">DN 工作机制</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#DN-不可用的场景"><span class="nav-number">12.1.</span> <span class="nav-text">DN 不可用的场景</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#DN-数据完整性"><span class="nav-number">12.2.</span> <span class="nav-text">DN 数据完整性</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#服役新节点"><span class="nav-number">12.3.</span> <span class="nav-text">服役新节点</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#退役旧节点"><span class="nav-number">12.4.</span> <span class="nav-text">退役旧节点</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#白名单隔离"><span class="nav-number">12.4.1.</span> <span class="nav-text">白名单隔离</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#黑名单退役"><span class="nav-number">12.4.2.</span> <span class="nav-text">黑名单退役</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#DN-多目录配置"><span class="nav-number">12.5.</span> <span class="nav-text">DN 多目录配置</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#解决HDFS上小文件的存储"><span class="nav-number">13.</span> <span class="nav-text">解决HDFS上小文件的存储</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

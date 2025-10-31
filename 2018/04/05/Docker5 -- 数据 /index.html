@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="Docker 在使用中往往需要对数据进行持久化，或者需要在多个容器之间进行数据共享。容器中管理数据主要有两种方式：  数据卷：容器内数据直接映射到本地主机上 数据卷镜像：使用特定的容器维护数据卷  数据卷数据卷是一个可供容器使用的特殊目录，类似Linux的mount操作。 数据卷有很多特性：  数据卷可以在容器之间共享和重用 对数据卷内数据的修改会立马生效 对数据的更新不会影响容器，解耦了应用和数">
+<meta name="keywords" content="Docker,容器">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Docker5 数据">
+<meta property="og:url" content="https://rexyan.github.io/2018/04/05/Docker5 -- 数据 /index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="Docker 在使用中往往需要对数据进行持久化，或者需要在多个容器之间进行数据共享。容器中管理数据主要有两种方式：  数据卷：容器内数据直接映射到本地主机上 数据卷镜像：使用特定的容器维护数据卷  数据卷数据卷是一个可供容器使用的特殊目录，类似Linux的mount操作。 数据卷有很多特性：  数据卷可以在容器之间共享和重用 对数据卷内数据的修改会立马生效 对数据的更新不会影响容器，解耦了应用和数">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.391Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Docker5 数据">
+<meta name="twitter:description" content="Docker 在使用中往往需要对数据进行持久化，或者需要在多个容器之间进行数据共享。容器中管理数据主要有两种方式：  数据卷：容器内数据直接映射到本地主机上 数据卷镜像：使用特定的容器维护数据卷  数据卷数据卷是一个可供容器使用的特殊目录，类似Linux的mount操作。 数据卷有很多特性：  数据卷可以在容器之间共享和重用 对数据卷内数据的修改会立马生效 对数据的更新不会影响容器，解耦了应用和数">
+
+<link rel="canonical" href="https://rexyan.github.io/2018/04/05/Docker5 -- 数据 /">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Docker5 数据 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2018/04/05/Docker5 -- 数据 /">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Docker5 数据
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2018-04-05 22:36:57" itemprop="dateCreated datePublished" datetime="2018-04-05T22:36:57+00:00">2018-04-05</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Docker/" itemprop="url" rel="index"><span itemprop="name">Docker</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>Docker 在使用中往往需要对数据进行持久化，或者需要在多个容器之间进行数据共享。容器中管理数据主要有两种方式：</p>
+<ol>
+<li>数据卷：容器内数据直接映射到本地主机上</li>
+<li>数据卷镜像：使用特定的容器维护数据卷</li>
+</ol>
+<h3 id="数据卷"><a href="#数据卷" class="headerlink" title="数据卷"></a>数据卷</h3><p>数据卷是一个可供容器使用的特殊目录，类似Linux的mount操作。</p>
+<p>数据卷有很多特性：</p>
+<ol>
+<li>数据卷可以在容器之间共享和重用</li>
+<li>对数据卷内数据的修改会立马生效</li>
+<li>对数据的更新不会影响容器，解耦了应用和数据</li>
+<li>卷会一直存在，直到没有容器使用，可以安全的卸载。</li>
+</ol>
+<h4 id="容器内创建数据卷"><a href="#容器内创建数据卷" class="headerlink" title="容器内创建数据卷"></a>容器内创建数据卷</h4><p>使用docker run的时候，可以使用-v在容器内创建一个数据卷，多次使用-v可以创建多个数据卷。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">root@ubuntu:~# docker pull training/webapp</span><br><span class="line">Using default tag: latest</span><br><span class="line">latest: Pulling from training/webapp</span><br><span class="line">e190868d63f8: Pull complete </span><br><span class="line">909cd34c6fd7: Pull complete </span><br><span class="line">0b9bfabab7c1: Pull complete </span><br><span class="line">a3ed95caeb02: Pull complete </span><br><span class="line">10bbbc0fc0ff: Pull complete </span><br><span class="line">fca59b508e9f: Pull complete </span><br><span class="line">e7ae2541b15b: Pull complete </span><br><span class="line">9dd97ef58ce9: Pull complete </span><br><span class="line">a4c1b0cb7af7: Pull complete </span><br><span class="line">Digest: sha256:06e9c1983bd6d5db5fba376ccd63bfa529e8d02f23d5079b8f74a616308fb11d</span><br><span class="line">Status: Downloaded newer image for training/webapp:latest</span><br></pre></td></tr></table></figure></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">root@kindle15:~# docker run -d -p 5000:5000 --name web -v /webapp training/webapp</span><br><span class="line">5112b10e6b3c4bf0b96c5dbfb8a950089e0a33695bda193ff15dd80f55ee674d</span><br><span class="line">root@kindle15:~# docker ps</span><br><span class="line">CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS                    NAMES</span><br><span class="line">5112b10e6b3c        training/webapp     &quot;python app.py&quot;     4 seconds ago       Up 3 seconds        0.0.0.0:5000-&gt;5000/tcp   web</span><br><span class="line">root@kindle15:~#</span><br></pre></td></tr></table></figure>
+<p>浏览器访问5000端口可以看见  Hello world!</p>
+<p>使用exec重新连接看下是否有/webapp目录【如果不用-v指定创建一个，是不会有/webapp这个目录的】<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">root@kindle15:~# docker exec -it 5112b10 /bin/bash</span><br><span class="line">root@5112b10e6b3c:/opt/webapp# cd /webapp/</span><br><span class="line">root@5112b10e6b3c:/webapp# ll</span><br><span class="line">total 8</span><br><span class="line">drwxr-xr-x 2 root root 4096 Apr  5 07:26 ./</span><br><span class="line">drwxr-xr-x 1 root root 4096 Apr  5 07:26 ../</span><br></pre></td></tr></table></figure></p>
+<h4 id="主机目录作为数据卷"><a href="#主机目录作为数据卷" class="headerlink" title="主机目录作为数据卷"></a>主机目录作为数据卷</h4><p>先查看下镜像<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/src/webapp# docker images </span><br><span class="line">REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE</span><br><span class="line">ubuntu              14.04               a35e70164dfb        4 weeks ago         222 MB</span><br><span class="line">training/webapp     latest              6fae60ef3446        2 years ago         349 MB</span><br></pre></td></tr></table></figure></p>
+<p>创建一个容器，并将本机目录文件夹/src/webapp作为数据卷和容器中的/tmp目录进行关联<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/src/webapp# docker run -it -v /src/webapp:/tmp ubuntu:14.04 /bin/bash</span><br></pre></td></tr></table></figure></p>
+<p>到容器中/tmp下新建一个目录<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">root@fe571def773f:/# cd /tmp/</span><br><span class="line">root@fe571def773f:/tmp# ll</span><br><span class="line">total 8</span><br><span class="line">drwxr-xr-x  2 root root 4096 Apr  5 13:11 ./</span><br><span class="line">drwxr-xr-x 34 root root 4096 Apr  5 13:23 ../</span><br><span class="line">root@fe571def773f:/tmp# </span><br><span class="line">root@fe571def773f:/tmp# </span><br><span class="line">root@fe571def773f:/tmp# touch hahahah.txt</span><br><span class="line">root@fe571def773f:/tmp# </span><br><span class="line">root@fe571def773f:/tmp# exit</span><br></pre></td></tr></table></figure></p>
+<p>退出容器，查看/src/webapp下文件的变化，可以看见新建的文件hahahah.txt<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/src/webapp# cd /src/webapp/</span><br><span class="line">root@rexyan:/src/webapp# ll</span><br><span class="line">total 8</span><br><span class="line">drwxr-xr-x 2 root root 4096 Apr  5 21:23 ./</span><br><span class="line">drwxr-xr-x 3 root root 4096 Apr  5 21:11 ../</span><br><span class="line">-rw-r--r-- 1 root root    0 Apr  5 21:23 hahahah.txt</span><br></pre></td></tr></table></figure></p>
+<p>这里要注意，本地路径必须是绝对路径，如果目录不存在Docker会自动创建。</p>
+<p>Docker挂载数据卷的默认权限是读写（rw），用户也可以通过ro指定为只读，下面新建一个容器，将目录指定为只读，并去创建一个文件，会看见提示 Read-only file system<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/src/webapp# docker run -it -v /src/webapp:/tmp:ro ubuntu:14.04 /bin/bash</span><br><span class="line">root@b3ae330ad08e:/# cd /tmp/</span><br><span class="line">root@b3ae330ad08e:/tmp# ll</span><br><span class="line">total 8</span><br><span class="line">drwxr-xr-x  2 root root 4096 Apr  5 13:23 ./</span><br><span class="line">drwxr-xr-x 34 root root 4096 Apr  5 13:27 ../</span><br><span class="line">-rw-r--r--  1 root root    0 Apr  5 13:23 hahahah.txt</span><br><span class="line">root@b3ae330ad08e:/tmp# touch  222.txt</span><br><span class="line">touch: cannot touch &apos;222.txt&apos;: Read-only file system</span><br><span class="line">root@b3ae330ad08e:/tmp#</span><br></pre></td></tr></table></figure></p>
+<h4 id="主机文件作为数据卷"><a href="#主机文件作为数据卷" class="headerlink" title="主机文件作为数据卷"></a>主机文件作为数据卷</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">没有测试成功，挂载后为文件夹</span><br></pre></td></tr></table></figure>
+<h3 id="数据卷容器"><a href="#数据卷容器" class="headerlink" title="数据卷容器"></a>数据卷容器</h3><p>数据卷容器是一个容器，目的是专门用来提供数据卷供其他容器挂载。数据卷容器可以很方便的在多个容器之间共享文件数据<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/# docker run -it -v /datadb --name datadb ubuntu:14.04</span><br></pre></td></tr></table></figure></p>
+<p>此时已经进入了容器，我们可以看见我们刚刚创建的数据卷/datadb。注意这里是在容器中创建的/datadb文件夹，并不是你的主机上【注意区分挂载一个主机目录作为数据卷和挂载一个数据卷容器的区别，前者的功能是用于容器和主机之间进行数据的共享，而后者是用于容器与容器之间进行数据的共享】<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">root@0043f3b8c86a:/# ll</span><br><span class="line">total 76</span><br><span class="line">drwxr-xr-x  35 root root 4096 Apr  5 13:44 ./</span><br><span class="line">drwxr-xr-x  35 root root 4096 Apr  5 13:44 ../</span><br><span class="line">-rwxr-xr-x   1 root root    0 Apr  5 13:44 .dockerenv*</span><br><span class="line">drwxr-xr-x   2 root root 4096 Mar  2 04:49 bin/</span><br><span class="line">drwxr-xr-x   2 root root 4096 Apr 10  2014 boot/</span><br><span class="line">drwxr-xr-x   2 root root 4096 Apr  5 13:44 datadb/</span><br><span class="line">drwxr-xr-x   5 root root  360 Apr  5 13:44 dev/</span><br><span class="line">drwxr-xr-x  64 root root 4096 Apr  5 13:44 etc/</span><br><span class="line">drwxr-xr-x   2 root root 4096 Apr 10  2014 home/</span><br><span class="line">drwxr-xr-x  12 root root 4096 Mar  2 04:49 lib/</span><br><span class="line">drwxr-xr-x   2 root root 4096 Mar  2 04:48 lib64/</span><br><span class="line">drwxr-xr-x   2 root root 4096 Mar  2 04:47 media/</span><br><span class="line">drwxr-xr-x   2 root root 4096 Apr 10  2014 mnt/</span><br><span class="line">drwxr-xr-x   2 root root 4096 Mar  2 04:47 opt/</span><br><span class="line">dr-xr-xr-x 188 root root    0 Apr  5 13:44 proc/</span><br><span class="line">drwx------   2 root root 4096 Mar  2 04:49 root/</span><br><span class="line">drwxr-xr-x   8 root root 4096 Mar  6 22:16 run/</span><br><span class="line">drwxr-xr-x   2 root root 4096 Mar  6 22:16 sbin/</span><br><span class="line">drwxr-xr-x   2 root root 4096 Mar  2 04:47 srv/</span><br><span class="line">dr-xr-xr-x  13 root root    0 Apr  5 13:40 sys/</span><br><span class="line">drwxrwxrwt   2 root root 4096 Mar  2 04:49 tmp/</span><br><span class="line">drwxr-xr-x  11 root root 4096 Mar  2 04:47 usr/</span><br><span class="line">drwxr-xr-x  13 root root 4096 Mar  2 04:49 var/</span><br></pre></td></tr></table></figure></p>
+<p>新建两个容器，命名为test1和test2，并将刚刚创建的datadb数据卷容器挂载上<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/# docker run -itd --volumes-from datadb --name test1  ubuntu:14.04 </span><br><span class="line">571888752cf6360cf8712a5d6c35354f334aaebd1b732c4fd01d11d16622ee76</span><br><span class="line">root@rexyan:/# docker run -itd --volumes-from datadb --name test2  ubuntu:14.04 </span><br><span class="line">5264b61715cc464db23c1cfdf6eb7e7fa224ac84a65f8f5293499bdb72fbd17d</span><br></pre></td></tr></table></figure></p>
+<p>我们去datadb数据卷容器中的/datadb下新建一个文件<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/# docker exec -it 0043f3b8c86a /bin/bash </span><br><span class="line">root@0043f3b8c86a:/# cd /datadb/</span><br><span class="line">root@0043f3b8c86a:/datadb# touch  test_file.md  </span><br><span class="line">root@0043f3b8c86a:/datadb# exit</span><br></pre></td></tr></table></figure></p>
+<p>我们分别去test1容器和test2容器查看文件的情况<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/# docker exec -it test1 /bin/bash</span><br><span class="line">root@571888752cf6:/# cd /datadb/</span><br><span class="line">root@571888752cf6:/datadb# ll</span><br><span class="line">total 8</span><br><span class="line">drwxr-xr-x  2 root root 4096 Apr  5 13:51 ./</span><br><span class="line">drwxr-xr-x 35 root root 4096 Apr  5 13:47 ../</span><br><span class="line">-rw-r--r--  1 root root    0 Apr  5 13:51 test_file.md</span><br><span class="line">root@571888752cf6:/datadb#</span><br></pre></td></tr></table></figure></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/# docker exec -it test2 /bin/bash</span><br><span class="line">root@5264b61715cc:/# cd /datadb/</span><br><span class="line">root@5264b61715cc:/datadb# ll</span><br><span class="line">total 8</span><br><span class="line">drwxr-xr-x  2 root root 4096 Apr  5 13:51 ./</span><br><span class="line">drwxr-xr-x 35 root root 4096 Apr  5 13:47 ../</span><br><span class="line">-rw-r--r--  1 root root    0 Apr  5 13:51 test_file.md</span><br><span class="line">root@5264b61715cc:/datadb#</span><br></pre></td></tr></table></figure>
+<p>会看见test1和test2容器都有了刚刚在datadb数据卷容器创建的文件。</p>
+<p>我们这次在test1容器中新建一个文件，然后去看test2容器和datadb容器中的变化<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/# docker exec -it test1 /bin/bash</span><br><span class="line">root@571888752cf6:/# cd /datadb/</span><br><span class="line">root@571888752cf6:/datadb# </span><br><span class="line">root@571888752cf6:/datadb# touch test1_file.md</span><br><span class="line">root@571888752cf6:/datadb# exit</span><br></pre></td></tr></table></figure></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/# docker exec -it test2 /bin/bash</span><br><span class="line">root@5264b61715cc:/# cd /datadb/</span><br><span class="line">root@5264b61715cc:/datadb# </span><br><span class="line">root@5264b61715cc:/datadb# </span><br><span class="line">root@5264b61715cc:/datadb# ll</span><br><span class="line">total 8</span><br><span class="line">drwxr-xr-x  2 root root 4096 Apr  5 13:56 ./</span><br><span class="line">drwxr-xr-x 36 root root 4096 Apr  5 13:56 ../</span><br><span class="line">-rw-r--r--  1 root root    0 Apr  5 13:56 test1_file.md</span><br><span class="line">-rw-r--r--  1 root root    0 Apr  5 13:51 test_file.md</span><br><span class="line">root@5264b61715cc:/datadb#</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/# docker exec -it datadb /bin/bash</span><br><span class="line">root@0043f3b8c86a:/# cd /datadb/</span><br><span class="line">root@0043f3b8c86a:/datadb# ll</span><br><span class="line">total 8</span><br><span class="line">drwxr-xr-x  2 root root 4096 Apr  5 13:56 ./</span><br><span class="line">drwxr-xr-x 36 root root 4096 Apr  5 13:45 ../</span><br><span class="line">-rw-r--r--  1 root root    0 Apr  5 13:56 test1_file.md</span><br><span class="line">-rw-r--r--  1 root root    0 Apr  5 13:51 test_file.md</span><br></pre></td></tr></table></figure>
+<p>由此得出结论，因为datadb容器中的/datadb是数据卷，而datadb容器做为数据卷容器，并挂载在了test1和test2容器上，所有，当一个的/datadb数据卷发生变化的时候，其他两者都是会变化的。这里还需注意，使用–volumes-from参数所挂载数据卷的容器自身并不需要处于运行状态。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES</span><br><span class="line">5264b61715cc        ubuntu:14.04        &quot;/bin/bash&quot;         14 minutes ago      Up 14 minutes                           test2</span><br><span class="line">571888752cf6        ubuntu:14.04        &quot;/bin/bash&quot;         14 minutes ago      Up 14 minutes                           test1</span><br><span class="line">0043f3b8c86a        ubuntu:14.04        &quot;/bin/bash&quot;         17 minutes ago      Up 11 minutes                           datadb</span><br><span class="line">root@rexyan:/# docker stop  datadb</span><br></pre></td></tr></table></figure></p>
+<p>新建一个容器，挂载在刚刚停止的数据卷容器，可以挂载上，所以使用–volumes-from参数所挂载数据卷的容器自身并不需要处于运行状态<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/# docker run -itd --volumes-from datadb --name test3  ubuntu:14.04 </span><br><span class="line">ecf33118c725313422c06e49a9b6ca7a1d0ac37d1ff8475aa42b5ccf84353329</span><br><span class="line">root@rexyan:/# docker ps</span><br><span class="line">CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES</span><br><span class="line">ecf33118c725        ubuntu:14.04        &quot;/bin/bash&quot;         3 seconds ago       Up 1 second                             test3</span><br><span class="line">5264b61715cc        ubuntu:14.04        &quot;/bin/bash&quot;         14 minutes ago      Up 14 minutes                           test2</span><br><span class="line">571888752cf6        ubuntu:14.04        &quot;/bin/bash&quot;         15 minutes ago      Up 15 minutes                           test1</span><br></pre></td></tr></table></figure></p>
+<p>如果删除了挂载的容器(test1/test2/test3)数据卷不会自动被删除，如果要删除一个数据卷，必须在删除最后一个还挂载着它的容器时显视使用docker rm -v来指定同时删除关联的容器。</p>
+<p>先删除两个容器，剩下一个还挂载着的<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/# docker ps</span><br><span class="line">CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES</span><br><span class="line">ecf33118c725        ubuntu:14.04        &quot;/bin/bash&quot;         11 minutes ago      Up 11 minutes                           test3</span><br><span class="line">5264b61715cc        ubuntu:14.04        &quot;/bin/bash&quot;         25 minutes ago      Up 25 minutes                           test2</span><br><span class="line">571888752cf6        ubuntu:14.04        &quot;/bin/bash&quot;         26 minutes ago      Up 26 minutes                           test1</span><br><span class="line">root@rexyan:/# </span><br><span class="line">root@rexyan:/# </span><br><span class="line">root@rexyan:/# docker rm -f ecf33118c725</span><br><span class="line">ecf33118c725</span><br><span class="line">root@rexyan:/# docker rm -f 5264b61715cc </span><br><span class="line">5264b61715cc</span><br><span class="line">root@rexyan:/#</span><br></pre></td></tr></table></figure></p>
+<p>这时查看数据卷容器是否还在<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/# docker ps -a </span><br><span class="line">CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS                      PORTS               NAMES</span><br><span class="line">571888752cf6        ubuntu:14.04        &quot;/bin/bash&quot;         27 minutes ago      Up 27 minutes                                   test1</span><br><span class="line">0043f3b8c86a        ubuntu:14.04        &quot;/bin/bash&quot;         30 minutes ago      Exited (0) 12 minutes ago                       datadb</span><br></pre></td></tr></table></figure></p>
+<p>可以看见数据卷容器datadb还在，我们可以使用docker rm -v datadb 来删除数据卷容器。</p>
+<h3 id="数据卷容器的备份和恢复"><a href="#数据卷容器的备份和恢复" class="headerlink" title="数据卷容器的备份和恢复"></a>数据卷容器的备份和恢复</h3><h4 id="备份"><a href="#备份" class="headerlink" title="备份"></a>备份</h4><h4 id="恢复"><a href="#恢复" class="headerlink" title="恢复"></a>恢复</h4><h3 id="错误"><a href="#错误" class="headerlink" title="错误"></a>错误</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">standard_init_linux.go:178: exec user process caused &quot;exec format error&quot;</span><br></pre></td></tr></table></figure>
+<p>这是因为操作系统是32位的，不支持。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Docker/" rel="tag"><i class="fa fa-tag"></i> Docker</a>
+              <a href="/tags/容器/" rel="tag"><i class="fa fa-tag"></i> 容器</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2018/04/03/Docker4 -- 容器 /" rel="prev" title="Docker4 容器">
+      <i class="fa fa-chevron-left"></i> Docker4 容器
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2018/04/06/Docker6 -- 映射 /" rel="next" title="Docker6 映射">
+      Docker6 映射 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#数据卷"><span class="nav-number">1.</span> <span class="nav-text">数据卷</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#容器内创建数据卷"><span class="nav-number">1.1.</span> <span class="nav-text">容器内创建数据卷</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#主机目录作为数据卷"><span class="nav-number">1.2.</span> <span class="nav-text">主机目录作为数据卷</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#主机文件作为数据卷"><span class="nav-number">1.3.</span> <span class="nav-text">主机文件作为数据卷</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#数据卷容器"><span class="nav-number">2.</span> <span class="nav-text">数据卷容器</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#数据卷容器的备份和恢复"><span class="nav-number">3.</span> <span class="nav-text">数据卷容器的备份和恢复</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#备份"><span class="nav-number">3.1.</span> <span class="nav-text">备份</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#恢复"><span class="nav-number">3.2.</span> <span class="nav-text">恢复</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#错误"><span class="nav-number">4.</span> <span class="nav-text">错误</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="判断零值在 go 语言中，区分一个字段的值是零值还是赋予和零值相同的值的方法有：  使用结构体，判断是否为 nil 来判断。如果为 nil，则是零值。 使用指针的方式，还是判断是否为 nil 来判断。如果为 nil，则是零值。  1234type Book struct&amp;#123;	  Price sql.NullInt64  // 使用结构体	  Desc  *string        //">
+<meta property="og:type" content="article">
+<meta property="og:title" content="oneof、WrapValue 和 FieldMask">
+<meta property="og:url" content="https://rexyan.github.io/2023/03/22/oneof、WrapValue 和 FieldMask/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="判断零值在 go 语言中，区分一个字段的值是零值还是赋予和零值相同的值的方法有：  使用结构体，判断是否为 nil 来判断。如果为 nil，则是零值。 使用指针的方式，还是判断是否为 nil 来判断。如果为 nil，则是零值。  1234type Book struct&amp;#123;	  Price sql.NullInt64  // 使用结构体	  Desc  *string        //">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.403Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="oneof、WrapValue 和 FieldMask">
+<meta name="twitter:description" content="判断零值在 go 语言中，区分一个字段的值是零值还是赋予和零值相同的值的方法有：  使用结构体，判断是否为 nil 来判断。如果为 nil，则是零值。 使用指针的方式，还是判断是否为 nil 来判断。如果为 nil，则是零值。  1234type Book struct&amp;#123;	  Price sql.NullInt64  // 使用结构体	  Desc  *string        //">
+
+<link rel="canonical" href="https://rexyan.github.io/2023/03/22/oneof、WrapValue 和 FieldMask/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>oneof、WrapValue 和 FieldMask | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2023/03/22/oneof、WrapValue 和 FieldMask/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          oneof、WrapValue 和 FieldMask
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2023-03-22 10:55:57" itemprop="dateCreated datePublished" datetime="2023-03-22T10:55:57+00:00">2023-03-22</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Go-微服务/" itemprop="url" rel="index"><span itemprop="name">Go 微服务</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="判断零值"><a href="#判断零值" class="headerlink" title="判断零值"></a>判断零值</h3><p>在 go 语言中，区分一个字段的值是零值还是赋予和零值相同的值的方法有：</p>
+<ol>
+<li>使用结构体，判断是否为 nil 来判断。如果为 nil，则是零值。</li>
+<li>使用指针的方式，还是判断是否为 nil 来判断。如果为 nil，则是零值。</li>
+</ol>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> Book <span class="keyword">struct</span>&#123;</span><br><span class="line">	  Price sql.NullInt64  <span class="comment">// 使用结构体</span></span><br><span class="line">	  Desc  *<span class="keyword">string</span>        <span class="comment">// 使用指针</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="oneof"><a href="#oneof" class="headerlink" title="oneof"></a>oneof</h3><p><code>oneof</code>是Protocol Buffers中的一个关键字，用于定义一组互斥的字段。具体来说，<code>oneof</code>语句会告诉编译器在这个<code>oneof</code>语句所在的message中，只能同时存在这些字段中的一个。</p>
+<p>例如，我们可以如下定义一个带有<code>oneof</code>字段的message：</p>
+<figure class="highlight protobuf"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">syntax = &quot;proto3&quot;;</span><br><span class="line"></span><br><span class="line">option go_package=&quot;oneof/pb&quot;;</span><br><span class="line"></span><br><span class="line">package oneof;</span><br><span class="line"></span><br><span class="line">message MyMessage &#123;</span><br><span class="line">  oneof foo &#123;</span><br><span class="line">    int32 option1 = 1;</span><br><span class="line">    string option2 = 2;</span><br><span class="line">    bool option3 = 3;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// protoc --proto_path=pb --go_out=pb --go_opt=paths=source_relative oneof.proto</span><br></pre></td></tr></table></figure>
+<p>上述代码中，我们定义了一个<code>MyMessage</code>消息，其中包含了一个<code>foo</code>字段，它被定义成了一个<code>oneof</code>类型，包含了三个可能的选项：<code>option1</code>、<code>option2</code>和<code>option3</code>。 这意味着，在这个消息中，只能同时出现<code>option1</code>、 <code>option2</code>或<code>option3</code>中的一个，并且任何时候只有一个选项是有效的。</p>
+<p>使用<code>oneof</code>可以使消息更加紧凑和易于处理，因为只需要考虑每个<code>oneof</code>中的一个字段，而不需要处理其他的字段。</p>
+<p><strong>客户端使用 oneof</strong></p>
+<p>在使用了 protoc 命令生成 go 文件后，将 oneof 将字段生成了MyMessage_Option1，MyMessage_Option2，MyMessage_Option3 类似的选项。创建 MyMessage 的时候，直接选取一个创建即可。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 模拟客户端如何使用 oneof 字段</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 使用 Option3</span></span><br><span class="line">message1 := pb.MyMessage&#123;Foo: &amp;pb.MyMessage_Option3&#123;Option3: <span class="literal">false</span>&#125;&#125;</span><br><span class="line"><span class="comment">// 使用 Option1</span></span><br><span class="line">message2 := pb.MyMessage&#123;Foo: &amp;pb.MyMessage_Option1&#123;Option1: <span class="number">100</span>&#125;&#125;</span><br><span class="line">fmt.Println(message1, message2)</span><br></pre></td></tr></table></figure>
+<p><strong>服务端使用 oneof</strong></p>
+<p>服务端接收到了 MyMessage 后，需要对 Foo 字段进行断言处理。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 模拟服务端接收到 oneof 字段后该如何处理</span></span><br><span class="line"><span class="keyword">switch</span> v := message1.Foo.(<span class="keyword">type</span>) &#123;</span><br><span class="line"><span class="keyword">case</span> *pb.MyMessage_Option1:</span><br><span class="line">	fmt.Printf(<span class="string">"用户 Foo 字段传递了 Option1, %v"</span>, v)</span><br><span class="line"><span class="keyword">case</span> *pb.MyMessage_Option2:</span><br><span class="line">	fmt.Printf(<span class="string">"用户 Foo 字段传递了 Option2, %v"</span>, v)</span><br><span class="line"><span class="keyword">case</span> *pb.MyMessage_Option3:</span><br><span class="line">	fmt.Printf(<span class="string">"用户 Foo 字段传递了 Option3, %v"</span>, v)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>完整示例</strong></p>
+<p>完整代码可参考：<a href="https://github.com/rexyan/Go-Microservice/tree/main/oneof" target="_blank" rel="noopener">https://github.com/rexyan/Go-Microservice/tree/main/oneof</a></p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">"fmt"</span></span><br><span class="line">	<span class="string">"oneof/pb"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	<span class="comment">// 模拟客户端如何使用 oneof 字段</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">// 使用 Option3</span></span><br><span class="line">	message1 := pb.MyMessage&#123;Foo: &amp;pb.MyMessage_Option3&#123;Option3: <span class="literal">false</span>&#125;&#125;</span><br><span class="line">	<span class="comment">// 使用 Option1</span></span><br><span class="line">	message2 := pb.MyMessage&#123;Foo: &amp;pb.MyMessage_Option1&#123;Option1: <span class="number">100</span>&#125;&#125;</span><br><span class="line">	fmt.Println(message1, message2)</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 模拟服务端接收到 oneof 字段后该如何处理</span></span><br><span class="line">	<span class="keyword">switch</span> v := message1.Foo.(<span class="keyword">type</span>) &#123;</span><br><span class="line">	<span class="keyword">case</span> *pb.MyMessage_Option1:</span><br><span class="line">		fmt.Printf(<span class="string">"用户 Foo 字段传递了 Option1, %v"</span>, v)</span><br><span class="line">	<span class="keyword">case</span> *pb.MyMessage_Option2:</span><br><span class="line">		fmt.Printf(<span class="string">"用户 Foo 字段传递了 Option2, %v"</span>, v)</span><br><span class="line">	<span class="keyword">case</span> *pb.MyMessage_Option3:</span><br><span class="line">		fmt.Printf(<span class="string">"用户 Foo 字段传递了 Option3, %v"</span>, v)</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="WrapValue"><a href="#WrapValue" class="headerlink" title="WrapValue"></a>WrapValue</h3><p>完整代码可参考：<a href="https://github.com/rexyan/Go-Microservice/tree/main/WrapValue" target="_blank" rel="noopener">https://github.com/rexyan/Go-Microservice/tree/main/WrapValue</a></p>
+<p>protobuf v3在删除<code>required</code>的同时把<code>optional</code>也一起删除了（<a href="https://github.com/protocolbuffers/protobuf/blob/v3.15.0/docs/field_presence.md#how-to-enable-explicit-presence-in-proto3" target="_blank" rel="noopener">v3.15.0又加回来了</a>），这使得我们没办法轻易判断某些字段究竟是未赋值还是其被赋值为零值。</p>
+<p>例如，下面示例中，当<code>book.Price = 0</code>时我们没办法区分<code>book.Price</code>字段是未赋值还是被赋值为0。</p>
+<figure class="highlight protobuf"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">syntax = &quot;proto3&quot;;</span><br><span class="line"></span><br><span class="line">option go_package=&quot;WrapValue/pb&quot;;</span><br><span class="line"></span><br><span class="line">package WrapValue;</span><br><span class="line"></span><br><span class="line">import &quot;google/protobuf/wrappers.proto&quot;;</span><br><span class="line"></span><br><span class="line">message Book &#123;</span><br><span class="line">  string title = 1;</span><br><span class="line">  string author = 2;</span><br><span class="line">  google.protobuf.Int64Value price = 3;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// protoc --proto_path=pb --go_out=pb --go_opt=paths=source_relative WrapValue.proto</span><br></pre></td></tr></table></figure>
+<p>类似这种场景推荐使用<code>google/protobuf/wrappers.proto</code>中定义的 WrapValue，本质上就是使用自定义 message 代替基本类型。从而通过判断是否为 nil 来判断是零值还是赋值和零值相等。</p>
+<figure class="highlight protobuf"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">"WrapValue/pb"</span></span><br><span class="line">	<span class="string">"fmt"</span></span><br><span class="line">	<span class="string">"google.golang.org/protobuf/types/known/wrapperspb"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">func main() &#123;</span><br><span class="line">	<span class="comment">// 客户端使用 Book</span></span><br><span class="line">	book := pb.Book&#123;</span><br><span class="line">		Title:  "《说明》",</span><br><span class="line">		Author: "张三",</span><br><span class="line">		Price:  &amp;wrapperspb.Int64Value&#123;Value: 9900&#125;,</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	// 服务端解析值</span><br><span class="line">	// 判断 Price 封装的类型是否为 nil，来区分 Price 是零值还是没有值。</span><br><span class="line">	if book.GetPrice() != nil &#123;</span><br><span class="line">		fmt.Println(book.GetPrice().GetValue())</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>以上是针对没有 optional 字段的时候的解决方法，当 protobuf  版本大于  v3.15.0 时，以上场景，我们可以使用 optional 字段来解决。</p>
+<figure class="highlight protobuf"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">syntax = &quot;proto3&quot;;</span><br><span class="line"></span><br><span class="line">option go_package=&quot;WrapValue/pb&quot;;</span><br><span class="line"></span><br><span class="line">package WrapValue;</span><br><span class="line"></span><br><span class="line">import &quot;google/protobuf/wrappers.proto&quot;;</span><br><span class="line"></span><br><span class="line">message Book &#123;</span><br><span class="line">  string title = 1;</span><br><span class="line">  string author = 2;</span><br><span class="line">  google.protobuf.Int64Value price = 3;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">message NewBook &#123;</span><br><span class="line">  string title = 1;</span><br><span class="line">  string author = 2;</span><br><span class="line">  optional int64 price = 3;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// protoc --proto_path=pb --go_out=pb --go_opt=paths=source_relative WrapValue.proto</span><br></pre></td></tr></table></figure>
+<p>使用 optional 和使用 WrapValue 类似的方法，WrapValue 是使用封装一种类型来判断，而 optional  是使用指针来判断。两者都是判断是否为 nil，来区分是否是零值。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">"WrapValue/pb"</span></span><br><span class="line">	<span class="string">"fmt"</span></span><br><span class="line">	<span class="string">"google.golang.org/protobuf/types/known/wrapperspb"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	<span class="comment">// 客户端使用 Book</span></span><br><span class="line">	book := pb.Book&#123;</span><br><span class="line">		Title:  <span class="string">"《说明》"</span>,</span><br><span class="line">		Author: <span class="string">"张三"</span>,</span><br><span class="line">		Price:  &amp;wrapperspb.Int64Value&#123;Value: <span class="number">9900</span>&#125;,</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 服务端解析值</span></span><br><span class="line">	<span class="comment">// 判断 Price 封装的类型是否为 nil，来区分 Price 是零值还是没有值。</span></span><br><span class="line">	<span class="keyword">if</span> book.GetPrice() != <span class="literal">nil</span> &#123;</span><br><span class="line">		fmt.Println(book.GetPrice().GetValue())</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// ====================使用 optional 字段=======================</span></span><br><span class="line">	<span class="comment">// 客户端使用 Book</span></span><br><span class="line">	a := <span class="keyword">int64</span>(<span class="number">100</span>)</span><br><span class="line">	newBook := pb.NewBook&#123;</span><br><span class="line">		Title:  <span class="string">"《说明》"</span>,</span><br><span class="line">		Author: <span class="string">"张三"</span>,</span><br><span class="line">		Price:  &amp;a,</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 服务端解析值</span></span><br><span class="line">	<span class="keyword">if</span> newBook.Price != <span class="literal">nil</span> &#123;</span><br><span class="line">		fmt.Println(newBook.GetPrice())</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="FieldMask"><a href="#FieldMask" class="headerlink" title="FieldMask"></a>FieldMask</h3><p>完整代码可参考：<a href="https://github.com/rexyan/Go-Microservice/tree/main/FieldMask" target="_blank" rel="noopener">https://github.com/rexyan/Go-Microservice/tree/main/FieldMask</a></p>
+<p>假设现在需要实现一个更新书籍信息接口，但是如果我们的<code>Book</code>中定义有很多很多字段时，我们不太可能每次请求都去全量更新<code>Book</code>的每个字段，因为通常每次操作只会更新1到2个字段。</p>
+<p>那么我们该如何确定每次更新操作涉及到了哪些具体字段呢？答案是使用<code>google/protobuf/field_mask.proto</code>，它能够记录在一次更新请求中涉及到的具体字段路径。</p>
+<figure class="highlight protobuf"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">syntax = &quot;proto3&quot;;</span><br><span class="line"></span><br><span class="line">option go_package=&quot;FieldMask/pb&quot;;</span><br><span class="line">package FieldMask;</span><br><span class="line"></span><br><span class="line">import &quot;google/protobuf/field_mask.proto&quot;;</span><br><span class="line"></span><br><span class="line">message Book&#123;</span><br><span class="line">  string title=1;</span><br><span class="line">  int64 price=2;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// 更新 book 信息传递的消息</span><br><span class="line">message UpdateBookRequest &#123;</span><br><span class="line">  // 操作人</span><br><span class="line">  string op = 1;</span><br><span class="line">  // 要更新的书籍信息</span><br><span class="line">  Book book = 2;</span><br><span class="line"></span><br><span class="line">  // 记录要更新的字段</span><br><span class="line">  google.protobuf.FieldMask update_mask = 3;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// protoc --proto_path=pb --go_out=pb --go_opt=paths=source_relative hello.proto</span><br></pre></td></tr></table></figure>
+<p>在客户端发送更新请求的时候，使用 <code>&amp;fieldmaskpb.FieldMask{Paths: paths}</code> 来传递要更新的字段信息。服务端借用第三方工具将 FieldMask 解析为具体的 go 的数据，例如下面中的 map</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">"FieldMask/pb"</span></span><br><span class="line">	<span class="string">"fmt"</span></span><br><span class="line">	<span class="string">"github.com/iancoleman/strcase"</span></span><br><span class="line">	fieldMaskUtils <span class="string">"github.com/mennanov/fieldmask-utils"</span></span><br><span class="line">	<span class="string">"google.golang.org/protobuf/types/known/fieldmaskpb"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	<span class="comment">// 模拟客户端如何使用 FieldMask 字段</span></span><br><span class="line">	<span class="comment">// 设置要更新的字段（paths）</span></span><br><span class="line">	paths := []<span class="keyword">string</span>&#123;<span class="string">"price"</span>&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 构建更新 message UpdateBookRequest</span></span><br><span class="line">	updateBook := pb.UpdateBookRequest&#123;</span><br><span class="line">		Op: <span class="string">"操作人"</span>,</span><br><span class="line">		Book: &amp;pb.Book&#123;</span><br><span class="line">			Title: <span class="string">"《示例设计》"</span>,</span><br><span class="line">			Price: <span class="number">999</span>,</span><br><span class="line">		&#125;,</span><br><span class="line">		UpdateMask: &amp;fieldmaskpb.FieldMask&#123;Paths: paths&#125;,</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 模拟服务端如何使用 FieldMask 字段</span></span><br><span class="line">	<span class="comment">// 需要借助第三方工具 github.com/mennanov/fieldmask-utils 来解析 FieldMask</span></span><br><span class="line">	mask, err := fieldMaskUtils.MaskFromProtoFieldMask(updateBook.UpdateMask, strcase.ToCamel)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span></span><br><span class="line">	&#125;</span><br><span class="line">	dst := <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="keyword">string</span>]<span class="keyword">interface</span>&#123;&#125;)</span><br><span class="line">	<span class="comment">// 将解析后的 mask 按照 Book 的格式，转换到 dst 中</span></span><br><span class="line">	err = fieldMaskUtils.StructToMap(mask, updateBook.Book, dst)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span></span><br><span class="line">	&#125;</span><br><span class="line">	fmt.Println(dst)</span><br><span class="line">	<span class="comment">// map[Price:999]</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2023/03/20/Protocol Buffers 使用/" rel="prev" title="Protocol Buffers 使用">
+      <i class="fa fa-chevron-left"></i> Protocol Buffers 使用
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2023/03/22/gRPC流式操作/" rel="next" title="Go gRPC流式操作">
+      Go gRPC流式操作 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#判断零值"><span class="nav-number">1.</span> <span class="nav-text">判断零值</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#oneof"><span class="nav-number">2.</span> <span class="nav-text">oneof</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#WrapValue"><span class="nav-number">3.</span> <span class="nav-text">WrapValue</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#FieldMask"><span class="nav-number">4.</span> <span class="nav-text">FieldMask</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

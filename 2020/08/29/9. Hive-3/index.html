@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="使用 beeline 和 hiveserver2 连接在一个窗口中使用 hiveserver2，让窗口一直不关闭，在另一个窗口进入 beeline 后使用 JDBC 进行连接，使用 beeline 的好处是查询结果格式以更方便的形式的显示   常用函数nvlNVL( string1, replace_with)： 判断 string1 是否为null，如果为null，使用 replace_with">
+<meta name="keywords" content="Hadoop,Hive">
+<meta property="og:type" content="article">
+<meta property="og:title" content="9. Hive-3">
+<meta property="og:url" content="https://rexyan.github.io/2020/08/29/9. Hive-3/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="使用 beeline 和 hiveserver2 连接在一个窗口中使用 hiveserver2，让窗口一直不关闭，在另一个窗口进入 beeline 后使用 JDBC 进行连接，使用 beeline 的好处是查询结果格式以更方便的形式的显示   常用函数nvlNVL( string1, replace_with)： 判断 string1 是否为null，如果为null，使用 replace_with">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5hpxeDKQ01ac1Mgyl8uB9KbDvX9WSV10Jv5y.L27FiWadQbko8cjY1KpnepHrvTee8ZeBRPFt4OJfa19AlJbYPk!/mnull&bo=oANnAKADZwADCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5hpxeDKQ01ac1Mgyl8uB9KY25brVlKYycxal9C3yRg8sGwpqgMZ5z8fWTeG44E5Q3XzloMpjxcjZXn9yrBDLBK0!/mnull&bo=WwTIAFsEyAADCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5sDbmcVHjVIHGzJcCx*HX7qHOI9d7NMQ8*kxCYfHpHjEiieSVVYn0lHnIDDbSsAeuSKA4fYGfeec6bpHVJ9nIcw!/mnull&bo=2AN4AdgDeAEDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5qV8iL4ZXzXrGxGWmMAB*kw3AS5aTHurQrBn3c8Rcp1vyCTXb9gz6ZCh1emuhKIYP36BLgf9f2mZVjSoGubwJY8!/mnull&bo=IAYIAiAGCAIDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5hqUgAMZhzUfRvU1MtNAeCTZG4sW.3jZvaCV3zt2W.NP5zLcWbauQ.hXpJMWnz3hJz0xyb6mmeKPQQ7sJRcOSjY!/mnull&bo=DQPcAA0D3AADCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5ml7YbNfaMEdAlaJMmSyOk36t.V7OnMv.D.sF01Ym*g*XSeXeSu1JONx29r6JWBsMlwjTpVI2jdY.e5q7aqJrDI!/mnull&bo=BwOQAAcDkAADCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5hqUgAMZhzUfRvU1MtNAeCQ1GZjSz1a50ryNxgsyhfOHIJnaioz*Z9e.BuCvx62dG2rEvUj7*WzVwNRcnzNamyA!/mnull&bo=SAM7AUgDOwEDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.389Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="9. Hive-3">
+<meta name="twitter:description" content="使用 beeline 和 hiveserver2 连接在一个窗口中使用 hiveserver2，让窗口一直不关闭，在另一个窗口进入 beeline 后使用 JDBC 进行连接，使用 beeline 的好处是查询结果格式以更方便的形式的显示   常用函数nvlNVL( string1, replace_with)： 判断 string1 是否为null，如果为null，使用 replace_with">
+<meta name="twitter:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5hpxeDKQ01ac1Mgyl8uB9KbDvX9WSV10Jv5y.L27FiWadQbko8cjY1KpnepHrvTee8ZeBRPFt4OJfa19AlJbYPk!/mnull&bo=oANnAKADZwADCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+
+<link rel="canonical" href="https://rexyan.github.io/2020/08/29/9. Hive-3/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>9. Hive-3 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2020/08/29/9. Hive-3/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          9. Hive-3
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-08-29 17:44:57" itemprop="dateCreated datePublished" datetime="2020-08-29T17:44:57+00:00">2020-08-29</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Java-大数据进阶/" itemprop="url" rel="index"><span itemprop="name">Java 大数据进阶</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="使用-beeline-和-hiveserver2-连接"><a href="#使用-beeline-和-hiveserver2-连接" class="headerlink" title="使用 beeline 和 hiveserver2 连接"></a>使用 beeline 和 hiveserver2 连接</h3><p>在一个窗口中使用 hiveserver2，让窗口一直不关闭，在另一个窗口进入 beeline 后使用 JDBC 进行连接，使用 beeline 的好处是查询结果格式以更方便的形式的显示</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5hpxeDKQ01ac1Mgyl8uB9KbDvX9WSV10Jv5y.L27FiWadQbko8cjY1KpnepHrvTee8ZeBRPFt4OJfa19AlJbYPk!/mnull&amp;bo=oANnAKADZwADCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5hpxeDKQ01ac1Mgyl8uB9KY25brVlKYycxal9C3yRg8sGwpqgMZ5z8fWTeG44E5Q3XzloMpjxcjZXn9yrBDLBK0!/mnull&amp;bo=WwTIAFsEyAADCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<h3 id="常用函数"><a href="#常用函数" class="headerlink" title="常用函数"></a>常用函数</h3><h4 id="nvl"><a href="#nvl" class="headerlink" title="nvl"></a>nvl</h4><p>NVL( string1, replace_with)： 判断 string1 是否为null，如果为null，使用 replace_with 替换null，否则就返回 string1</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="keyword">avg</span>(nvl(comm, <span class="number">0</span>)) <span class="keyword">from</span> emp1;</span><br></pre></td></tr></table></figure>
+<p>例如上述例子中，对 comm 列计算平均值，如果 comm 为 null，则使用 0 代替。如果这里不使用 nvl 函数的话，那么计算平均值是不算上 null 的个数的，数据如下所示，不使用 nvl ，平均值为 （300+500+1400+0）/ 4 = 550。使用 nvl 平均值就是  146.66666666666666</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5sDbmcVHjVIHGzJcCx*HX7qHOI9d7NMQ8*kxCYfHpHjEiieSVVYn0lHnIDDbSsAeuSKA4fYGfeec6bpHVJ9nIcw!/mnull&amp;bo=2AN4AdgDeAEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<h4 id="concat"><a href="#concat" class="headerlink" title="concat"></a>concat</h4><p>字符串拼接。 可以在参数中传入多个 string 类型的字符串，但是一旦有一个参数为 null，则返回 null</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="keyword">concat</span>(<span class="string">"a"</span>,<span class="string">"v"</span>); <span class="comment">-- av</span></span><br><span class="line"><span class="keyword">select</span> <span class="keyword">concat</span>(<span class="string">"a"</span>,<span class="string">"v"</span>,<span class="literal">null</span>); <span class="comment">-- NULL</span></span><br></pre></td></tr></table></figure>
+<h4 id="concat-ws"><a href="#concat-ws" class="headerlink" title="concat_ws"></a>concat_ws</h4><p>使用指定的分隔符完成字符串拼接，格式为 <code>concat_ws(分隔符,[string | array&lt;string&gt;]+)</code>，第一个参数为分隔符，后面为要拼接的字符串或者数组。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="keyword">concat_ws</span>(<span class="string">"."</span>,<span class="string">"zhansan"</span>,<span class="built_in">array</span>(<span class="string">"lisi"</span>,<span class="string">"wangwu"</span>));  <span class="comment">-- zhansan.lisi.wangwu</span></span><br></pre></td></tr></table></figure>
+<h4 id="collect-set"><a href="#collect-set" class="headerlink" title="collect_set"></a>collect_set</h4><p><code>collect_set(列名)</code> 作用是将此列的多行记录合并为一个 set 集合，去重</p>
+<h4 id="collect-list"><a href="#collect-list" class="headerlink" title="collect_list"></a>collect_list</h4><p><code>collect_list(列名)</code> 作用是将此列的多行记录合并为一个 set 集合，不去重</p>
+<h4 id="explode"><a href="#explode" class="headerlink" title="explode"></a>explode</h4><p><code>explode(列名)</code> 参数只能是 array 或 map, 将 array 类型参数转为1列N行, 将 map 类型参数转为2列N行</p>
+<h3 id="练习"><a href="#练习" class="headerlink" title="练习"></a>练习</h3><h4 id="练习一"><a href="#练习一" class="headerlink" title="练习一"></a>练习一</h4><p>有以下数据，求出不同部门男女各多少人</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5qV8iL4ZXzXrGxGWmMAB*kw3AS5aTHurQrBn3c8Rcp1vyCTXb9gz6ZCh1emuhKIYP36BLgf9f2mZVjSoGubwJY8!/mnull&amp;bo=IAYIAiAGCAIDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>期望查询结果如下</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">A     2       1</span><br><span class="line">B     1       2</span><br></pre></td></tr></table></figure>
+<p>方法1，按照部门分组，单独查询出男女的个数，然后在将结果进行汇总。下面方式 HQL 性能不高，有两个字查询，一个汇总，所以需要三个 job 才能运行完成。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> a.dept_id, male_count, female_count <span class="keyword">from</span></span><br><span class="line">(<span class="keyword">select</span> dept_id, <span class="keyword">count</span>(<span class="number">1</span>) male_count <span class="keyword">from</span> emp_sex <span class="keyword">where</span> sex=<span class="string">"男"</span> <span class="keyword">group</span> <span class="keyword">by</span> dept_id) a</span><br><span class="line"><span class="keyword">join</span></span><br><span class="line">(<span class="keyword">select</span> dept_id, <span class="keyword">count</span>(<span class="number">1</span>) female_count <span class="keyword">from</span> emp_sex <span class="keyword">where</span> sex=<span class="string">"女"</span> <span class="keyword">group</span> <span class="keyword">by</span> dept_id) b</span><br><span class="line"><span class="keyword">on</span> a.dept_id = b.dept_id;</span><br></pre></td></tr></table></figure>
+<p>方法2，利用 sum 函数，在求男性总人数时，如果当前人的性别为男，记1，否则记 0，sum 该字段就得到了男性的值。在求女性总人数时，如果当前人的性别为女，记1，否则记0，sum 该字段就得到了男性的值。</p>
+<p>case when 的语法如下，这一列中出现的 <code>值1</code> 会被替换为  <code>值2</code> , <code>值3</code> 会被替换为 <code>值4</code>, 其他的替换为<code>值5</code></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">case  列名 </span><br><span class="line">    when  值1  then  值2</span><br><span class="line">    when  值3  then  值4</span><br><span class="line">    ...</span><br><span class="line">    else 值5</span><br><span class="line">end</span><br></pre></td></tr></table></figure>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> dept_id,</span><br><span class="line"><span class="keyword">sum</span>(<span class="keyword">case</span> sex <span class="keyword">when</span> <span class="string">"男"</span> <span class="keyword">then</span> <span class="number">1</span> <span class="keyword">else</span> <span class="number">0</span> <span class="keyword">end</span>) male_count,</span><br><span class="line"><span class="keyword">sum</span>(<span class="keyword">case</span> sex <span class="keyword">when</span> <span class="string">"女"</span> <span class="keyword">then</span> <span class="number">1</span> <span class="keyword">else</span> <span class="number">0</span> <span class="keyword">end</span>) female_count</span><br><span class="line"><span class="keyword">from</span> emp_sex <span class="keyword">group</span> <span class="keyword">by</span> dept_id;</span><br></pre></td></tr></table></figure>
+<p>使用 case when 的优化 HQL 如上，只需要一个 job 就能完成。</p>
+<p>HQL 中除了 case when 能做判断外，if 也能做判断，语法为 <code>if(判断表达式,值1,值2)</code>，值1当表达式为 true 时获取，值2当表达式为 false 时获取。实现 HQL 如下：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> dept_id,</span><br><span class="line"><span class="keyword">sum</span>(<span class="keyword">if</span>(sex == <span class="string">"男"</span>, <span class="number">1</span>, <span class="number">0</span>)) male_count,</span><br><span class="line"><span class="keyword">sum</span>(<span class="keyword">if</span>(sex == <span class="string">"女"</span>, <span class="number">1</span>, <span class="number">0</span>)) female_count</span><br><span class="line"><span class="keyword">from</span> emp_sex <span class="keyword">group</span> <span class="keyword">by</span> dept_id;</span><br></pre></td></tr></table></figure>
+<p>这个 HQL 也是只需要一个 job 就能完成。</p>
+<h4 id="练习二"><a href="#练习二" class="headerlink" title="练习二"></a>练习二</h4><p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5hqUgAMZhzUfRvU1MtNAeCTZG4sW.3jZvaCV3zt2W.NP5zLcWbauQ.hXpJMWnz3hJz0xyb6mmeKPQQ7sJRcOSjY!/mnull&amp;bo=DQPcAA0D3AADCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>把星座和血型一样的人归类到一起。结果如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">射手座,A            大海|凤姐</span><br><span class="line">白羊座,A            孙悟空|猪八戒</span><br><span class="line">白羊座,B            宋宋</span><br></pre></td></tr></table></figure>
+<p>这里需要使用函数 concat_ws 进行字符串的拼接，还需要使用 collect_list 将某列的多行记录合并为一个 list 集合，不去重。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span>  <span class="keyword">concat</span>(constellation,<span class="string">','</span>,blood_type),<span class="keyword">concat_ws</span>(<span class="string">'|'</span>,collect_list(<span class="keyword">name</span>))</span><br><span class="line"><span class="keyword">from</span> person_info</span><br><span class="line"><span class="keyword">group</span> <span class="keyword">by</span> constellation,blood_type</span><br></pre></td></tr></table></figure>
+<h4 id="练习三"><a href="#练习三" class="headerlink" title="练习三"></a>练习三</h4><p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5ml7YbNfaMEdAlaJMmSyOk36t.V7OnMv.D.sF01Ym*g*XSeXeSu1JONx29r6JWBsMlwjTpVI2jdY.e5q7aqJrDI!/mnull&amp;bo=BwOQAAcDkAADCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>将电影分类中的数组数据展开。结果如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">《疑犯追踪》      悬疑</span><br><span class="line">《疑犯追踪》      动作</span><br><span class="line">《疑犯追踪》      科幻</span><br><span class="line">《疑犯追踪》      剧情</span><br><span class="line">《Lie to me》   悬疑</span><br><span class="line">《Lie to me》   警匪</span><br><span class="line">《Lie to me》   动作</span><br><span class="line">《Lie to me》   心理</span><br><span class="line">《Lie to me》   剧情</span><br><span class="line">《战狼2》        战争</span><br><span class="line">《战狼2》        动作</span><br><span class="line">《战狼2》        灾难</span><br></pre></td></tr></table></figure>
+<p>将 category 列进行 explode，即转换为 1列N行<br><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">0: jdbc:hive2://hadoop10:10000&gt; select explode(category) from movie_info;</span><br><span class="line">+<span class="comment">------+--+</span></span><br><span class="line">| col  |</span><br><span class="line">+<span class="comment">------+--+</span></span><br><span class="line">| 悬疑   |</span><br><span class="line">| 动作   |</span><br><span class="line">| 科幻   |</span><br><span class="line">| 剧情   |</span><br><span class="line">| 悬疑   |</span><br><span class="line">| 警匪   |</span><br><span class="line">| 动作   |</span><br><span class="line">| 心理   |</span><br><span class="line">| 剧情   |</span><br><span class="line">| 战争   |</span><br><span class="line">| 动作   |</span><br><span class="line">| 灾难   |</span><br><span class="line">+<span class="comment">------+--+</span></span><br></pre></td></tr></table></figure></p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> movie,col1</span><br><span class="line"><span class="keyword">from</span> movie_info <span class="keyword">lateral</span> <span class="keyword">view</span> <span class="keyword">explode</span>(<span class="keyword">category</span>) tmp1 <span class="keyword">as</span> col1</span><br></pre></td></tr></table></figure>
+<p>lateral view 的作用是将炸裂后的1列N行，在逻辑上依然视作1列1行，实际是1列N行，然后查询时和movie进行笛卡尔集这个操作在hive中称为侧写(lateral view)</p>
+<h4 id="练习四"><a href="#练习四" class="headerlink" title="练习四"></a>练习四</h4><p>有以下数据</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">person_info2.names      person_info2.tags       person_info2.hobbys</span><br><span class="line">[&quot;jack&quot;,&quot;tom&quot;,&quot;jerry&quot;]  [&quot;阳光男孩&quot;,&quot;肌肉男孩&quot;,&quot;直男&quot;]  [&quot;晒太阳&quot;,&quot;健身&quot;,&quot;说多喝热水&quot;]</span><br><span class="line">[&quot;marry&quot;,&quot;nancy&quot;]       [&quot;阳光女孩&quot;,&quot;肌肉女孩&quot;,&quot;腐女&quot;]  [&quot;晒太阳&quot;,&quot;健身&quot;,&quot;看有内涵的段子&quot;]</span><br></pre></td></tr></table></figure>
+<p>希望得到以下查询结果</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">期望结果：</span><br><span class="line">jack	阳光男孩	晒太阳</span><br><span class="line">jack	阳光男孩	健身</span><br><span class="line">jack	阳光男孩	说多喝热水</span><br><span class="line">jack	肌肉男孩	晒太阳</span><br><span class="line">jack	肌肉男孩	健身</span><br><span class="line">jack	肌肉男孩	说多喝热水</span><br><span class="line">.....</span><br></pre></td></tr></table></figure>
+<p>查询 SQL </p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="keyword">name</span>,tag,hobby</span><br><span class="line"><span class="keyword">from</span> person_info2</span><br><span class="line"><span class="keyword">lateral</span> <span class="keyword">view</span> <span class="keyword">explode</span>(<span class="keyword">names</span>) tmp1 <span class="keyword">as</span> <span class="keyword">name</span></span><br><span class="line"><span class="keyword">lateral</span> <span class="keyword">view</span> <span class="keyword">explode</span>(tags) tmp1 <span class="keyword">as</span> tag</span><br><span class="line"><span class="keyword">lateral</span> <span class="keyword">view</span> <span class="keyword">explode</span>(hobbys) tmp1 <span class="keyword">as</span> hobby;</span><br></pre></td></tr></table></figure>
+<h3 id="窗口函数"><a href="#窗口函数" class="headerlink" title="窗口函数"></a>窗口函数</h3><p>即可以在函数在运行时通过改变窗口的大小，来控制计算的数据集的范围。</p>
+<p>文档地址 <a href="https://cwiki.apache.org/confluence/display/Hive/LanguageManual+WindowingAndAnalytics" target="_blank" rel="noopener">https://cwiki.apache.org/confluence/display/Hive/LanguageManual+WindowingAndAnalytics</a></p>
+<h4 id="常用函数-1"><a href="#常用函数-1" class="headerlink" title="常用函数"></a>常用函数</h4><p>窗口函数有以下三类</p>
+<p>第一类</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">LEAD: LEAD (scalar_expression [,offset] [,default])： 返回当前行以下N行的指定列的列值,如果找不到，就采用默认值</span><br><span class="line"></span><br><span class="line">LAG: LAG (scalar_expression [,offset] [,default])： 返回当前行以上N行的指定列的列值,如果找不到，就采用默认值</span><br><span class="line"></span><br><span class="line">FIRST_VALUE: FIRST_VALUE(列名,[false(默认)])：  返回当前窗口指定列的第一个值，第二个参数如果为true,代表加入第一个值为null，跳过空值，继续寻找！</span><br><span class="line"></span><br><span class="line">LAST_VALUE: LAST_VALUE(列名,[false(默认)])：  返回当前窗口指定列的最后一个值，第二个参数如果为true,代表加入第一个值为null，跳过空值，继续寻找！</span><br></pre></td></tr></table></figure>
+<p>第二类<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">统计类的函数(一般都需要结合over使用)： min,max,avg,sum,count</span><br></pre></td></tr></table></figure></p>
+<p>第三类<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">排名分析函数：RANK，ROW_NUMBER，DENSE_RANK，CUME_DIST，PERCENT_RANK，NTILE</span><br></pre></td></tr></table></figure></p>
+<h4 id="语法"><a href="#语法" class="headerlink" title="语法"></a>语法</h4><p>相关语法解释</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">OVER()：指定分析函数工作的数据窗口大小，这个数据窗口大小可能会随着行的变而变化</span><br><span class="line">CURRENT ROW：当前行</span><br><span class="line">n PRECEDING：往前n行数据</span><br><span class="line">n FOLLOWING：往后n行数据</span><br><span class="line">UNBOUNDED：起点，UNBOUNDED PRECEDING 表示从前面的起点， UNBOUNDED FOLLOWING表示到后面的终点</span><br><span class="line">LAG(col,n)：往前第n行数据</span><br><span class="line">LEAD(col,n)：往后第n行数据</span><br><span class="line">NTILE(n)：把有序分区中的行分发到指定数据的组中，各个组有编号，编号从1开始，对于每一行，NTILE返回此行所属的组的编号。注意：n必须为int类型。</span><br></pre></td></tr></table></figure>
+<p>窗口函数的使用格式为 <code>函数 over( partition by 字段 ,order by 字段  window_clause )</code> window_clause 为窗口的大小，窗口大小常用格式如下</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">(rows | range) between (unbounded | [num]) preceding and ([num] preceding | current row | (unbounded | [num]) following)</span><br><span class="line"></span><br><span class="line">(rows | range) between current row and (current row | (unbounded | [num]) following)</span><br><span class="line"></span><br><span class="line">(rows | range) between [num] following and (unbounded | [num]) following</span><br></pre></td></tr></table></figure>
+<p>特殊情况：</p>
+<ol>
+<li>在 over() 中既没有出现 windows_clause，也没有出现 order by，窗口默认为 rows between UNBOUNDED  PRECEDING and UNBOUNDED  FOLLOWING</li>
+<li>在over()中没有出现 windows_clause，但指定了 order by，窗口默认为 rows between UNBOUNDED  PRECEDING and CURRENT ROW</li>
+</ol>
+<p>窗口函数和分组有什么区别：</p>
+<ol>
+<li>如果是分组操作，select 后只能写分组后的字段</li>
+<li>如果是窗口函数，窗口函数是在指定的窗口内，对每条记录都执行一次函数</li>
+<li>如果是分组操作，有去重效果，而窗口函数中的 partition不去重</li>
+</ol>
+<p>注意⚠️：不是所有的函数在运行都是可以通过改变窗口的大小，来控制计算的数据集的范围，所有的排名函数和LAG,LEAD，支持使用 over()，但是在 over() 中不能定义 window_clause。</p>
+<h4 id="查询示例"><a href="#查询示例" class="headerlink" title="查询示例"></a>查询示例</h4><p>例如有以下数据</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">0: jdbc:hive2://hadoop10:10000&gt; select * from business;</span><br><span class="line">+----------------+---------------------+----------------+--+</span><br><span class="line">| business.name  | business.orderdate  | business.cost  |</span><br><span class="line">+----------------+---------------------+----------------+--+</span><br><span class="line">| jack           | 2017-01-01          | 10             |</span><br><span class="line">| tony           | 2017-01-02          | 15             |</span><br><span class="line">| jack           | 2017-02-03          | 23             |</span><br><span class="line">| tony           | 2017-01-04          | 29             |</span><br><span class="line">| jack           | 2017-01-05          | 46             |</span><br><span class="line">| jack           | 2017-04-06          | 42             |</span><br><span class="line">| tony           | 2017-01-07          | 50             |</span><br><span class="line">| jack           | 2017-01-08          | 55             |</span><br><span class="line">| mart           | 2017-04-08          | 62             |</span><br><span class="line">| mart           | 2017-04-09          | 68             |</span><br><span class="line">| neil           | 2017-05-10          | 12             |</span><br><span class="line">| mart           | 2017-04-11          | 75             |</span><br><span class="line">| neil           | 2017-06-12          | 80             |</span><br><span class="line">| mart           | 2017-04-13          | 94             |</span><br><span class="line">+----------------+---------------------+----------------+--+</span><br></pre></td></tr></table></figure>
+<p>需要进行以下查询</p>
+<p>（1）查询在2017年4月份购买过的顾客及总人数</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="keyword">name</span>,<span class="keyword">count</span>(*) <span class="keyword">over</span>(<span class="keyword">rows</span> <span class="keyword">between</span> <span class="keyword">UNBOUNDED</span>  <span class="keyword">PRECEDING</span> <span class="keyword">and</span> <span class="keyword">UNBOUNDED</span>  <span class="keyword">FOLLOWING</span>)</span><br><span class="line"><span class="keyword">from</span> business</span><br><span class="line"><span class="keyword">where</span> <span class="keyword">substring</span>(orderdate,<span class="number">1</span>,<span class="number">7</span>)=<span class="string">'2017-04'</span></span><br><span class="line"><span class="keyword">group</span> <span class="keyword">by</span> <span class="keyword">name</span></span><br></pre></td></tr></table></figure>
+<p>上面的写法等价于</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="keyword">name</span>,<span class="keyword">count</span>(*) <span class="keyword">over</span>()</span><br><span class="line"><span class="keyword">from</span> business</span><br><span class="line"><span class="keyword">where</span> <span class="keyword">substring</span>(orderdate,<span class="number">1</span>,<span class="number">7</span>)=<span class="string">'2017-04'</span></span><br><span class="line"><span class="keyword">group</span> <span class="keyword">by</span> <span class="keyword">name</span></span><br></pre></td></tr></table></figure>
+<p>查询结果为</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">+-------+-----------------+--+</span><br><span class="line">| name  | count_window_0  |</span><br><span class="line">+-------+-----------------+--+</span><br><span class="line">| mart  | 2               |</span><br><span class="line">| jack  | 2               |</span><br><span class="line">+-------+-----------------+--+</span><br></pre></td></tr></table></figure>
+<p>（2）查询顾客的购买明细及月购买总额</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="keyword">name</span>,orderdate,<span class="keyword">cost</span>,<span class="keyword">sum</span>(<span class="keyword">cost</span>) <span class="keyword">over</span>(<span class="keyword">partition</span> <span class="keyword">by</span> <span class="keyword">name</span>,<span class="keyword">substring</span>(orderdate,<span class="number">1</span>,<span class="number">7</span>) ) </span><br><span class="line"><span class="keyword">from</span> business</span><br></pre></td></tr></table></figure>
+<p>查询 name, orderdate, cost，并对 cost 进行按月份的累加求和, 结果如下</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">+-------+-------------+-------+---------------+--+</span><br><span class="line">| name  |  orderdate  | cost  | sum_window_0  |</span><br><span class="line">+-------+-------------+-------+---------------+--+</span><br><span class="line">| jack  | 2017-01-05  | 46    | 111           |</span><br><span class="line">| jack  | 2017-01-08  | 55    | 111           |</span><br><span class="line">| jack  | 2017-01-01  | 10    | 111           |</span><br><span class="line">| jack  | 2017-02-03  | 23    | 23            |</span><br><span class="line">| jack  | 2017-04-06  | 42    | 42            |</span><br><span class="line">| mart  | 2017-04-13  | 94    | 299           |</span><br><span class="line">| mart  | 2017-04-11  | 75    | 299           |</span><br><span class="line">| mart  | 2017-04-09  | 68    | 299           |</span><br><span class="line">| mart  | 2017-04-08  | 62    | 299           |</span><br><span class="line">| neil  | 2017-05-10  | 12    | 12            |</span><br><span class="line">| neil  | 2017-06-12  | 80    | 80            |</span><br><span class="line">| tony  | 2017-01-04  | 29    | 94            |</span><br><span class="line">| tony  | 2017-01-02  | 15    | 94            |</span><br><span class="line">| tony  | 2017-01-07  | 50    | 94            |</span><br><span class="line">+-------+-------------+-------+---------------+--+</span><br></pre></td></tr></table></figure>
+<p>（3）查询顾客的购买明细, 并将cost按照日期进行累加</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="keyword">name</span>,orderdate,<span class="keyword">cost</span>,<span class="keyword">sum</span>(<span class="keyword">cost</span>) <span class="keyword">over</span>(<span class="keyword">partition</span> <span class="keyword">by</span> <span class="keyword">name</span> <span class="keyword">order</span> <span class="keyword">by</span> orderdate ) </span><br><span class="line"><span class="keyword">from</span> business</span><br></pre></td></tr></table></figure>
+<p>查询 name, orderdate, cost，并对 cost 进行按名称的累加，结果如下</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">+-------+-------------+-------+---------------+--+</span><br><span class="line">| name  |  orderdate  | cost  | sum_window_0  |</span><br><span class="line">+-------+-------------+-------+---------------+--+</span><br><span class="line">| jack  | 2017-01-01  | 10    | 10            |</span><br><span class="line">| jack  | 2017-01-05  | 46    | 56            |</span><br><span class="line">| jack  | 2017-01-08  | 55    | 111           |</span><br><span class="line">| jack  | 2017-02-03  | 23    | 134           |</span><br><span class="line">| jack  | 2017-04-06  | 42    | 176           |</span><br><span class="line">| mart  | 2017-04-08  | 62    | 62            |</span><br><span class="line">| mart  | 2017-04-09  | 68    | 130           |</span><br><span class="line">| mart  | 2017-04-11  | 75    | 205           |</span><br><span class="line">| mart  | 2017-04-13  | 94    | 299           |</span><br><span class="line">| neil  | 2017-05-10  | 12    | 12            |</span><br><span class="line">| neil  | 2017-06-12  | 80    | 92            |</span><br><span class="line">| tony  | 2017-01-02  | 15    | 15            |</span><br><span class="line">| tony  | 2017-01-04  | 29    | 44            |</span><br><span class="line">| tony  | 2017-01-07  | 50    | 94            |</span><br><span class="line">+-------+-------------+-------+---------------+--+</span><br></pre></td></tr></table></figure>
+<p>（4）查询顾客的购买明细及顾客上次的购买时间</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="keyword">name</span>,orderdate,<span class="keyword">cost</span>,lag(orderdate,<span class="number">1</span>,<span class="string">'无数据'</span>) <span class="keyword">over</span>(<span class="keyword">partition</span> <span class="keyword">by</span> <span class="keyword">name</span> <span class="keyword">order</span> <span class="keyword">by</span> orderdate) <span class="keyword">from</span> business</span><br></pre></td></tr></table></figure>
+<p>LAG(col,n) 表示取之前的第n行的 col 列的数据</p>
+<p>上面查询代表查询 name,orderdate,cost 信息，并且取 orderdate 的上一条数据，如果没数据就显示 “无数据”，并按 name 分组，orderdate 排序</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">+-------+-------------+-------+---------------+--+</span><br><span class="line">| name  |  orderdate  | cost  | lag_window_0  |</span><br><span class="line">+-------+-------------+-------+---------------+--+</span><br><span class="line">| jack  | 2017-01-01  | 10    | 无数据           |</span><br><span class="line">| jack  | 2017-01-05  | 46    | 2017-01-01    |</span><br><span class="line">| jack  | 2017-01-08  | 55    | 2017-01-05    |</span><br><span class="line">| jack  | 2017-02-03  | 23    | 2017-01-08    |</span><br><span class="line">| jack  | 2017-04-06  | 42    | 2017-02-03    |</span><br><span class="line">| mart  | 2017-04-08  | 62    | 无数据           |</span><br><span class="line">| mart  | 2017-04-09  | 68    | 2017-04-08    |</span><br><span class="line">| mart  | 2017-04-11  | 75    | 2017-04-09    |</span><br><span class="line">| mart  | 2017-04-13  | 94    | 2017-04-11    |</span><br><span class="line">| neil  | 2017-05-10  | 12    | 无数据           |</span><br><span class="line">| neil  | 2017-06-12  | 80    | 2017-05-10    |</span><br><span class="line">| tony  | 2017-01-02  | 15    | 无数据           |</span><br><span class="line">| tony  | 2017-01-04  | 29    | 2017-01-02    |</span><br><span class="line">| tony  | 2017-01-07  | 50    | 2017-01-04    |</span><br><span class="line">+-------+-------------+-------+---------------+--+</span><br></pre></td></tr></table></figure>
+<p>（5）查询顾客的购买明细及顾客下次的购买时间</p>
+<p>和上面差不多，只不过需要将函数 lag 换为  lead</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="keyword">name</span>,orderdate,<span class="keyword">cost</span>,<span class="keyword">lead</span>(orderdate,<span class="number">1</span>,<span class="string">'无数据'</span>) <span class="keyword">over</span>(<span class="keyword">partition</span> <span class="keyword">by</span> <span class="keyword">name</span> <span class="keyword">order</span> <span class="keyword">by</span> orderdate ) <span class="keyword">from</span> business</span><br></pre></td></tr></table></figure>
+<p>结果如下</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">+-------+-------------+-------+----------------+--+</span><br><span class="line">| name  |  orderdate  | cost  | lead_window_0  |</span><br><span class="line">+-------+-------------+-------+----------------+--+</span><br><span class="line">| jack  | 2017-01-01  | 10    | 2017-01-05     |</span><br><span class="line">| jack  | 2017-01-05  | 46    | 2017-01-08     |</span><br><span class="line">| jack  | 2017-01-08  | 55    | 2017-02-03     |</span><br><span class="line">| jack  | 2017-02-03  | 23    | 2017-04-06     |</span><br><span class="line">| jack  | 2017-04-06  | 42    | 无数据            |</span><br><span class="line">| mart  | 2017-04-08  | 62    | 2017-04-09     |</span><br><span class="line">| mart  | 2017-04-09  | 68    | 2017-04-11     |</span><br><span class="line">| mart  | 2017-04-11  | 75    | 2017-04-13     |</span><br><span class="line">| mart  | 2017-04-13  | 94    | 无数据            |</span><br><span class="line">| neil  | 2017-05-10  | 12    | 2017-06-12     |</span><br><span class="line">| neil  | 2017-06-12  | 80    | 无数据            |</span><br><span class="line">| tony  | 2017-01-02  | 15    | 2017-01-04     |</span><br><span class="line">| tony  | 2017-01-04  | 29    | 2017-01-07     |</span><br><span class="line">| tony  | 2017-01-07  | 50    | 无数据            |</span><br><span class="line">+-------+-------------+-------+----------------+--+</span><br></pre></td></tr></table></figure>
+<p>（6）查询顾客的购买明细及顾客本月第一次购买的时间</p>
+<p>第一次购买的时间只需要按照购买时间拍正序，然后取第一条记录即可，这里使用函数 FIRST_VALUE 取第一条记录。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="keyword">name</span>,orderdate,<span class="keyword">cost</span>,<span class="keyword">FIRST_VALUE</span>(orderdate,<span class="literal">true</span>) <span class="keyword">over</span>(<span class="keyword">partition</span> <span class="keyword">by</span> <span class="keyword">name</span>,<span class="keyword">substring</span>(orderdate,<span class="number">1</span>,<span class="number">7</span>) <span class="keyword">order</span> <span class="keyword">by</span> orderdate ) <span class="keyword">from</span> business</span><br></pre></td></tr></table></figure>
+<p>查询结果如下</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">+-------+-------------+-------+-----------------------+--+</span><br><span class="line">| name  |  orderdate  | cost  | first_value_window_0  |</span><br><span class="line">+-------+-------------+-------+-----------------------+--+</span><br><span class="line">| jack  | 2017-01-01  | 10    | 2017-01-01            |</span><br><span class="line">| jack  | 2017-01-05  | 46    | 2017-01-01            |</span><br><span class="line">| jack  | 2017-01-08  | 55    | 2017-01-01            |</span><br><span class="line">| jack  | 2017-02-03  | 23    | 2017-02-03            |</span><br><span class="line">| jack  | 2017-04-06  | 42    | 2017-04-06            |</span><br><span class="line">| mart  | 2017-04-08  | 62    | 2017-04-08            |</span><br><span class="line">| mart  | 2017-04-09  | 68    | 2017-04-08            |</span><br><span class="line">| mart  | 2017-04-11  | 75    | 2017-04-08            |</span><br><span class="line">| mart  | 2017-04-13  | 94    | 2017-04-08            |</span><br><span class="line">| neil  | 2017-05-10  | 12    | 2017-05-10            |</span><br><span class="line">| neil  | 2017-06-12  | 80    | 2017-06-12            |</span><br><span class="line">| tony  | 2017-01-02  | 15    | 2017-01-02            |</span><br><span class="line">| tony  | 2017-01-04  | 29    | 2017-01-02            |</span><br><span class="line">| tony  | 2017-01-07  | 50    | 2017-01-02            |</span><br><span class="line">+-------+-------------+-------+-----------------------+--+</span><br></pre></td></tr></table></figure>
+<p>（7）查询顾客的购买明细及顾客本月最后一次购买的时间</p>
+<p>和上面类似，只是使用函数不同, 因为是取本月最后一次购买的时间，所以这里要限制窗口的位置，窗口的位置就是当前行到本次分组的最后一行。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="keyword">name</span>,orderdate,<span class="keyword">cost</span>,<span class="keyword">LAST_VALUE</span>(orderdate,<span class="literal">true</span>) <span class="keyword">over</span>(<span class="keyword">partition</span> <span class="keyword">by</span> <span class="keyword">name</span>,<span class="keyword">substring</span>(orderdate,<span class="number">1</span>,<span class="number">7</span>) <span class="keyword">order</span> <span class="keyword">by</span> orderdate <span class="keyword">rows</span> <span class="keyword">between</span> <span class="keyword">CURRENT</span> <span class="keyword">row</span> <span class="keyword">and</span> <span class="keyword">UNBOUNDED</span>  <span class="keyword">FOLLOWING</span>) <span class="keyword">from</span> business</span><br></pre></td></tr></table></figure>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5hqUgAMZhzUfRvU1MtNAeCQ1GZjSz1a50ryNxgsyhfOHIJnaioz*Z9e.BuCvx62dG2rEvUj7*WzVwNRcnzNamyA!/mnull&amp;bo=SAM7AUgDOwEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>查询结果如下</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">+-------+-------------+-------+----------------------+--+</span><br><span class="line">| name  |  orderdate  | cost  | last_value_window_0  |</span><br><span class="line">+-------+-------------+-------+----------------------+--+</span><br><span class="line">| jack  | 2017-01-01  | 10    | 2017-01-08           |</span><br><span class="line">| jack  | 2017-01-05  | 46    | 2017-01-08           |</span><br><span class="line">| jack  | 2017-01-08  | 55    | 2017-01-08           |</span><br><span class="line">| jack  | 2017-02-03  | 23    | 2017-02-03           |</span><br><span class="line">| jack  | 2017-04-06  | 42    | 2017-04-06           |</span><br><span class="line">| mart  | 2017-04-08  | 62    | 2017-04-13           |</span><br><span class="line">| mart  | 2017-04-09  | 68    | 2017-04-13           |</span><br><span class="line">| mart  | 2017-04-11  | 75    | 2017-04-13           |</span><br><span class="line">| mart  | 2017-04-13  | 94    | 2017-04-13           |</span><br><span class="line">| neil  | 2017-05-10  | 12    | 2017-05-10           |</span><br><span class="line">| neil  | 2017-06-12  | 80    | 2017-06-12           |</span><br><span class="line">| tony  | 2017-01-02  | 15    | 2017-01-07           |</span><br><span class="line">| tony  | 2017-01-04  | 29    | 2017-01-07           |</span><br><span class="line">| tony  | 2017-01-07  | 50    | 2017-01-07           |</span><br><span class="line">+-------+-------------+-------+----------------------+--+</span><br></pre></td></tr></table></figure>
+<p>（8）查询顾客的购买明细及顾客最近三次cost花费</p>
+<p>最近三次可以是 当前和之前两次  或  当前+前一次+后一次</p>
+<p>当前和之前两次:</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="keyword">name</span>,orderdate,<span class="keyword">cost</span>,<span class="keyword">sum</span>(<span class="keyword">cost</span>) <span class="keyword">over</span>(<span class="keyword">partition</span> <span class="keyword">by</span> <span class="keyword">name</span> <span class="keyword">order</span> <span class="keyword">by</span> orderdate <span class="keyword">rows</span> <span class="keyword">between</span> <span class="number">2</span> <span class="keyword">PRECEDING</span> <span class="keyword">and</span> <span class="keyword">CURRENT</span> <span class="keyword">row</span>) <span class="keyword">from</span> business</span><br></pre></td></tr></table></figure>
+<p>当前+前一次+后一次:</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="keyword">name</span>,orderdate,<span class="keyword">cost</span>,<span class="keyword">sum</span>(<span class="keyword">cost</span>) <span class="keyword">over</span>(<span class="keyword">partition</span> <span class="keyword">by</span> <span class="keyword">name</span> <span class="keyword">order</span> <span class="keyword">by</span> orderdate <span class="keyword">rows</span> <span class="keyword">between</span> <span class="number">1</span> <span class="keyword">PRECEDING</span> <span class="keyword">and</span> <span class="number">1</span> <span class="keyword">FOLLOWING</span>) <span class="keyword">from</span> business</span><br></pre></td></tr></table></figure>
+<p>查询结果如下</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">+-------+-------------+-------+---------------+--+</span><br><span class="line">| name  |  orderdate  | cost  | sum_window_0  |</span><br><span class="line">+-------+-------------+-------+---------------+--+</span><br><span class="line">| jack  | 2017-01-01  | 10    | 56            |</span><br><span class="line">| jack  | 2017-01-05  | 46    | 111           |</span><br><span class="line">| jack  | 2017-01-08  | 55    | 124           |</span><br><span class="line">| jack  | 2017-02-03  | 23    | 120           |</span><br><span class="line">| jack  | 2017-04-06  | 42    | 65            |</span><br><span class="line">| mart  | 2017-04-08  | 62    | 130           |</span><br><span class="line">| mart  | 2017-04-09  | 68    | 205           |</span><br><span class="line">| mart  | 2017-04-11  | 75    | 237           |</span><br><span class="line">| mart  | 2017-04-13  | 94    | 169           |</span><br><span class="line">| neil  | 2017-05-10  | 12    | 92            |</span><br><span class="line">| neil  | 2017-06-12  | 80    | 92            |</span><br><span class="line">| tony  | 2017-01-02  | 15    | 44            |</span><br><span class="line">| tony  | 2017-01-04  | 29    | 94            |</span><br><span class="line">| tony  | 2017-01-07  | 50    | 79            |</span><br><span class="line">+-------+-------------+-------+---------------+--+</span><br></pre></td></tr></table></figure>
+<p>（9）查询前20%时间的订单信息</p>
+<h3 id="排名函数"><a href="#排名函数" class="headerlink" title="排名函数"></a>排名函数</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">RANK: 允许并列，一旦有并列跳号！ </span><br><span class="line">ROW_NUMBER: 行号！ 连续的，每个号之间差1！</span><br><span class="line">DENSE_RANK： 允许并列，一旦有并列不跳号！</span><br><span class="line">CUME_DIST：  从排序后的第一行到当前值之间数据 占整个数据集的百分比！</span><br><span class="line">PERCENT_RANK：  rank-1/ 总数据量-1   </span><br><span class="line">NTILE(x):  将数据集均分到X个组中，返回每条记录所在的组号</span><br></pre></td></tr></table></figure>
+<p>示例数据如下<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">+-------------+----------------+--------------+--+</span><br><span class="line">| score.name  | score.subject  | score.score  |</span><br><span class="line">+-------------+----------------+--------------+--+</span><br><span class="line">| 孙悟空         | 语文             | 87           |</span><br><span class="line">| 孙悟空         | 数学             | 95           |</span><br><span class="line">| 孙悟空         | 英语             | 68           |</span><br><span class="line">| 大海          | 语文             | 94           |</span><br><span class="line">| 大海          | 数学             | 56           |</span><br><span class="line">| 大海          | 英语             | 84           |</span><br><span class="line">| 宋宋          | 语文             | 64           |</span><br><span class="line">| 宋宋          | 数学             | 86           |</span><br><span class="line">| 宋宋          | 英语             | 84           |</span><br><span class="line">| 婷婷          | 语文             | 65           |</span><br><span class="line">| 婷婷          | 数学             | 85           |</span><br><span class="line">| 婷婷          | 英语             | 78           |</span><br><span class="line">+-------------+----------------+--------------+--+</span><br></pre></td></tr></table></figure></p>
+<p>查询示例如下<br><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span>  *,<span class="keyword">rank</span>() <span class="keyword">over</span>(<span class="keyword">order</span> <span class="keyword">by</span> score) ranknum,</span><br><span class="line">ROW_NUMBER() <span class="keyword">over</span>(<span class="keyword">order</span> <span class="keyword">by</span> score) rnnum,</span><br><span class="line"><span class="keyword">DENSE_RANK</span>() <span class="keyword">over</span>(<span class="keyword">order</span> <span class="keyword">by</span> score) drnum,</span><br><span class="line"><span class="keyword">CUME_DIST</span>() <span class="keyword">over</span>(<span class="keyword">order</span> <span class="keyword">by</span> score) cdnum,</span><br><span class="line"><span class="keyword">PERCENT_RANK</span>() <span class="keyword">over</span>(<span class="keyword">order</span> <span class="keyword">by</span> score) prnum</span><br><span class="line"><span class="keyword">from</span> score;</span><br></pre></td></tr></table></figure></p>
+<p>查询结果</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">score.name      score.subject   score.score     ranknum rnnum   drnum   cdnum   prnum</span><br><span class="line">大海    数学    56      1       1       1       0.08333333333333333     0.0</span><br><span class="line">宋宋    语文    64      2       2       2       0.16666666666666666     0.09090909090909091</span><br><span class="line">婷婷    语文    65      3       3       3       0.25    0.18181818181818182</span><br><span class="line">孙悟空  英语    68      4       4       4       0.3333333333333333      0.2727272727272727</span><br><span class="line">婷婷    英语    78      5       5       5       0.4166666666666667      0.36363636363636365</span><br><span class="line">宋宋    英语    84      6       6       6       0.5833333333333334      0.45454545454545453</span><br><span class="line">大海    英语    84      6       7       6       0.5833333333333334      0.45454545454545453</span><br><span class="line">婷婷    数学    85      8       8       7       0.6666666666666666      0.6363636363636364</span><br><span class="line">宋宋    数学    86      9       9       8       0.75    0.7272727272727273</span><br><span class="line">孙悟空  语文    87      10      10      9       0.8333333333333334      0.8181818181818182</span><br><span class="line">大海    语文    94      11      11      10      0.9166666666666666      0.9090909090909091</span><br><span class="line">孙悟空  数学    95      12      12      11      1.0     1.0</span><br><span class="line">Time taken: 38.666 seconds, Fetched: 12 row(s)</span><br></pre></td></tr></table></figure>
+<h4 id="查询示例-1"><a href="#查询示例-1" class="headerlink" title="查询示例"></a>查询示例</h4><p>（1） 按照科目进行排名</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> *,<span class="keyword">rank</span>() <span class="keyword">over</span>(<span class="keyword">partition</span> <span class="keyword">by</span> subject <span class="keyword">order</span> <span class="keyword">by</span> score <span class="keyword">desc</span>) <span class="keyword">from</span> score</span><br></pre></td></tr></table></figure>
+<p>查询结果如下</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">+-------------+----------------+--------------+----------------+--+</span><br><span class="line">| score.name  | score.subject  | score.score  | rank_window_0  |</span><br><span class="line">+-------------+----------------+--------------+----------------+--+</span><br><span class="line">| 孙悟空         | 数学             | 95           | 1              |</span><br><span class="line">| 宋宋          | 数学             | 86           | 2              |</span><br><span class="line">| 婷婷          | 数学             | 85           | 3              |</span><br><span class="line">| 大海          | 数学             | 56           | 4              |</span><br><span class="line">| 宋宋          | 英语             | 84           | 1              |</span><br><span class="line">| 大海          | 英语             | 84           | 1              |</span><br><span class="line">| 婷婷          | 英语             | 78           | 3              |</span><br><span class="line">| 孙悟空         | 英语             | 68           | 4              |</span><br><span class="line">| 大海          | 语文             | 94           | 1              |</span><br><span class="line">| 孙悟空         | 语文             | 87           | 2              |</span><br><span class="line">| 婷婷          | 语文             | 65           | 3              |</span><br><span class="line">| 宋宋          | 语文             | 64           | 4              |</span><br><span class="line">+-------------+----------------+--------------+----------------+--+</span><br></pre></td></tr></table></figure>
+<p>（2）给每个学生的总分进行排名</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="keyword">name</span>,sumscore,<span class="keyword">rank</span>()  <span class="keyword">over</span>( <span class="keyword">order</span> <span class="keyword">by</span> sumscore <span class="keyword">desc</span>)</span><br><span class="line"><span class="keyword">from</span></span><br><span class="line">(<span class="keyword">select</span> <span class="keyword">name</span>,<span class="keyword">sum</span>(score) sumscore</span><br><span class="line"><span class="keyword">from</span>  score</span><br><span class="line"><span class="keyword">group</span> <span class="keyword">by</span>  <span class="keyword">name</span>) tmp</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">+-------+-----------+----------------+--+</span><br><span class="line">| name  | sumscore  | rank_window_0  |</span><br><span class="line">+-------+-----------+----------------+--+</span><br><span class="line">| 孙悟空   | 250       | 1              |</span><br><span class="line">| 宋宋    | 234       | 2              |</span><br><span class="line">| 大海    | 234       | 2              |</span><br><span class="line">| 婷婷    | 228       | 4              |</span><br><span class="line">+-------+-----------+----------------+--+</span><br></pre></td></tr></table></figure>
+<p>（3）求每个学生的成绩明细及给每个学生的总分和总分排名</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> *,<span class="keyword">DENSE_RANK</span>() <span class="keyword">over</span>(<span class="keyword">order</span> <span class="keyword">by</span> tmp.sumscore <span class="keyword">desc</span>)</span><br><span class="line"><span class="keyword">from</span></span><br><span class="line">(<span class="keyword">select</span> *,<span class="keyword">sum</span>(score) <span class="keyword">over</span>(<span class="keyword">partition</span> <span class="keyword">by</span> <span class="keyword">name</span>)  sumscore</span><br><span class="line"><span class="keyword">from</span> score) tmp</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">+-----------+--------------+------------+---------------+----------------------+--+</span><br><span class="line">| tmp.name  | tmp.subject  | tmp.score  | tmp.sumscore  | dense_rank_window_0  |</span><br><span class="line">+-----------+--------------+------------+---------------+----------------------+--+</span><br><span class="line">| 孙悟空       | 语文           | 87         | 250           | 1                    |</span><br><span class="line">| 孙悟空       | 数学           | 95         | 250           | 1                    |</span><br><span class="line">| 孙悟空       | 英语           | 68         | 250           | 1                    |</span><br><span class="line">| 宋宋        | 语文           | 64         | 234           | 2                    |</span><br><span class="line">| 宋宋        | 数学           | 86         | 234           | 2                    |</span><br><span class="line">| 宋宋        | 英语           | 84         | 234           | 2                    |</span><br><span class="line">| 大海        | 语文           | 94         | 234           | 2                    |</span><br><span class="line">| 大海        | 数学           | 56         | 234           | 2                    |</span><br><span class="line">| 大海        | 英语           | 84         | 234           | 2                    |</span><br><span class="line">| 婷婷        | 语文           | 65         | 228           | 3                    |</span><br><span class="line">| 婷婷        | 数学           | 85         | 228           | 3                    |</span><br><span class="line">| 婷婷        | 英语           | 78         | 228           | 3                    |</span><br><span class="line">+-----------+--------------+------------+---------------+----------------------+--+</span><br></pre></td></tr></table></figure>
+<p>（4）只查询每个科目的成绩的前2名</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> *</span><br><span class="line"><span class="keyword">from</span></span><br><span class="line">(<span class="keyword">select</span> *,<span class="keyword">rank</span>() <span class="keyword">over</span>(<span class="keyword">partition</span> <span class="keyword">by</span> subject <span class="keyword">order</span> <span class="keyword">by</span> score <span class="keyword">desc</span>) rn</span><br><span class="line"><span class="keyword">from</span> score) tmp</span><br><span class="line"><span class="keyword">where</span> rn&lt;=<span class="number">2</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">+-----------+--------------+------------+---------+--+</span><br><span class="line">| tmp.name  | tmp.subject  | tmp.score  | tmp.rn  |</span><br><span class="line">+-----------+--------------+------------+---------+--+</span><br><span class="line">| 孙悟空       | 数学           | 95         | 1       |</span><br><span class="line">| 宋宋        | 数学           | 86         | 2       |</span><br><span class="line">| 宋宋        | 英语           | 84         | 1       |</span><br><span class="line">| 大海        | 英语           | 84         | 1       |</span><br><span class="line">| 大海        | 语文           | 94         | 1       |</span><br><span class="line">| 孙悟空       | 语文           | 87         | 2       |</span><br><span class="line">+-----------+--------------+------------+---------+--+</span><br></pre></td></tr></table></figure>
+<p>（5）查询学生成绩明细，并显示当前科目最高分</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> *,<span class="keyword">max</span>(score) <span class="keyword">over</span>(<span class="keyword">partition</span> <span class="keyword">by</span> subject)</span><br><span class="line"><span class="keyword">from</span> score</span><br></pre></td></tr></table></figure>
+<p>或者</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> *,<span class="keyword">FIRST_VALUE</span>(score) <span class="keyword">over</span>(<span class="keyword">partition</span> <span class="keyword">by</span> subject <span class="keyword">order</span> <span class="keyword">by</span> score <span class="keyword">desc</span>)</span><br><span class="line"><span class="keyword">from</span> score</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">+-------------+----------------+--------------+---------------+--+</span><br><span class="line">| score.name  | score.subject  | score.score  | max_window_0  |</span><br><span class="line">+-------------+----------------+--------------+---------------+--+</span><br><span class="line">| 婷婷          | 数学             | 85           | 95            |</span><br><span class="line">| 宋宋          | 数学             | 86           | 95            |</span><br><span class="line">| 大海          | 数学             | 56           | 95            |</span><br><span class="line">| 孙悟空         | 数学             | 95           | 95            |</span><br><span class="line">| 婷婷          | 英语             | 78           | 84            |</span><br><span class="line">| 宋宋          | 英语             | 84           | 84            |</span><br><span class="line">| 大海          | 英语             | 84           | 84            |</span><br><span class="line">| 孙悟空         | 英语             | 68           | 84            |</span><br><span class="line">| 婷婷          | 语文             | 65           | 94            |</span><br><span class="line">| 宋宋          | 语文             | 64           | 94            |</span><br><span class="line">| 大海          | 语文             | 94           | 94            |</span><br><span class="line">| 孙悟空         | 语文             | 87           | 94            |</span><br><span class="line">+-------------+----------------+--------------+---------------+--+</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Hadoop/" rel="tag"><i class="fa fa-tag"></i> Hadoop</a>
+              <a href="/tags/Hive/" rel="tag"><i class="fa fa-tag"></i> Hive</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/08/27/8. Hive-2/" rel="prev" title="8. Hive-2">
+      <i class="fa fa-chevron-left"></i> 8. Hive-2
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/09/16/consul/" rel="next" title="Python + Flask + Consul">
+      Python + Flask + Consul <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#使用-beeline-和-hiveserver2-连接"><span class="nav-number">1.</span> <span class="nav-text">使用 beeline 和 hiveserver2 连接</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#常用函数"><span class="nav-number">2.</span> <span class="nav-text">常用函数</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#nvl"><span class="nav-number">2.1.</span> <span class="nav-text">nvl</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#concat"><span class="nav-number">2.2.</span> <span class="nav-text">concat</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#concat-ws"><span class="nav-number">2.3.</span> <span class="nav-text">concat_ws</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#collect-set"><span class="nav-number">2.4.</span> <span class="nav-text">collect_set</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#collect-list"><span class="nav-number">2.5.</span> <span class="nav-text">collect_list</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#explode"><span class="nav-number">2.6.</span> <span class="nav-text">explode</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#练习"><span class="nav-number">3.</span> <span class="nav-text">练习</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#练习一"><span class="nav-number">3.1.</span> <span class="nav-text">练习一</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#练习二"><span class="nav-number">3.2.</span> <span class="nav-text">练习二</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#练习三"><span class="nav-number">3.3.</span> <span class="nav-text">练习三</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#练习四"><span class="nav-number">3.4.</span> <span class="nav-text">练习四</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#窗口函数"><span class="nav-number">4.</span> <span class="nav-text">窗口函数</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#常用函数-1"><span class="nav-number">4.1.</span> <span class="nav-text">常用函数</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#语法"><span class="nav-number">4.2.</span> <span class="nav-text">语法</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#查询示例"><span class="nav-number">4.3.</span> <span class="nav-text">查询示例</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#排名函数"><span class="nav-number">5.</span> <span class="nav-text">排名函数</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#查询示例-1"><span class="nav-number">5.1.</span> <span class="nav-text">查询示例</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

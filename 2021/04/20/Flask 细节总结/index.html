@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="断断续续的在看 Flask 的源码, 记录下一些有意思的现象。一些来自网络，一些是自己发现。 jsonify 和 json.dumps 的区别 Content-Type有区别: 使用 jsonify 时响应的 Content-Type 字段值为 application/json，而使用 json.dumps 时该字段值为 text/html  jsonify 输出的数据量更小，因为非 debug">
+<meta name="keywords" content="Python,Flask">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Flask 细节总结">
+<meta property="og:url" content="https://rexyan.github.io/2021/04/20/Flask 细节总结/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="断断续续的在看 Flask 的源码, 记录下一些有意思的现象。一些来自网络，一些是自己发现。 jsonify 和 json.dumps 的区别 Content-Type有区别: 使用 jsonify 时响应的 Content-Type 字段值为 application/json，而使用 json.dumps 时该字段值为 text/html  jsonify 输出的数据量更小，因为非 debug">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.392Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Flask 细节总结">
+<meta name="twitter:description" content="断断续续的在看 Flask 的源码, 记录下一些有意思的现象。一些来自网络，一些是自己发现。 jsonify 和 json.dumps 的区别 Content-Type有区别: 使用 jsonify 时响应的 Content-Type 字段值为 application/json，而使用 json.dumps 时该字段值为 text/html  jsonify 输出的数据量更小，因为非 debug">
+
+<link rel="canonical" href="https://rexyan.github.io/2021/04/20/Flask 细节总结/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Flask 细节总结 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2021/04/20/Flask 细节总结/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Flask 细节总结
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-04-20 22:10:57" itemprop="dateCreated datePublished" datetime="2021-04-20T22:10:57+00:00">2021-04-20</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Python/" itemprop="url" rel="index"><span itemprop="name">Python</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>断断续续的在看 Flask 的源码, 记录下一些有意思的现象。一些来自网络，一些是自己发现。</p>
+<h4 id="jsonify-和-json-dumps-的区别"><a href="#jsonify-和-json-dumps-的区别" class="headerlink" title="jsonify 和 json.dumps 的区别"></a>jsonify 和 json.dumps 的区别</h4><ol>
+<li><p>Content-Type有区别: 使用 jsonify 时响应的 Content-Type 字段值为 application/json，而使用 json.dumps 时该字段值为 text/html</p>
+</li>
+<li><p>jsonify 输出的数据量更小，因为非 debug 模式或者未设置 JSONIFY_PRETTYPRINT_REGULAR 会使返回更加紧凑。</p>
+</li>
+</ol>
+<a id="more"></a>
+<h4 id="在-Debug-模式下初始化两次"><a href="#在-Debug-模式下初始化两次" class="headerlink" title="在 Debug 模式下初始化两次"></a>在 Debug 模式下初始化两次</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> app <span class="keyword">import</span> app</span><br><span class="line"><span class="keyword">import</span> time</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</span><br><span class="line">    print(time.time())</span><br><span class="line">    app.run(port=<span class="number">5000</span>, debug=<span class="literal">True</span>)</span><br></pre></td></tr></table></figure>
+<p>输出</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">1492742262.002537</span><br><span class="line"> * Running on http://127.0.0.1:5000/ (Press CTRL+C to quit)</span><br><span class="line"> * Restarting with stat</span><br><span class="line">1492742262.598912</span><br><span class="line"> * Debugger is active!</span><br><span class="line"> * Debugger pin code: xxx-xxx-xxx</span><br></pre></td></tr></table></figure>
+<p>这将导致我们的某些需要在初始化时执行的方法被执行2次，这显然不是我们需要的结果。出现这样的问题的原因是在开启 Debug 模式的时候，Werkzeug 默认会 <a href="https://github.com/pallets/werkzeug/blob/0.12.1/werkzeug/_reloader.py#L105-L126" target="_blank" rel="noopener">启动一个额外的进程</a> 来监控文件变化以方便重启进程。</p>
+<p>要解决这个启动两次的问题，有这样几种方法：</p>
+<p><strong>1.取消自动重启</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">app.run(port=<span class="number">5000</span>, debug=<span class="literal">True</span>, use_reloader=<span class="literal">False</span>)</span><br></pre></td></tr></table></figure>
+<p><strong>2.判断 Werkzeug 主进程是否执行</strong></p>
+<p>在 <a href="https://github.com/pallets/werkzeug/blob/0.12.1/werkzeug/_reloader.py#L105-L126" target="_blank" rel="noopener">restart_with_reloader function</a> 中，我们可以看到在新进程启动前，环境变量 <code>WEAKZEUG_RUN_MAIN</code> 被置为 <code>&#39;true&#39;</code><br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">new_environ[<span class="string">'WERKZEUG_RUN_MAIN'</span>] = <span class="string">'true'</span></span><br></pre></td></tr></table></figure></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</span><br><span class="line">    <span class="keyword">import</span> os</span><br><span class="line">    <span class="keyword">if</span> os.environ.get(<span class="string">'WERKZEUG_RUN_MAIN'</span>) == <span class="string">'true'</span>:</span><br><span class="line">        print(time.time())</span><br><span class="line">    app.run(port=<span class="number">5000</span>, debug=config.DEBUG)</span><br></pre></td></tr></table></figure>
+<p><strong>3.在第一次请求的时候执行</strong></p>
+<p>使用 <code>before_first_request</code> 这个钩子，把执行放在 Flask 第一次收到请求的时候。这就避免了2次初始化的干扰。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@app.before_first_request</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">initialize</span><span class="params">()</span>:</span></span><br><span class="line">    print(time.time())</span><br></pre></td></tr></table></figure>
+<h4 id="控制上传文件的大小"><a href="#控制上传文件的大小" class="headerlink" title="控制上传文件的大小"></a>控制上传文件的大小</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> flask <span class="keyword">import</span> Flask, Request</span><br><span class="line"></span><br><span class="line">app = Flask(__name__)</span><br><span class="line">app.config[<span class="string">'MAX_CONTENT_LENGTH'</span>] = <span class="number">16</span> * <span class="number">1024</span> * <span class="number">1024</span></span><br></pre></td></tr></table></figure>
+<h4 id="为什么Gunicorn-和-Nginx-一起使用"><a href="#为什么Gunicorn-和-Nginx-一起使用" class="headerlink" title="为什么Gunicorn 和 Nginx 一起使用"></a>为什么Gunicorn 和 Nginx 一起使用</h4><p>Nginx功能强大，使用Nginx有诸多好处，但用Nginx转发Gunicorn服务，重点是解决“慢客户端行为”给服务器带来的性能降低问题；另外，在互联网上部署HTTP服务时，还要考虑的“快客户端响应”、SSL处理和高并发等问题，而这些问题在Nginx上一并能搞定，所以在Gunicorn服务之上加一层Nginx反向代理，是个一举多得的部署方案。</p>
+<p>Gunicorn 是一个<a href="https://www.quora.com/What-is-the-meaning-of-prefork" target="_blank" rel="noopener">pre-forking</a> (会通过预先开启大量的进程，等待并处理接到的请求。由于采用了这种方式来开启进程，服务器并不需要等待新的进程启动而消耗时间，因而能够以更快的速度应付多用户请求。) 的软件，这类软件对低延迟的通信，如负载均衡或服务间的互相通信，是非常有效的。但pre-forking系统的不足是，每个通信都会独占一个进程，当向服务器发出的请求多于服务器可用的进程时，由于服务器端没有更多进程响应新的请求，其响应效率会降低。</p>
+<p>所以把Nginx挡在pre-forking服务前面处理请求是一种很好的选择。Nginx能够异步、高并发的响应客户端request（慢客户端请求对Nginx影响不大），Nginx一旦接收到的请求后立刻转给Gunicorn服务处理，处理结果再由Nginx以response的形式发回给客户端。这样，整个服务端和客户端的通信，就由原来仅通过Gunicorn的同步通信，变成了基于Nginx和Gunicorn的异步通信，通信效率和并发能力得到大大提升。</p>
+<h4 id="sqlalchemy-实现时间列自动更新"><a href="#sqlalchemy-实现时间列自动更新" class="headerlink" title="sqlalchemy 实现时间列自动更新"></a>sqlalchemy 实现时间列自动更新</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">MonitorData</span><span class="params">(Base)</span>:</span></span><br><span class="line">        __tablename__ = <span class="string">'monitor_data'</span></span><br><span class="line">        id = Column(Integer, primary_key=<span class="literal">True</span>)</span><br><span class="line">        uid = Column(String(<span class="number">100</span>))  </span><br><span class="line">        gmt_create = Column(TIMESTAMP(<span class="literal">True</span>), server_default=func.now()) <span class="comment"># 创建时间</span></span><br><span class="line">        gmt_modify = Column(TIMESTAMP(<span class="literal">True</span>), nullable=<span class="literal">False</span>, server_default=func.now(), onupdate=func.now())         <span class="comment"># 修改时间，onupdate设置在其他自动更新的时候，自动变化。nullable是该字段是否可以为空</span></span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Python/" rel="tag"><i class="fa fa-tag"></i> Python</a>
+              <a href="/tags/Flask/" rel="tag"><i class="fa fa-tag"></i> Flask</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/04/15/跨域状态码/" rel="prev" title="跨域常见状态码">
+      <i class="fa fa-chevron-left"></i> 跨域常见状态码
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/04/20/Redis 核心技术/" rel="next" title="Redis 核心技术">
+      Redis 核心技术 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-4"><a class="nav-link" href="#jsonify-和-json-dumps-的区别"><span class="nav-number">1.</span> <span class="nav-text">jsonify 和 json.dumps 的区别</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#在-Debug-模式下初始化两次"><span class="nav-number">2.</span> <span class="nav-text">在 Debug 模式下初始化两次</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#控制上传文件的大小"><span class="nav-number">3.</span> <span class="nav-text">控制上传文件的大小</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#为什么Gunicorn-和-Nginx-一起使用"><span class="nav-number">4.</span> <span class="nav-text">为什么Gunicorn 和 Nginx 一起使用</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#sqlalchemy-实现时间列自动更新"><span class="nav-number">5.</span> <span class="nav-text">sqlalchemy 实现时间列自动更新</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

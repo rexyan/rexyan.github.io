@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="Pod 正常里面的 Docker 服务不一定正常。Docker 服务正常，Docker 里面的服务不一定正常。所以如何正确的监测这些状态，成为了应用健康很重要的关键。 livenessProbe, 用来判定容器是否正常。readinessProbe 用来判定容器中的服务是否正常。这两种探测非常重要，一定要利用探测来证明容器正常后才能接入 Service。不然用户可能会访问失败。同时设置 readi">
+<meta name="keywords" content="Kubernetes">
+<meta property="og:type" content="article">
+<meta property="og:title" content="K8s 应用存活和容器启动结束钩子">
+<meta property="og:url" content="https://rexyan.github.io/2019/05/19/K8s 应用存活和容器启动结束钩子/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="Pod 正常里面的 Docker 服务不一定正常。Docker 服务正常，Docker 里面的服务不一定正常。所以如何正确的监测这些状态，成为了应用健康很重要的关键。 livenessProbe, 用来判定容器是否正常。readinessProbe 用来判定容器中的服务是否正常。这两种探测非常重要，一定要利用探测来证明容器正常后才能接入 Service。不然用户可能会访问失败。同时设置 readi">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.395Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="K8s 应用存活和容器启动结束钩子">
+<meta name="twitter:description" content="Pod 正常里面的 Docker 服务不一定正常。Docker 服务正常，Docker 里面的服务不一定正常。所以如何正确的监测这些状态，成为了应用健康很重要的关键。 livenessProbe, 用来判定容器是否正常。readinessProbe 用来判定容器中的服务是否正常。这两种探测非常重要，一定要利用探测来证明容器正常后才能接入 Service。不然用户可能会访问失败。同时设置 readi">
+
+<link rel="canonical" href="https://rexyan.github.io/2019/05/19/K8s 应用存活和容器启动结束钩子/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>K8s 应用存活和容器启动结束钩子 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2019/05/19/K8s 应用存活和容器启动结束钩子/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          K8s 应用存活和容器启动结束钩子
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-05-19 17:35:57" itemprop="dateCreated datePublished" datetime="2019-05-19T17:35:57+00:00">2019-05-19</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Kubernetes/" itemprop="url" rel="index"><span itemprop="name">Kubernetes</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>Pod 正常里面的 Docker 服务不一定正常。Docker 服务正常，Docker 里面的服务不一定正常。所以如何正确的监测这些状态，成为了应用健康很重要的关键。 livenessProbe, 用来判定容器是否正常。readinessProbe 用来判定容器中的服务是否正常。这两种探测非常重要，一定要利用探测来证明容器正常后才能接入 Service。不然用户可能会访问失败。同时设置 readinessProbe 有助于在滚动更新时候判断容器中服务的状态，保证应用能提供健康的服务。livenessProbe，readinessProbe 和 postStart，preStop 都支持三种方式的探测，分别是 exec 执行系统命令，tcp socket 和 http get 请求。</p>
+<h3 id="livenessProbe"><a href="#livenessProbe" class="headerlink" title="livenessProbe"></a>livenessProbe</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl explain pods.spec.containers.livenessProbe</span><br></pre></td></tr></table></figure>
+<p>livenessProbe 支持三种存活状态的检测，分别是 tcp，exec，http get。下面演示两种</p>
+<h4 id="exec-存活探测"><a href="#exec-存活探测" class="headerlink" title="exec 存活探测"></a>exec 存活探测</h4><p>创建一个 yaml 文件，内容如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vim liveness-exec.yaml</span><br></pre></td></tr></table></figure>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">liveness-exec-pod</span>      </span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">liveness-exec-container</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">busybox:latest</span></span><br><span class="line">    <span class="attr">imagePullPolicy:</span> <span class="string">IfNotPresent</span> <span class="comment"># 镜像拉取规则，此处为不存在才拉取</span></span><br><span class="line">    <span class="attr">command:</span> <span class="string">["/bin/sh",</span> <span class="string">"-c"</span><span class="string">,</span> <span class="string">"touch /tmp/healthy; sleep 30; rm -rf /tmp/healthy; sleep 3600"</span><span class="string">]</span> <span class="comment"># 执行命令，先创建一个 healthy 文件，睡 30s 后进行删除，然后睡 3600s</span></span><br><span class="line">    <span class="attr">livenessProbe:</span>  <span class="comment"># 容器健康检查探测，用来判定容器是否正常。还有一个是 readiness 用来判定容器中的服务是否正常</span></span><br><span class="line">      <span class="attr">exec:</span> <span class="comment"># 检查方式为执行命令。另外还支持 TCP socket 探测和 HTTP GET 探测。</span></span><br><span class="line">        <span class="attr">command:</span> <span class="string">["test",</span> <span class="string">"-e"</span><span class="string">,</span> <span class="string">"/tmp/healthy"</span><span class="string">]</span></span><br><span class="line">      <span class="attr">initialDelaySeconds:</span> <span class="number">1</span>  <span class="comment"># 默认为 0s，表示容器启动后多长时间开启健康监测</span></span><br><span class="line">      <span class="attr">periodSeconds:</span> <span class="number">3</span>  <span class="comment"># 默认为 10s，表示每隔多少时间进行一次探测</span></span><br><span class="line">      <span class="attr">failureThreshold:</span> <span class="number">3</span>  <span class="comment"># 默认为3次，意思是3次失败才代表失败</span></span><br><span class="line">      <span class="attr">successThreshold:</span> <span class="comment"># 默认为1次，意思是1次成功就代表成功</span></span><br><span class="line">      <span class="attr">timeoutSeconds:</span> <span class="number">1</span> <span class="comment"># 超时时间，默认为1s</span></span><br></pre></td></tr></table></figure>
+<p>上面的 Pod 创建后，就会创建 /tmp/healthy 文件，并且睡 30s，之后被删除。健康检查的内容是容器启动1s后判断 /tmp/healthy 文件是否存在，且每隔10s进行一次探测，失败3次即认为失败。健康检查失败后就会进行重新启动。下面是 pod 的列表信息，可以看到重启的次数。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get pods </span></span><br><span class="line">NAME                READY   STATUS    RESTARTS   AGE</span><br><span class="line">liveness-<span class="keyword">exec</span>-pod   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">5</span>          <span class="number">6</span>m17s</span><br></pre></td></tr></table></figure>
+<p>查看详细信息：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl describe pods liveness-exec-pod</span></span><br><span class="line">Name:               liveness-<span class="keyword">exec</span>-pod</span><br><span class="line">Namespace:          default</span><br><span class="line">Priority:           <span class="number">0</span></span><br><span class="line">PriorityClassName:  &lt;none&gt;</span><br><span class="line">Node:               k8s002/<span class="number">172.20</span><span class="number">.245</span><span class="number">.189</span></span><br><span class="line">Start Time:         Sun, <span class="number">19</span> May <span class="number">2019</span> <span class="number">16</span>:<span class="number">05</span>:<span class="number">01</span> +<span class="number">0800</span></span><br><span class="line">Labels:             &lt;none&gt;</span><br><span class="line">Annotations:        &lt;none&gt;</span><br><span class="line">Status:             Running</span><br><span class="line">IP:                 <span class="number">10.244</span><span class="number">.2</span><span class="number">.2</span></span><br><span class="line">Containers:</span><br><span class="line">  liveness-<span class="keyword">exec</span>-container:</span><br><span class="line">    Container ID:  docker://b6d08991993bb306f32b58f7bcc71651ac2b68d1021a05634bcae6832bbbe169</span><br><span class="line">    Image:         busybox:latest</span><br><span class="line">    Image ID:      docker-pullable://docker.io/busybox@sha256:<span class="number">4</span>b6ad3a68d34da29bf7c8ccb5d355ba8b4babcad1f99798204e7abb43e54ee3d</span><br><span class="line">    Port:          &lt;none&gt;</span><br><span class="line">    Host Port:     &lt;none&gt;</span><br><span class="line">    Command:</span><br><span class="line">      /bin/sh</span><br><span class="line">      -c</span><br><span class="line">      touch /tmp/healthy; sleep <span class="number">30</span>; rm -rf /tmp/healthy; sleep <span class="number">3600</span></span><br><span class="line">    State:          Waiting</span><br><span class="line">      Reason:       CrashLoopBackOff</span><br><span class="line">    Last State:     Terminated</span><br><span class="line">      Reason:       Error</span><br><span class="line">      Exit Code:    <span class="number">137</span></span><br><span class="line">      Started:      Sun, <span class="number">19</span> May <span class="number">2019</span> <span class="number">16</span>:<span class="number">10</span>:<span class="number">48</span> +<span class="number">0800</span></span><br><span class="line">      Finished:     Sun, <span class="number">19</span> May <span class="number">2019</span> <span class="number">16</span>:<span class="number">11</span>:<span class="number">57</span> +<span class="number">0800</span></span><br><span class="line">    Ready:          <span class="literal">False</span></span><br><span class="line">    Restart Count:  <span class="number">5</span></span><br><span class="line">    Liveness:       <span class="keyword">exec</span> [test -e /tmp/healthy] delay=<span class="number">1</span>s timeout=<span class="number">1</span>s period=<span class="number">3</span>s <span class="comment">#success=1 #failure=3</span></span><br><span class="line">    Environment:    &lt;none&gt;</span><br><span class="line">    Mounts:</span><br><span class="line">      /var/run/secrets/kubernetes.io/serviceaccount <span class="keyword">from</span> default-token-vckdx (ro)</span><br><span class="line">Conditions:</span><br><span class="line">  Type              Status</span><br><span class="line">  Initialized       <span class="literal">True</span> </span><br><span class="line">  Ready             <span class="literal">False</span> </span><br><span class="line">  ContainersReady   <span class="literal">False</span> </span><br><span class="line">  PodScheduled      <span class="literal">True</span> </span><br><span class="line">Volumes:</span><br><span class="line">  default-token-vckdx:</span><br><span class="line">    Type:        Secret (a volume populated by a Secret)</span><br><span class="line">    SecretName:  default-token-vckdx</span><br><span class="line">    Optional:    false</span><br><span class="line">QoS Class:       BestEffort</span><br><span class="line">Node-Selectors:  &lt;none&gt;</span><br><span class="line">Tolerations:     node.kubernetes.io/<span class="keyword">not</span>-ready:NoExecute <span class="keyword">for</span> <span class="number">300</span>s</span><br><span class="line">                 node.kubernetes.io/unreachable:NoExecute <span class="keyword">for</span> <span class="number">300</span>s</span><br><span class="line">Events:</span><br><span class="line">  Type     Reason     Age                    From               Message</span><br><span class="line">  ----     ------     ----                   ----               -------</span><br><span class="line">  Normal   Scheduled  <span class="number">7</span>m16s                  default-scheduler  Successfully assigned default/liveness-<span class="keyword">exec</span>-pod to k8s002</span><br><span class="line">  Normal   Pulling    <span class="number">7</span>m16s                  kubelet, k8s002    Pulling image <span class="string">"busybox:latest"</span></span><br><span class="line">  Normal   Pulled     <span class="number">7</span>m14s                  kubelet, k8s002    Successfully pulled image <span class="string">"busybox:latest"</span></span><br><span class="line">  Normal   Killing    <span class="number">4</span>m17s (x3 over <span class="number">6</span>m35s)  kubelet, k8s002    Container liveness-<span class="keyword">exec</span>-container failed liveness probe, will be restarted</span><br><span class="line">  Normal   Created    <span class="number">3</span>m47s (x4 over <span class="number">7</span>m14s)  kubelet, k8s00	<span class="number">2</span>    Created container liveness-<span class="keyword">exec</span>-container</span><br><span class="line">  Normal   Started    <span class="number">3</span>m47s (x4 over <span class="number">7</span>m13s)  kubelet, k8s002    Started container liveness-<span class="keyword">exec</span>-container</span><br><span class="line">  Normal   Pulled     <span class="number">3</span>m47s (x3 over <span class="number">6</span>m5s)   kubelet, k8s002    Container image <span class="string">"busybox:latest"</span> already present on machine</span><br><span class="line">  Warning  Unhealthy  <span class="number">2</span>m5s (x13 over <span class="number">6</span>m41s)  kubelet, k8s002    Liveness probe failed:</span><br></pre></td></tr></table></figure>
+<p>在 Containers 中可以看到刚才配置的健康检查的信息</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Restart Count:  5</span><br><span class="line">Liveness:       exec [test -e /tmp/healthy] delay=1s timeout=1s period=3s #success=1 #failure=3</span><br></pre></td></tr></table></figure>
+<h4 id="http-get-存活探测"><a href="#http-get-存活探测" class="headerlink" title="http get 存活探测"></a>http get 存活探测</h4><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">liveness-http-pod</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">liveness-http-get-container</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">ikubernetes/myapp:v1</span></span><br><span class="line">    <span class="attr">imagePullPolicy:</span> <span class="string">IfNotPresent</span> </span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">http</span></span><br><span class="line">      <span class="attr">containerPort:</span> <span class="number">80</span></span><br><span class="line">    <span class="attr">livenessProbe:</span> </span><br><span class="line">      <span class="attr">httpGet:</span></span><br><span class="line">        <span class="attr">port:</span> <span class="string">http</span></span><br><span class="line">        <span class="attr">path:</span> <span class="string">/index.html</span></span><br><span class="line">      <span class="attr">initialDelaySeconds:</span> <span class="number">1</span>  </span><br><span class="line">      <span class="attr">periodSeconds:</span> <span class="number">3</span>  </span><br><span class="line">      <span class="attr">failureThreshold:</span> <span class="number">3</span>  </span><br><span class="line">      <span class="attr">successThreshold:</span> <span class="number">1</span></span><br><span class="line">      <span class="attr">timeoutSeconds:</span> <span class="number">1</span></span><br></pre></td></tr></table></figure>
+<p>查看容器状态<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get pods </span></span><br><span class="line">NAME                READY   STATUS             RESTARTS   AGE</span><br><span class="line">liveness-<span class="keyword">exec</span>-pod   <span class="number">0</span>/<span class="number">1</span>     CrashLoopBackOff   <span class="number">9</span>          <span class="number">23</span>m</span><br><span class="line">liveness-http-pod   <span class="number">1</span>/<span class="number">1</span>     Running            <span class="number">0</span>          <span class="number">104</span>s</span><br></pre></td></tr></table></figure></p>
+<p>查看详细信息<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl describe pods liveness-http-pod</span></span><br><span class="line">Name:               liveness-http-pod</span><br><span class="line">Namespace:          default</span><br><span class="line">Priority:           <span class="number">0</span></span><br><span class="line">PriorityClassName:  &lt;none&gt;</span><br><span class="line">Node:               k8s003/<span class="number">172.20</span><span class="number">.245</span><span class="number">.191</span></span><br><span class="line">Start Time:         Sun, <span class="number">19</span> May <span class="number">2019</span> <span class="number">16</span>:<span class="number">27</span>:<span class="number">15</span> +<span class="number">0800</span></span><br><span class="line">Labels:             &lt;none&gt;</span><br><span class="line">Annotations:        &lt;none&gt;</span><br><span class="line">Status:             Running</span><br><span class="line">IP:                 <span class="number">10.244</span><span class="number">.1</span><span class="number">.3</span></span><br><span class="line">Containers:</span><br><span class="line">  liveness-http-get-container:</span><br><span class="line">    Container ID:   docker://<span class="number">9</span>cb65d175dc8263f54891b597e3a5f4a334f20c4ab636d532887cabfeb7cff3c</span><br><span class="line">    Image:          ikubernetes/myapp:v1</span><br><span class="line">    Image ID:       docker-pullable://docker.io/ikubernetes/myapp@sha256:<span class="number">9</span>c3dc30b5219788b2b8a4b065f548b922a34479577befb54b03330999d30d513</span><br><span class="line">    Port:           <span class="number">80</span>/TCP</span><br><span class="line">    Host Port:      <span class="number">0</span>/TCP</span><br><span class="line">    State:          Running</span><br><span class="line">      Started:      Sun, <span class="number">19</span> May <span class="number">2019</span> <span class="number">16</span>:<span class="number">27</span>:<span class="number">18</span> +<span class="number">0800</span></span><br><span class="line">    Ready:          <span class="literal">True</span></span><br><span class="line">    Restart Count:  <span class="number">0</span></span><br><span class="line">    Liveness:       http-get http://:http/index.html delay=<span class="number">1</span>s timeout=<span class="number">1</span>s period=<span class="number">3</span>s <span class="comment">#success=1 #failure=3</span></span><br><span class="line">    Environment:    &lt;none&gt;</span><br><span class="line">    Mounts:</span><br><span class="line">      /var/run/secrets/kubernetes.io/serviceaccount <span class="keyword">from</span> default-token-vckdx (ro)</span><br><span class="line">Conditions:</span><br><span class="line">  Type              Status</span><br><span class="line">  Initialized       <span class="literal">True</span> </span><br><span class="line">  Ready             <span class="literal">True</span> </span><br><span class="line">  ContainersReady   <span class="literal">True</span> </span><br><span class="line">  PodScheduled      <span class="literal">True</span> </span><br><span class="line">Volumes:</span><br><span class="line">  default-token-vckdx:</span><br><span class="line">    Type:        Secret (a volume populated by a Secret)</span><br><span class="line">    SecretName:  default-token-vckdx</span><br><span class="line">    Optional:    false</span><br><span class="line">QoS Class:       BestEffort</span><br><span class="line">Node-Selectors:  &lt;none&gt;</span><br><span class="line">Tolerations:     node.kubernetes.io/<span class="keyword">not</span>-ready:NoExecute <span class="keyword">for</span> <span class="number">300</span>s</span><br><span class="line">                 node.kubernetes.io/unreachable:NoExecute <span class="keyword">for</span> <span class="number">300</span>s</span><br><span class="line">Events:</span><br><span class="line">  Type    Reason     Age    From               Message</span><br><span class="line">  ----    ------     ----   ----               -------</span><br><span class="line">  Normal  Scheduled  <span class="number">2</span>m58s  default-scheduler  Successfully assigned default/liveness-http-pod to k8s003</span><br><span class="line">  Normal  Pulling    <span class="number">2</span>m58s  kubelet, k8s003    Pulling image <span class="string">"ikubernetes/myapp:v1"</span></span><br><span class="line">  Normal  Pulled     <span class="number">2</span>m55s  kubelet, k8s003    Successfully pulled image <span class="string">"ikubernetes/myapp:v1"</span></span><br><span class="line">  Normal  Created    <span class="number">2</span>m55s  kubelet, k8s003    Created container liveness-http-get-container</span><br><span class="line">  Normal  Started    <span class="number">2</span>m55s  kubelet, k8s003    Started container liveness-http-get-container</span><br><span class="line">[root@k8s001 rexyan]<span class="comment">#</span></span><br></pre></td></tr></table></figure></p>
+<p>在 Containers 中可以看到刚才配置的健康检查的信息</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Restart Count:  <span class="number">0</span></span><br><span class="line">Liveness:       http-get http://:http/index.html delay=<span class="number">1</span>s timeout=<span class="number">1</span>s period=<span class="number">3</span>s <span class="comment">#success=1 #failure=3</span></span><br></pre></td></tr></table></figure>
+<p>现在手动进入容器，删除健康检查的 index.html 页面</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get pods </span></span><br><span class="line">NAME                READY   STATUS             RESTARTS   AGE</span><br><span class="line">liveness-<span class="keyword">exec</span>-pod   <span class="number">0</span>/<span class="number">1</span>     CrashLoopBackOff   <span class="number">11</span>         <span class="number">28</span>m</span><br><span class="line">liveness-http-pod   <span class="number">1</span>/<span class="number">1</span>     Running            <span class="number">0</span>          <span class="number">6</span>m4s</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl exec -it liveness-http-pod -- /bin/sh </span></span><br><span class="line">/ <span class="comment"># rm -f /usr/share/nginx/html/index.html</span></span><br></pre></td></tr></table></figure>
+<p>再次看 pod 的状态就会发现 pod 已经重启了一次，重启之后删除的文件就回来了，所以就不会再重启了。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get pods </span></span><br><span class="line">NAME                READY   STATUS             RESTARTS   AGE</span><br><span class="line">liveness-<span class="keyword">exec</span>-pod   <span class="number">0</span>/<span class="number">1</span>     CrashLoopBackOff   <span class="number">11</span>         <span class="number">30</span>m</span><br><span class="line">liveness-http-pod   <span class="number">1</span>/<span class="number">1</span>     Running            <span class="number">1</span>          <span class="number">8</span>m12s</span><br></pre></td></tr></table></figure>
+<h3 id="redinessProbe"><a href="#redinessProbe" class="headerlink" title="redinessProbe"></a>redinessProbe</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl explain pods.spec.containers.readinessProbe</span><br></pre></td></tr></table></figure>
+<p>redinessProbe 也支持三种存活状态的检测，分别是 tcp，exec，http get，下面演示一种。</p>
+<h4 id="http-get-存活探测-1"><a href="#http-get-存活探测-1" class="headerlink" title="http get 存活探测"></a>http get 存活探测</h4><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">readiness-http-pod</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">readiness-http-get-container</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">ikubernetes/myapp:v1</span></span><br><span class="line">    <span class="attr">imagePullPolicy:</span> <span class="string">IfNotPresent</span> </span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">http</span></span><br><span class="line">      <span class="attr">containerPort:</span> <span class="number">80</span></span><br><span class="line">    <span class="attr">readinessProbe:</span></span><br><span class="line">      <span class="attr">httpGet:</span></span><br><span class="line">        <span class="attr">port:</span> <span class="string">http</span></span><br><span class="line">        <span class="attr">path:</span> <span class="string">/index.html</span></span><br><span class="line">      <span class="attr">initialDelaySeconds:</span> <span class="number">1</span>  </span><br><span class="line">      <span class="attr">periodSeconds:</span> <span class="number">3</span>  </span><br><span class="line">      <span class="attr">failureThreshold:</span> <span class="number">3</span>  </span><br><span class="line">      <span class="attr">successThreshold:</span> <span class="number">1</span></span><br><span class="line">      <span class="attr">timeoutSeconds:</span> <span class="number">1</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl create -f readiness-http-get.yaml </span></span><br><span class="line">pod/readiness-http-pod created</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get pods </span></span><br><span class="line">NAME                 READY   STATUS    RESTARTS   AGE</span><br><span class="line">liveness-http-pod    <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">1</span>          <span class="number">26</span>m</span><br><span class="line">readiness-http-pod   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">5</span>s</span><br></pre></td></tr></table></figure>
+<p>之后进入容器删除 index.html </p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl exec -it readiness-http-pod -- /bin/sh </span></span><br><span class="line">/ <span class="comment"># rm -f /usr/share/nginx/html/index.html</span></span><br></pre></td></tr></table></figure>
+<p>查看 pod 的信息, 可以看到 readiness-http-pod READY 个数变成了 0。READY 中 / 前面是值表示 pod 中容器就绪的数量，后面的是 pod 中容器的总个数。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get pods </span></span><br><span class="line">NAME                 READY   STATUS    RESTARTS   AGE</span><br><span class="line">liveness-http-pod    <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">1</span>          <span class="number">30</span>m</span><br><span class="line">readiness-http-pod   <span class="number">0</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">3</span>m43s</span><br></pre></td></tr></table></figure>
+<p>进入容器，重新写信息到 nginx 的 index 文件中</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl exec -it readiness-http-pod -- /bin/sh </span></span><br><span class="line">/ <span class="comment"># echo "hi k8s" &gt;&gt; /usr/share/nginx/html/index.html</span></span><br></pre></td></tr></table></figure>
+<p>重新查看 pod 的信息，就可以看到 pod 的 READY 状态已经从 0 变成1了</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get pods </span></span><br><span class="line">NAME                 READY   STATUS    RESTARTS   AGE</span><br><span class="line">liveness-http-pod    <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">1</span>          <span class="number">38</span>m</span><br><span class="line">readiness-http-pod   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">11</span>m</span><br></pre></td></tr></table></figure>
+<p>查看详细的 pod 信息</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl describe pods readiness-http-pod </span></span><br><span class="line">Name:               readiness-http-pod</span><br><span class="line">Namespace:          default</span><br><span class="line">Priority:           <span class="number">0</span></span><br><span class="line">PriorityClassName:  &lt;none&gt;</span><br><span class="line">Node:               k8s002/<span class="number">172.20</span><span class="number">.245</span><span class="number">.189</span></span><br><span class="line">Start Time:         Sun, <span class="number">19</span> May <span class="number">2019</span> <span class="number">16</span>:<span class="number">54</span>:<span class="number">04</span> +<span class="number">0800</span></span><br><span class="line">Labels:             &lt;none&gt;</span><br><span class="line">Annotations:        &lt;none&gt;</span><br><span class="line">Status:             Running</span><br><span class="line">IP:                 <span class="number">10.244</span><span class="number">.2</span><span class="number">.3</span></span><br><span class="line">Containers:</span><br><span class="line">  readiness-http-get-container:</span><br><span class="line">    Container ID:   docker://<span class="number">2989185e07600</span>a552f6a57ecc3e813156002e2218701da07da8b2efbfaf7c966</span><br><span class="line">    Image:          ikubernetes/myapp:v1</span><br><span class="line">    Image ID:       docker-pullable://docker.io/ikubernetes/myapp@sha256:<span class="number">9</span>c3dc30b5219788b2b8a4b065f548b922a34479577befb54b03330999d30d513</span><br><span class="line">    Port:           <span class="number">80</span>/TCP</span><br><span class="line">    Host Port:      <span class="number">0</span>/TCP</span><br><span class="line">    State:          Running</span><br><span class="line">      Started:      Sun, <span class="number">19</span> May <span class="number">2019</span> <span class="number">16</span>:<span class="number">54</span>:<span class="number">07</span> +<span class="number">0800</span></span><br><span class="line">    Ready:          <span class="literal">True</span></span><br><span class="line">    Restart Count:  <span class="number">0</span></span><br><span class="line">    Readiness:      http-get http://:http/index.html delay=<span class="number">1</span>s timeout=<span class="number">1</span>s period=<span class="number">3</span>s <span class="comment">#success=1 #failure=3</span></span><br><span class="line">    Environment:    &lt;none&gt;</span><br><span class="line">    Mounts:</span><br><span class="line">      /var/run/secrets/kubernetes.io/serviceaccount <span class="keyword">from</span> default-token-vckdx (ro)</span><br><span class="line">Conditions:</span><br><span class="line">  Type              Status</span><br><span class="line">  Initialized       <span class="literal">True</span> </span><br><span class="line">  Ready             <span class="literal">True</span> </span><br><span class="line">  ContainersReady   <span class="literal">True</span> </span><br><span class="line">  PodScheduled      <span class="literal">True</span> </span><br><span class="line">Volumes:</span><br><span class="line">  default-token-vckdx:</span><br><span class="line">    Type:        Secret (a volume populated by a Secret)</span><br><span class="line">    SecretName:  default-token-vckdx</span><br><span class="line">    Optional:    false</span><br><span class="line">QoS Class:       BestEffort</span><br><span class="line">Node-Selectors:  &lt;none&gt;</span><br><span class="line">Tolerations:     node.kubernetes.io/<span class="keyword">not</span>-ready:NoExecute <span class="keyword">for</span> <span class="number">300</span>s</span><br><span class="line">                 node.kubernetes.io/unreachable:NoExecute <span class="keyword">for</span> <span class="number">300</span>s</span><br><span class="line">Events:</span><br><span class="line">  Type     Reason     Age                   From               Message</span><br><span class="line">  ----     ------     ----                  ----               -------</span><br><span class="line">  Normal   Scheduled  <span class="number">14</span>m                   default-scheduler  Successfully assigned default/readiness-http-pod to k8s002</span><br><span class="line">  Normal   Pulling    <span class="number">14</span>m                   kubelet, k8s002    Pulling image <span class="string">"ikubernetes/myapp:v1"</span></span><br><span class="line">  Normal   Pulled     <span class="number">14</span>m                   kubelet, k8s002    Successfully pulled image <span class="string">"ikubernetes/myapp:v1"</span></span><br><span class="line">  Normal   Created    <span class="number">14</span>m                   kubelet, k8s002    Created container readiness-http-get-container</span><br><span class="line">  Normal   Started    <span class="number">14</span>m                   kubelet, k8s002    Started container readiness-http-get-container</span><br><span class="line">  Warning  Unhealthy  <span class="number">4</span>m4s (x134 over <span class="number">10</span>m)  kubelet, k8s002    Readiness probe failed: HTTP probe failed <span class="keyword">with</span> statuscode: <span class="number">404</span></span><br><span class="line">[root@k8s001 rexyan]<span class="comment">#</span></span><br></pre></td></tr></table></figure>
+<p>在 Containers 中可以看到刚才配置的健康检查的信息</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Restart Count:  <span class="number">0</span></span><br><span class="line">Readiness:      http-get http://:http/index.html delay=<span class="number">1</span>s timeout=<span class="number">1</span>s period=<span class="number">3</span>s <span class="comment">#success=1 #failure=3</span></span><br></pre></td></tr></table></figure>
+<h3 id="容器启动和结束钩子"><a href="#容器启动和结束钩子" class="headerlink" title="容器启动和结束钩子"></a>容器启动和结束钩子</h3><p>在容器启动后和结束前都有对应的钩子，分别是 postStart 和 preStop</p>
+<h4 id="postStart"><a href="#postStart" class="headerlink" title="postStart"></a>postStart</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl explain pods.spec.containers.lifecycle.postStart</span><br></pre></td></tr></table></figure>
+<p>postStart 有三种执行方式，分别是tcp，exec 和 http get。</p>
+<h4 id="preStop"><a href="#preStop" class="headerlink" title="preStop"></a>preStop</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl explain pods.spec.containers.lifecycle.preStop</span><br></pre></td></tr></table></figure>
+<p>preStop 也有三种执行方式，分别是tcp，exec 和 http get</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"><i class="fa fa-tag"></i> Kubernetes</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/05/18/K8s 使用资源清单创建资源 (二)/" rel="prev" title="K8s 使用资源清单创建资源 (二)">
+      <i class="fa fa-chevron-left"></i> K8s 使用资源清单创建资源 (二)
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/05/26/K8s Pod 控制器/" rel="next" title="K8s Pod 控制器">
+      K8s Pod 控制器 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#livenessProbe"><span class="nav-number">1.</span> <span class="nav-text">livenessProbe</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#exec-存活探测"><span class="nav-number">1.1.</span> <span class="nav-text">exec 存活探测</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#http-get-存活探测"><span class="nav-number">1.2.</span> <span class="nav-text">http get 存活探测</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#redinessProbe"><span class="nav-number">2.</span> <span class="nav-text">redinessProbe</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#http-get-存活探测-1"><span class="nav-number">2.1.</span> <span class="nav-text">http get 存活探测</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#容器启动和结束钩子"><span class="nav-number">3.</span> <span class="nav-text">容器启动和结束钩子</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#postStart"><span class="nav-number">3.1.</span> <span class="nav-text">postStart</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#preStop"><span class="nav-number">3.2.</span> <span class="nav-text">preStop</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

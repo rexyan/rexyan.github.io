@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="在 k8s 中目前个人认为最难的部分就是网络和存储了，网络是难搞懂的，就如之前的 ingress 一样，到目前都没有弄清楚，现在这里的存储也是只了解了一些简单的，如果想要真正的搞懂那需要不断的学习一些专业的存储知识。在 k8s 中还有 configmap 和 secret，用于我们修改应用程序的配置文件，这两者都是常用到的。 pv, pvc一般情况下由专门的存储工程师创建出存储空间，交给 K8s">
+<meta name="keywords" content="Kubernetes">
+<meta property="og:type" content="article">
+<meta property="og:title" content="K8s 存储卷、ConfigMap 和 Secret">
+<meta property="og:url" content="https://rexyan.github.io/2019/06/16/存储卷 ConfigMap 和 Secret/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="在 k8s 中目前个人认为最难的部分就是网络和存储了，网络是难搞懂的，就如之前的 ingress 一样，到目前都没有弄清楚，现在这里的存储也是只了解了一些简单的，如果想要真正的搞懂那需要不断的学习一些专业的存储知识。在 k8s 中还有 configmap 和 secret，用于我们修改应用程序的配置文件，这两者都是常用到的。 pv, pvc一般情况下由专门的存储工程师创建出存储空间，交给 K8s">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/pv%20%2B%20pvc.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/pv%2Bpvc2.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190615174805.png">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.407Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="K8s 存储卷、ConfigMap 和 Secret">
+<meta name="twitter:description" content="在 k8s 中目前个人认为最难的部分就是网络和存储了，网络是难搞懂的，就如之前的 ingress 一样，到目前都没有弄清楚，现在这里的存储也是只了解了一些简单的，如果想要真正的搞懂那需要不断的学习一些专业的存储知识。在 k8s 中还有 configmap 和 secret，用于我们修改应用程序的配置文件，这两者都是常用到的。 pv, pvc一般情况下由专门的存储工程师创建出存储空间，交给 K8s">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/pv%20%2B%20pvc.png">
+
+<link rel="canonical" href="https://rexyan.github.io/2019/06/16/存储卷 ConfigMap 和 Secret/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>K8s 存储卷、ConfigMap 和 Secret | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2019/06/16/存储卷 ConfigMap 和 Secret/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          K8s 存储卷、ConfigMap 和 Secret
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-06-16 17:22:57" itemprop="dateCreated datePublished" datetime="2019-06-16T17:22:57+00:00">2019-06-16</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Kubernetes/" itemprop="url" rel="index"><span itemprop="name">Kubernetes</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>在 k8s 中目前个人认为最难的部分就是网络和存储了，网络是难搞懂的，就如之前的 ingress 一样，到目前都没有弄清楚，现在这里的存储也是只了解了一些简单的，如果想要真正的搞懂那需要不断的学习一些专业的存储知识。在 k8s 中还有 configmap 和 secret，用于我们修改应用程序的配置文件，这两者都是常用到的。</p>
+<h3 id="pv-pvc"><a href="#pv-pvc" class="headerlink" title="pv, pvc"></a>pv, pvc</h3><p>一般情况下由专门的存储工程师创建出存储空间，交给 K8s 管理员创建出 Pv，K8s 使用者创建 Pvc，应用 Pv。Pvc 和 Pv 是一一对应关系，但是一个 Pvc 可以支持被多个 Pod 所使用。Pvc 如果成功绑定 Pv，那么状态就是 Bound，否则处于 Peding 状态。</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/pv%20%2B%20pvc.png" alt></p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/pv%2Bpvc2.png" alt></p>
+<p>创建 pv 示例：<a href="https://www.cnblogs.com/along21/p/10342788.html" target="_blank" rel="noopener">https://www.cnblogs.com/along21/p/10342788.html</a></p>
+<h3 id="emptyDir"><a href="#emptyDir" class="headerlink" title="emptyDir"></a>emptyDir</h3><p>无持久性，随着 Pod 的删除也会被删除。</p>
+<h4 id="创建-emptyDir"><a href="#创建-emptyDir" class="headerlink" title="创建 emptyDir"></a>创建 emptyDir</h4><p>定义自助式 Pod 来测试 emptyDir。volumes.emptyDir.medium 可以指定存储的介质。sizeLimit 可以指定存储总量</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl explain pods.spec.volumes.emptyDir</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">KIND:     Pod</span><br><span class="line">VERSION:  v1</span><br><span class="line"></span><br><span class="line">RESOURCE: emptyDir &lt;Object&gt;</span><br><span class="line"></span><br><span class="line">DESCRIPTION:</span><br><span class="line">     EmptyDir represents a temporary directory that shares a pod&apos;s lifetime.</span><br><span class="line">     More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir</span><br><span class="line"></span><br><span class="line">     Represents an empty directory for a pod. Empty directory volumes support</span><br><span class="line">     ownership management and SELinux relabeling.</span><br><span class="line"></span><br><span class="line">FIELDS:</span><br><span class="line">   medium	&lt;string&gt;</span><br><span class="line">     What type of storage medium should back this directory. The default is &quot;&quot;</span><br><span class="line">     which means to use the node&apos;s default medium. Must be an empty string</span><br><span class="line">     (default) or Memory. More info:</span><br><span class="line">     https://kubernetes.io/docs/concepts/storage/volumes#emptydir</span><br><span class="line"></span><br><span class="line">   sizeLimit	&lt;string&gt;</span><br><span class="line">     Total amount of local storage required for this EmptyDir volume. The size</span><br><span class="line">     limit is also applicable for memory medium. The maximum usage on memory</span><br><span class="line">     medium EmptyDir would be the minimum value between the SizeLimit specified</span><br><span class="line">     here and the sum of memory limits of all containers in a pod. The default</span><br><span class="line">     is nil which means that the limit is undefined. More info:</span><br><span class="line">     http://kubernetes.io/docs/user-guide/volumes#emptydir</span><br></pre></td></tr></table></figure>
+<p>emptyDir.yaml 内容如下：volumes 中的内容会创建一个 emptyDir，可以限制 emptyDir 使用的大小，{} 代表不限制</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">runsha.yan.test.pod</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="attr">app:</span> <span class="string">myapp</span></span><br><span class="line">  <span class="attr">annotations:</span></span><br><span class="line">    <span class="attr">create-by:</span> <span class="string">runsha.yan</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">myapp</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">ikubernetes/myapp:v1</span></span><br><span class="line">    <span class="attr">imagePullPolicy:</span> <span class="string">IfNotPresent</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">http</span></span><br><span class="line">      <span class="attr">containerPort:</span> <span class="number">80</span></span><br><span class="line">    <span class="attr">volumeMounts:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">html</span></span><br><span class="line">      <span class="attr">mountPath:</span> <span class="string">/usr/share/nginx/html/</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">busybox</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">busybox:latest</span></span><br><span class="line">    <span class="attr">imagePullPolicy:</span> <span class="string">IfNotPresent</span></span><br><span class="line">    <span class="attr">volumeMounts:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">html</span></span><br><span class="line">      <span class="attr">mountPath:</span> <span class="string">/data/</span></span><br><span class="line">    <span class="attr">command:</span> <span class="string">["bin/sh"]</span></span><br><span class="line">    <span class="attr">args:</span> <span class="string">["-c",</span> <span class="string">"while true; do echo $(date) &gt;&gt; /data/index.html; sleep 2; done"</span><span class="string">]</span></span><br><span class="line">  <span class="attr">volumes:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">html</span></span><br><span class="line">    <span class="attr">emptyDir:</span> <span class="string">&#123;&#125;</span></span><br></pre></td></tr></table></figure>
+<p>创建 Pod</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl apply -f emptyDir.yaml</span><br></pre></td></tr></table></figure>
+<p>查看内容<br><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">kubectl get pods</span><br><span class="line">NAME                                      READY   STATUS    RESTARTS   AGE</span><br><span class="line">runsha.yan.test.pod                       2/2     Running   0          7m</span><br></pre></td></tr></table></figure></p>
+<h4 id="创建-NodePort-Service-进行访问测试"><a href="#创建-NodePort-Service-进行访问测试" class="headerlink" title="创建 NodePort Service 进行访问测试"></a>创建 NodePort Service 进行访问测试</h4><p>nodePort.yaml </p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Service</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">runsha-yan-test-service</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">app:</span> <span class="string">myapp</span></span><br><span class="line">  <span class="attr">type:</span> <span class="string">NodePort</span></span><br><span class="line">  <span class="attr">ports:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">port:</span> <span class="number">80</span></span><br><span class="line">    <span class="attr">targetPort:</span> <span class="number">80</span></span><br><span class="line">    <span class="attr">nodePort:</span> <span class="number">30080</span></span><br></pre></td></tr></table></figure>
+<p>创建 Service</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl apply -f nodePort.yaml</span><br></pre></td></tr></table></figure>
+<p>查看状态</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"> rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl get svc</span><br><span class="line">NAME                      TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)                          AGE</span><br><span class="line">runsha-yan-test-service   NodePort    172.16.3.101    &lt;none&gt;        80:30080/TCP                     7m</span><br></pre></td></tr></table></figure>
+<h4 id="浏览器访问测试"><a href="#浏览器访问测试" class="headerlink" title="浏览器访问测试"></a>浏览器访问测试</h4><p>可以看到每隔两秒内容进行增加。</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190615174805.png" alt></p>
+<h4 id="进入容器查询内容"><a href="#进入容器查询内容" class="headerlink" title="进入容器查询内容"></a>进入容器查询内容</h4><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl exec -it runsha.yan.test.pod -c  myapp -- /bin/sh</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">/ # cd /usr/share/nginx/html/</span><br><span class="line">/usr/share/nginx/html # ls -la</span><br><span class="line">total 20</span><br><span class="line">drwxrwxrwx    2 root     root          4096 Jun 15 09:42 .</span><br><span class="line">drwxr-xr-x    1 root     root          4096 Feb 25  2018 ..</span><br><span class="line">-rw-r--r--    1 root     root         10121 Jun 15 09:54 index.html</span><br><span class="line">/usr/share/nginx/html # echo "test" &gt;&gt;  test.html</span><br></pre></td></tr></table></figure>
+<p>浏览器访问 test 页面同样也可以看到内容</p>
+<p>进入另一个容器</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl exec -it runsha.yan.test.pod -c busybox  -- /bin/sh</span><br></pre></td></tr></table></figure>
+<p>因为 busybox 容器和 myapp 共同挂载的一个 emptyDir，所以也可以看到之前在 myapp 容器内创建的 test.html 文件</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">/ # cd /data/</span><br><span class="line">/data # ls -la</span><br><span class="line">total 24</span><br><span class="line">drwxrwxrwx    2 root     root          4096 Jun 15 09:55 .</span><br><span class="line">drwxr-xr-x    1 root     root          4096 Jun 15 09:42 ..</span><br><span class="line">-rw-r--r--    1 root     root         12064 Jun 15 09:56 index.html</span><br><span class="line">-rw-r--r--    1 root     root             5 Jun 15 09:55 test.html</span><br></pre></td></tr></table></figure>
+<h3 id="hostPath"><a href="#hostPath" class="headerlink" title="hostPath"></a>hostPath</h3><h4 id="创建-hostPath"><a href="#创建-hostPath" class="headerlink" title="创建 hostPath"></a>创建 hostPath</h4><p>与docker 中的映射一致，挂载一个宿主机的目录或文件或者其他格式。具有一定的持久性，但是如果节点出现问题，那么持久性将受到影响。hostPath type类型支持好几种方式，例如：DirectoryOrCreate（目录，没有则创建），Directory（目录），FileOrCreate（文件，没有则创建），File（文件），Socket，CharDevice，BlockDevice。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">runsha-yan-test-pod-hostpath</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">myapp</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">ikubernetes/myapp:v1</span></span><br><span class="line">    <span class="attr">volumeMounts:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">html</span></span><br><span class="line">      <span class="attr">mountPath:</span> <span class="string">/usr/share/nginx/html/</span></span><br><span class="line">  <span class="attr">volumes:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">html</span></span><br><span class="line">    <span class="attr">hostPath:</span></span><br><span class="line">      <span class="attr">path:</span> <span class="string">/tmp/</span></span><br><span class="line">      <span class="attr">type:</span> <span class="string">DirectoryOrCreate</span></span><br></pre></td></tr></table></figure>
+<p>这是因为没有宿主机 ssh 的权限，所以就不验证效果了。</p>
+<h3 id="ConfigMap"><a href="#ConfigMap" class="headerlink" title="ConfigMap"></a>ConfigMap</h3><p>ConfigMap 存储信息为明文, 定义一个配置文件</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">server &#123;</span><br><span class="line">      server_name test.runsha.yan.com;</span><br><span class="line">      listen 80;</span><br><span class="line">      root /data/web/html;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h4 id="创建-configmap"><a href="#创建-configmap" class="headerlink" title="创建 configmap"></a>创建 configmap</h4><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ubectl create configmap runsha-yan-test-configmap --from-file=./www.config</span><br></pre></td></tr></table></figure>
+<p>查看 configmap</p>
+<ol>
+<li>查看列表</li>
+</ol>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"> ✘ rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl get cm</span><br><span class="line">NAME                        DATA   AGE</span><br><span class="line">runsha-yan-test-configmap   1      1m</span><br></pre></td></tr></table></figure>
+<ol start="2">
+<li><p>查看 yaml 格式</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">✘ rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl get cm runsha-yan-test-configmap -o yaml</span><br><span class="line">apiVersion: v1</span><br><span class="line">data:</span><br><span class="line">  www.config: |</span><br><span class="line">    server &#123;</span><br><span class="line">          server_name test.runsha.yan.com;</span><br><span class="line">          listen 80;</span><br><span class="line">          root /data/web/html;</span><br><span class="line">    &#125;</span><br><span class="line">kind: ConfigMap</span><br><span class="line">metadata:</span><br><span class="line">  creationTimestamp: "2019-06-16T03:29:07Z"</span><br><span class="line">  name: runsha-yan-test-configmap</span><br><span class="line">  namespace: default</span><br><span class="line">  resourceVersion: "52482318"</span><br><span class="line">  selfLink: /api/v1/namespaces/default/configmaps/runsha-yan-test-configmap</span><br><span class="line">  uid: e5f0531e-8fe6-11e9-bbd9-00163e0aa20d</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>查看详细信息</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl describe cm runsha-yan-test-configmap</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<h4 id="注入到容器"><a href="#注入到容器" class="headerlink" title="注入到容器"></a>注入到容器</h4><h4 id="1）环境变量"><a href="#1）环境变量" class="headerlink" title="1）环境变量"></a>1）环境变量</h4><p>使用环境变量的方式注入，前提是应用程序能解析并应用环境变量（如果程序不支持读取环境变量的配置，那么即使注入也没用）。使用命令行创建一个 名称为 nginx-config 的 configmap</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create configmap nginx-config --from-literal=nginx_port=80 --from-literal=server_name=runsha.yan.test.configmap</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"> ✘ rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl  get cm</span><br><span class="line">NAME                        DATA   AGE</span><br><span class="line">nginx-config                2      14s</span><br><span class="line">runsha-yan-test-configmap   1      35m</span><br></pre></td></tr></table></figure>
+<p>查看详情</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"> rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl describe cm nginx-config configMapEnv.yaml</span><br><span class="line">Name:         nginx-config</span><br><span class="line">Namespace:    default</span><br><span class="line">Labels:       &lt;none&gt;</span><br><span class="line">Annotations:  &lt;none&gt;</span><br><span class="line"></span><br><span class="line">Data</span><br><span class="line">====</span><br><span class="line">nginx_port:</span><br><span class="line">----</span><br><span class="line">80</span><br><span class="line">server_name:</span><br><span class="line">----</span><br><span class="line">runsha.yan.test.configmap</span><br><span class="line">Events:  &lt;none&gt;</span><br></pre></td></tr></table></figure>
+<p>创建 Pod 使用 env 方式注入, configMapKeyRef 中，name 为 configmap 的名称，key 为配置的名称。这样就会在容器中存在 NGINX_SERVER_PORT 和 NGINX_SERVER_NAME 两个环境变量，并且值为我们刚刚在 configmap 中创建的。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">runsha.yan.test.configmap.pod</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="attr">app:</span> <span class="string">myapp</span></span><br><span class="line">  <span class="attr">annotations:</span></span><br><span class="line">    <span class="attr">create-by:</span> <span class="string">runsha.yan</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">myapp</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">ikubernetes/myapp:v1</span></span><br><span class="line">    <span class="attr">imagePullPolicy:</span> <span class="string">IfNotPresent</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">http</span></span><br><span class="line">      <span class="attr">containerPort:</span> <span class="number">80</span></span><br><span class="line">    <span class="attr">env:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">NGINX_SERVER_PORT</span></span><br><span class="line">      <span class="attr">valueFrom:</span></span><br><span class="line">        <span class="attr">configMapKeyRef:</span></span><br><span class="line">          <span class="attr">name:</span> <span class="string">nginx-config</span></span><br><span class="line">          <span class="attr">key:</span> <span class="string">nginx_port</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">NGINX_SERVER_NAME</span></span><br><span class="line">      <span class="attr">valueFrom:</span></span><br><span class="line">        <span class="attr">configMapKeyRef:</span></span><br><span class="line">          <span class="attr">name:</span> <span class="string">nginx-config</span></span><br><span class="line">          <span class="attr">key:</span> <span class="string">server_name</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"> rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl apply -f configMapEnv.yaml</span><br><span class="line">pod/runsha.yan.test.configmap.pod created</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"> ✘ rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl get pods</span><br><span class="line">NAME                                      READY   STATUS    RESTARTS   AGE</span><br><span class="line">runsha.yan.test.configmap.pod             1/1     Running   0          13s</span><br></pre></td></tr></table></figure>
+<p>进入容器查看环境变量是否是我们刚才设置的</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"> ✘ rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl exec -it runsha.yan.test.configmap.pod -- /bin/sh</span><br><span class="line">/ # echo $NGINX_SERVER_PORT</span><br><span class="line">80</span><br><span class="line">/ # echo $NGINX_SERVER_NAME</span><br><span class="line">runsha.yan.test.configmap</span><br></pre></td></tr></table></figure>
+<p>查看我们的环境变量，的确已经看到了期待的结果。接下来使用 edit 来编辑 configmap，然后再来观察现象。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl edit cm nginx-config</span><br></pre></td></tr></table></figure>
+<p>将 server_name 的值修改为 server_name: runsha.yan.test.configmap.update, 重新进入容器查看环境变量信息。会发现结果没有发生改变。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"> rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl exec -it runsha.yan.test.configmap.pod -- /bin/sh</span><br><span class="line">/ # echo $NGINX_SERVER_NAME</span><br><span class="line">runsha.yan.test.configmap</span><br></pre></td></tr></table></figure>
+<p>使用 edit 修改 configmap，再次进入 Pod 发现环境变量的值没有发生变化，原因是使用环境变量的方式注入，只会在容器启动的时候才会注入生效，之后修改 configmap 是没有效果的。  </p>
+<h4 id="2）使用存储卷"><a href="#2）使用存储卷" class="headerlink" title="2）使用存储卷"></a>2）使用存储卷</h4><p>需要创建一个存储卷，类型为 configmap，再将创建的 configmap 关联至容器中。进入 Pod 会看见文件名字为键名，键值为文件内容的文件已经被注入到指定挂载的目录了。configmap 就使用上面创建的 nginx-config</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">runsha.yan.test.configmap.mount.pod</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="attr">app:</span> <span class="string">myapp</span></span><br><span class="line">  <span class="attr">annotations:</span></span><br><span class="line">    <span class="attr">create-by:</span> <span class="string">runsha.yan</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">myapp</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">ikubernetes/myapp:v1</span></span><br><span class="line">    <span class="attr">imagePullPolicy:</span> <span class="string">IfNotPresent</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">http</span></span><br><span class="line">      <span class="attr">containerPort:</span> <span class="number">80</span></span><br><span class="line">    <span class="attr">volumeMounts:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">nginxconfig</span></span><br><span class="line">      <span class="attr">mountPath:</span> <span class="string">/etc/nginx/config.d/</span></span><br><span class="line">      <span class="attr">readOnly:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">volumes:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">nginxconfig</span></span><br><span class="line">    <span class="attr">configMap:</span></span><br><span class="line">      <span class="attr">name:</span> <span class="string">nginx-config</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"> rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl apply -f configMapMount.yaml</span><br><span class="line">pod/runsha.yan.test.configmap.mount.pod created</span><br></pre></td></tr></table></figure>
+<p>进入容器进行验证</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"> rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl exec -it runsha.yan.test.configmap.mount.pod -- /bin/sh</span><br><span class="line">/ # cd /etc/nginx/config.d/</span><br><span class="line">/etc/nginx/config.d # ls -la</span><br><span class="line">total 12</span><br><span class="line">drwxrwxrwx    3 root     root          4096 Jun 16 08:05 .</span><br><span class="line">drwxr-xr-x    1 root     root          4096 Jun 16 08:05 ..</span><br><span class="line">drwxr-xr-x    2 root     root          4096 Jun 16 08:05 ..2019_06_16_08_05_23.315302408</span><br><span class="line">lrwxrwxrwx    1 root     root            31 Jun 16 08:05 ..data -&gt; ..2019_06_16_08_05_23.315302408</span><br><span class="line">lrwxrwxrwx    1 root     root            17 Jun 16 08:05 nginx_port -&gt; ..data/nginx_port</span><br><span class="line">lrwxrwxrwx    1 root     root            18 Jun 16 08:05 server_name -&gt; ..data/server_name</span><br><span class="line">/etc/nginx/config.d # cat server_name</span><br><span class="line">runsha.yan.test.configmap.update/etc/nginx/config.d #</span><br></pre></td></tr></table></figure>
+<p>cat server_name 就会看到内容为 runsha.yan.test.configmap.update。文件的名字是 configmap 的键名，nginx_port 和server_name。文件的内容分别是 configmap 中对应键名的值。</p>
+<p>使用 edit 修改 configmap，将erver_name 的内容改为 runsha.yan.test.configmap.mount ,再次进入Pod 发现对应修改的 key 的文件的内容已经发生了变化。</p>
+<h3 id="Secret"><a href="#Secret" class="headerlink" title="Secret"></a>Secret</h3><h4 id="创建-Secret"><a href="#创建-Secret" class="headerlink" title="创建 Secret"></a>创建 Secret</h4><p>secret 和 configmap 相比，secret 不是以明文方式保存信息的，而是以 base64 的方式。secret 共有三种类型，一种是 docker-register，用于 kubelet 在私有仓库拉取镜像时使用。一种为 tls，用于保存证书信息。其余的都可以保存为 generic。</p>
+<p>创建 generic 类型的 secret</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl create secret generic runsha.yan.test.mysql.pass --from-literal=password=123456</span><br></pre></td></tr></table></figure>
+<p>上述命令中我们创建了一个名字叫做 runsha.yan.test.mysql.pass  generic 类型的 secret，键名 为 password 值为 123456。查看详细信息：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl get secrets</span><br><span class="line">NAME                                    TYPE                                  DATA   AGE</span><br><span class="line">runsha.yan.test.mysql.pass              Opaque                                1      2m</span><br></pre></td></tr></table></figure>
+<p>查看 yaml 格式的内容，发现看见的密码是 base64 转码之后的。<br><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"> rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl get secrets runsha.yan.test.mysql.pass -o yaml</span><br><span class="line">apiVersion: v1</span><br><span class="line">data:</span><br><span class="line">  password: MTIzNDU2</span><br><span class="line">kind: Secret</span><br><span class="line">metadata:</span><br><span class="line">  creationTimestamp: "2019-06-16T08:16:29Z"</span><br><span class="line">  name: runsha.yan.test.mysql.pass</span><br><span class="line">  namespace: default</span><br><span class="line">  resourceVersion: "52525316"</span><br><span class="line">  selfLink: /api/v1/namespaces/default/secrets/runsha.yan.test.mysql.pass</span><br><span class="line">  uid: 0b45f531-900f-11e9-a6ce-00163e00c9c1</span><br><span class="line">type: Opaque</span><br></pre></td></tr></table></figure></p>
+<h4 id="注入容器"><a href="#注入容器" class="headerlink" title="注入容器"></a>注入容器</h4><h4 id="1）环境变量-1"><a href="#1）环境变量-1" class="headerlink" title="1）环境变量"></a>1）环境变量</h4><p>使用我们刚刚创建的 runsha.yan.test.mysql.pass 的 secret</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"> rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl describe secrets runsha.yan.test.mysql.pass</span><br><span class="line">Name:         runsha.yan.test.mysql.pass</span><br><span class="line">Namespace:    default</span><br><span class="line">Labels:       &lt;none&gt;</span><br><span class="line">Annotations:  &lt;none&gt;</span><br><span class="line"></span><br><span class="line">Type:  Opaque</span><br><span class="line"></span><br><span class="line">Data</span><br><span class="line">====</span><br><span class="line">password:  6 bytes</span><br></pre></td></tr></table></figure>
+<p>创建 Pod </p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">runsha.yan.test.secret.env.pod</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="attr">app:</span> <span class="string">myapp</span></span><br><span class="line">  <span class="attr">annotations:</span></span><br><span class="line">    <span class="attr">create-by:</span> <span class="string">runsha.yan</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">myapp</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">ikubernetes/myapp:v1</span></span><br><span class="line">    <span class="attr">imagePullPolicy:</span> <span class="string">IfNotPresent</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">http</span></span><br><span class="line">      <span class="attr">containerPort:</span> <span class="number">80</span></span><br><span class="line">    <span class="attr">env:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">MYSQL_PASSWORD</span></span><br><span class="line">      <span class="attr">valueFrom:</span></span><br><span class="line">        <span class="attr">secretKeyRef:</span></span><br><span class="line">          <span class="attr">name:</span> <span class="string">runsha.yan.test.mysql.pass</span></span><br><span class="line">          <span class="attr">key:</span> <span class="string">password</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl apply -f secretEnv.yaml</span><br></pre></td></tr></table></figure>
+<p>进入容器后查看注入的信息是明文的</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"> ✘ rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl exec -it runsha.yan.test.secret.env.pod -- /bin/sh</span><br><span class="line">/ # echo $MYSQL_PASSWORD</span><br><span class="line">123456</span><br></pre></td></tr></table></figure>
+<h4 id="2）使用存储卷-1"><a href="#2）使用存储卷-1" class="headerlink" title="2）使用存储卷"></a>2）使用存储卷</h4><p>和 configmap 一样，也是将存储卷转换为文件的方式注入</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">runsha.yan.test.secret.mount.pod</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="attr">app:</span> <span class="string">myapp</span></span><br><span class="line">  <span class="attr">annotations:</span></span><br><span class="line">    <span class="attr">create-by:</span> <span class="string">runsha.yan</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">myapp</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">ikubernetes/myapp:v1</span></span><br><span class="line">    <span class="attr">imagePullPolicy:</span> <span class="string">IfNotPresent</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">http</span></span><br><span class="line">      <span class="attr">containerPort:</span> <span class="number">80</span></span><br><span class="line">    <span class="attr">volumeMounts:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">mysql-pass</span></span><br><span class="line">      <span class="attr">mountPath:</span> <span class="string">/etc/mysql/</span></span><br><span class="line">      <span class="attr">readOnly:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">volumes:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">mysql-pass</span></span><br><span class="line">    <span class="attr">secret:</span></span><br><span class="line">      <span class="attr">secretName:</span> <span class="string">runsha.yan.test.mysql.pass</span></span><br><span class="line">      <span class="attr">items:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">password</span></span><br><span class="line">        <span class="attr">path:</span> <span class="string">config/mymysql</span></span><br></pre></td></tr></table></figure>
+<p>items 中的 key 是需要映射的 configmap 中的键名，path 是键值的位置。进入容器进行查看，进入到 /etc/mysql/config/ 目录下，就可以看到 一个名字为 mymysql 的文件，内容是键值 123456。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"> rex@yanrunshadeMacBook-Pro  ~/Documents/Projects/k8s  kubectl exec -it runsha.yan.test.secret.mount.pod -- /bin/sh </span><br><span class="line">/ # cd /etc/mysql/config/</span><br><span class="line">/etc/mysql/..2019_06_16_08_56_59.776690184/config # ls -la</span><br><span class="line">total 4</span><br><span class="line">drwxr-xr-x    2 root     root            60 Jun 16 08:56 .</span><br><span class="line">drwxr-xr-x    3 root     root            60 Jun 16 08:56 ..</span><br><span class="line">-rw-r--r--    1 root     root             6 Jun 16 08:56 mymysql</span><br><span class="line">/etc/mysql/..2019_06_16_08_56_59.776690184/config # cat mymysql</span><br><span class="line">123456/etc/mysql/..2019_06_16_08_56_59.776690184/config #</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"><i class="fa fa-tag"></i> Kubernetes</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/06/08/远山淡影/" rel="prev" title="《远山淡影》">
+      <i class="fa fa-chevron-left"></i> 《远山淡影》
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/06/22/Python 描述器/" rel="next" title="Python 描述器">
+      Python 描述器 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#pv-pvc"><span class="nav-number">1.</span> <span class="nav-text">pv, pvc</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#emptyDir"><span class="nav-number">2.</span> <span class="nav-text">emptyDir</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#创建-emptyDir"><span class="nav-number">2.1.</span> <span class="nav-text">创建 emptyDir</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#创建-NodePort-Service-进行访问测试"><span class="nav-number">2.2.</span> <span class="nav-text">创建 NodePort Service 进行访问测试</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#浏览器访问测试"><span class="nav-number">2.3.</span> <span class="nav-text">浏览器访问测试</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#进入容器查询内容"><span class="nav-number">2.4.</span> <span class="nav-text">进入容器查询内容</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#hostPath"><span class="nav-number">3.</span> <span class="nav-text">hostPath</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#创建-hostPath"><span class="nav-number">3.1.</span> <span class="nav-text">创建 hostPath</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#ConfigMap"><span class="nav-number">4.</span> <span class="nav-text">ConfigMap</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#创建-configmap"><span class="nav-number">4.1.</span> <span class="nav-text">创建 configmap</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#注入到容器"><span class="nav-number">4.2.</span> <span class="nav-text">注入到容器</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#1）环境变量"><span class="nav-number">4.3.</span> <span class="nav-text">1）环境变量</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2）使用存储卷"><span class="nav-number">4.4.</span> <span class="nav-text">2）使用存储卷</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Secret"><span class="nav-number">5.</span> <span class="nav-text">Secret</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#创建-Secret"><span class="nav-number">5.1.</span> <span class="nav-text">创建 Secret</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#注入容器"><span class="nav-number">5.2.</span> <span class="nav-text">注入容器</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#1）环境变量-1"><span class="nav-number">5.3.</span> <span class="nav-text">1）环境变量</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2）使用存储卷-1"><span class="nav-number">5.4.</span> <span class="nav-text">2）使用存储卷</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

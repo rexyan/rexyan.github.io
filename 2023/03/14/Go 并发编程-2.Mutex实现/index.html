@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="初版 Mutex“初版”的 Mutex 使用一个 flag 来表示锁是否被持有，实现比较简单。 123456789101112131415161718192021222324252627282930313233343536// CAS操作，当时还没有抽象出atomic包 func cas(val *int32, old, new int32) bool func semacquire(*int32">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Go 并发编程-2.Mutex实现">
+<meta property="og:url" content="https://rexyan.github.io/2023/03/14/Go 并发编程-2.Mutex实现/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="初版 Mutex“初版”的 Mutex 使用一个 flag 来表示锁是否被持有，实现比较简单。 123456789101112131415161718192021222324252627282930313233343536// CAS操作，当时还没有抽象出atomic包 func cas(val *int32, old, new int32) bool func semacquire(*int32">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230314104500.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230314104847.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230314105414.png">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.393Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Go 并发编程-2.Mutex实现">
+<meta name="twitter:description" content="初版 Mutex“初版”的 Mutex 使用一个 flag 来表示锁是否被持有，实现比较简单。 123456789101112131415161718192021222324252627282930313233343536// CAS操作，当时还没有抽象出atomic包 func cas(val *int32, old, new int32) bool func semacquire(*int32">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230314104500.png">
+
+<link rel="canonical" href="https://rexyan.github.io/2023/03/14/Go 并发编程-2.Mutex实现/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Go 并发编程-2.Mutex实现 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2023/03/14/Go 并发编程-2.Mutex实现/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Go 并发编程-2.Mutex实现
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2023-03-14 13:38:57" itemprop="dateCreated datePublished" datetime="2023-03-14T13:38:57+00:00">2023-03-14</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Go/" itemprop="url" rel="index"><span itemprop="name">Go</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="初版-Mutex"><a href="#初版-Mutex" class="headerlink" title="初版 Mutex"></a>初版 Mutex</h3><p>“初版”的 Mutex 使用一个 flag 来表示锁是否被持有，实现比较简单。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// CAS操作，当时还没有抽象出atomic包</span></span><br><span class="line"> <span class="function"><span class="keyword">func</span> <span class="title">cas</span><span class="params">(val *<span class="keyword">int32</span>, old, <span class="built_in">new</span> <span class="keyword">int32</span>)</span> <span class="title">bool</span></span></span><br><span class="line"> <span class="function"><span class="keyword">func</span> <span class="title">semacquire</span><span class="params">(*<span class="keyword">int32</span>)</span></span></span><br><span class="line"> <span class="function"><span class="keyword">func</span> <span class="title">semrelease</span><span class="params">(*<span class="keyword">int32</span>)</span></span></span><br><span class="line"> <span class="comment">// 互斥锁的结构，包含两个字段</span></span><br><span class="line"> <span class="keyword">type</span> Mutex <span class="keyword">struct</span> &#123;</span><br><span class="line">     key  <span class="keyword">int32</span> <span class="comment">// 锁是否被持有的标识</span></span><br><span class="line">     sema <span class="keyword">int32</span> <span class="comment">// 信号量专用，用以阻塞/唤醒goroutine</span></span><br><span class="line"> &#125;</span><br><span class="line"> </span><br><span class="line"> <span class="comment">// 保证成功在val上增加delta的值</span></span><br><span class="line"> <span class="function"><span class="keyword">func</span> <span class="title">xadd</span><span class="params">(val *<span class="keyword">int32</span>, delta <span class="keyword">int32</span>)</span> <span class="params">(<span class="built_in">new</span> <span class="keyword">int32</span>)</span></span> &#123;</span><br><span class="line">     <span class="keyword">for</span> &#123;</span><br><span class="line">         v := *val</span><br><span class="line">         <span class="keyword">if</span> cas(val, v, v+delta) &#123;</span><br><span class="line">             <span class="keyword">return</span> v + delta</span><br><span class="line">         &#125;</span><br><span class="line">     &#125;</span><br><span class="line">     <span class="built_in">panic</span>(<span class="string">"unreached"</span>)</span><br><span class="line"> &#125;</span><br><span class="line"> </span><br><span class="line"> <span class="comment">// 请求锁</span></span><br><span class="line"> <span class="function"><span class="keyword">func</span> <span class="params">(m *Mutex)</span> <span class="title">Lock</span><span class="params">()</span></span> &#123;</span><br><span class="line">     <span class="keyword">if</span> xadd(&amp;m.key, <span class="number">1</span>) == <span class="number">1</span> &#123; <span class="comment">//标识加1，如果等于1，成功获取到锁</span></span><br><span class="line">         <span class="keyword">return</span></span><br><span class="line">     &#125;</span><br><span class="line">     semacquire(&amp;m.sema) <span class="comment">// 否则阻塞等待</span></span><br><span class="line"> &#125;</span><br><span class="line"> </span><br><span class="line"> <span class="function"><span class="keyword">func</span> <span class="params">(m *Mutex)</span> <span class="title">Unlock</span><span class="params">()</span></span> &#123;</span><br><span class="line">     <span class="keyword">if</span> xadd(&amp;m.key, <span class="number">-1</span>) == <span class="number">0</span> &#123; <span class="comment">// 将标识减去1，如果等于0，则没有其它等待者</span></span><br><span class="line">         <span class="keyword">return</span></span><br><span class="line">     &#125;</span><br><span class="line">     semrelease(&amp;m.sema) <span class="comment">// 唤醒其它阻塞的goroutine</span></span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>CAS： CAS 指令将给定的值和一个内存地址中的值进行比较，如果它们是同一个值，就使用新值替换内存地址中的值，原子性保证这个指令总是基于最新的值进行计算，如果同时有其它线程已经修改了这个值，那么，CAS 会返回失败。</p>
+</blockquote>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230314104500.png" alt></p>
+<p>需要注意的是：Unlock 方法可以被任意的 goroutine 调用释放锁，即使是没持有这个互斥锁的 goroutine，也可以进行这个操作。这是因为，Mutex 本身并没有包含持有这把锁的 goroutine 的信息，所以，Unlock 也不会对此进行检查。Mutex 的这个设计一直保持至今。</p>
+<h3 id="第一次改进"><a href="#第一次改进" class="headerlink" title="第一次改进"></a>第一次改进</h3><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">type</span> Mutex <span class="keyword">struct</span> &#123;</span><br><span class="line">     state <span class="keyword">int32</span></span><br><span class="line">     sema  <span class="keyword">uint32</span></span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"> <span class="keyword">const</span> (</span><br><span class="line">     mutexLocked = <span class="number">1</span> &lt;&lt; <span class="literal">iota</span> <span class="comment">// mutex is locked</span></span><br><span class="line">     mutexWoken</span><br><span class="line">     mutexWaiterShift = <span class="literal">iota</span></span><br><span class="line"> )</span><br></pre></td></tr></table></figure>
+<p>虽然 Mutex 结构体还是包含两个字段，但是第一个字段已经改成了 state，它的含义也不一样了。</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230314104847.png" alt></p>
+<p>state 是一个复合型的字段，一个字段包含多个意义，这样可以通过尽可能少的内存来实现互斥锁。这个字段的第一位（最小的一位）来表示这个锁是否被持有，第二位代表是否有唤醒的 goroutine，剩余的位数代表的是等待此锁的 goroutine 数。</p>
+<p><strong>相对于初版的设计，这次的改动主要就是，新来的 goroutine 也有机会先获取到锁，甚至一个 goroutine 可能连续获取到锁，打破了先来先得的逻辑。</strong></p>
+<h3 id="第二次改进"><a href="#第二次改进" class="headerlink" title="第二次改进"></a>第二次改进</h3><p>在 2015 年 2 月的改动中，如果新来的 goroutine 或者是被唤醒的 goroutine 首次获取不到锁，它们就会通过自旋（spin，通过循环不断尝试，spin 的逻辑是在runtime 实现的）的方式，尝试检查锁是否被释放。在尝试一定的自旋次数后，再执行原来的逻辑。</p>
+<h3 id="第三次改进"><a href="#第三次改进" class="headerlink" title="第三次改进"></a>第三次改进</h3><p>上述改进后新来的 goroutine 也参与竞争，有可能每次都会被新来的 goroutine 抢到获取锁的机会，在极端情况下，等待中的 goroutine 可能会一直获取不到锁，这就是饥饿问题。</p>
+<p>跟之前的实现相比，当前的 Mutex 最重要的变化，就是增加饥饿模式。饥饿模式的最大等待时间阈值为 1 毫秒，这就意味着，一旦等待者等待的时间超过了这个阈值，Mutex 的处理就有可能进入饥饿模式，优先让等待者先获取到锁，新来的同学主动谦让一下，给老同志一些机会。</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230314105414.png" alt></p>
+<h3 id="饥饿模式和正常模式"><a href="#饥饿模式和正常模式" class="headerlink" title="饥饿模式和正常模式"></a>饥饿模式和正常模式</h3><p>Mutex 可能处于两种操作模式下：正常模式和饥饿模式。</p>
+<p>正常模式下，waiter 都是进入先入先出队列，被唤醒的 waiter 并不会直接持有锁，而是要和新来的 goroutine 进行竞争。新来的 goroutine 有先天的优势，它们正在 CPU 中运行，可能它们的数量还不少，所以，在高并发情况下，被唤醒的 waiter 可能比较悲剧地获取不到锁，这时，它会被插入到队列的前面。如果 waiter 获取不到锁的时间超过阈值 1 毫秒，那么，这个 Mutex 就进入到了饥饿模式。</p>
+<p>在饥饿模式下，Mutex 的拥有者将直接把锁交给队列最前面的 waiter。新来的 goroutine 不会尝试获取锁，即使看起来锁没有被持有，它也不会去抢，也不会 spin，它会乖乖地加入到等待队列的尾部。</p>
+<p>如果拥有 Mutex 的 waiter 发现下面两种情况的其中之一，它就会把这个 Mutex 转换成正常模式:</p>
+<ul>
+<li>此 waiter 已经是队列中的最后一个 waiter 了，没有其它的等待锁的 goroutine 了；</li>
+<li>此 waiter 的等待时间小于 1 毫秒。</li>
+</ul>
+<blockquote>
+<p>理解go中的 mutex 的简单模式和饥饿模式？</p>
+<p>在 Go 中，Mutex 是一种同步原语，用于防止竞争条件。当多个 Goroutine 将访问共享资源时，使用 Mutex 可以确保任何时刻只有一个 Goroutine 有权限访问该资源。</p>
+<p>简单模式是指，在等待 Mutex 时，所有等待的 Goroutine 都会被放置在一个 FIFO 队列中，并按顺序获取 Mutex。这意味着先到达的 Goroutine 将首先获得 Mutex，而后到达的 Goroutine 则必须等待前面的 Goroutine 释放 Mutex 后才能获得它。这种方法可以确保每个 Goroutine 最终都能获得 Mutex，但可能导致一些 Goroutine 等待时间过长，从而导致饥饿。</p>
+<p>饥饿模式是指，在等待 Mutex 时，某些 Goroutine 可能会无限期地等待，从而永远不能获得 Mutex。这种情况通常发生在高度竞争的情况下，其中一个或多个 Goroutine 不断尝试获得 Mutex，但总是被其他 Goroutine 所抢占。为了解决这个问题，Go 中的 Mutex 实现提供了一种饥饿模式，该模式可确保等待时间最长的 Goroutine 最终将获得 Mutex。这通过跟踪最后一次请求 Mutex 的时间来实现，然后在锁定时根据时间顺序授予 Mutex。</p>
+</blockquote>
+<blockquote>
+<p>自旋是发生在简单模式中，还是饥饿模式中?</p>
+<p>自旋通常是发生在简单模式中。在简单模式下，当 Goroutine 发现 Mutex 已经被其他 Goroutine 持有时，它会进入忙等待（自旋）状态，不断的检查 Mutex 是否已经释放。这种方式可以减少线程阻塞和切换的开销，但是如果多个 Goroutine 竞争同一 Mutex 的时候，会造成大量的 CPU 时间浪费。</p>
+<p>在饥饿模式中，Mutex 会优先授予最久等待的 Goroutine，而不是让其他 Goroutine 不停地自旋等待。因此，在饥饿模式下，自旋不是主要的问题，而是可能会有一些 Goroutine 永远无法获得 Mutex，导致饥饿问题。</p>
+</blockquote>
+<blockquote>
+<p>根据 state 字段的定义，计算等待一个 Mutex 的 goroutine 数最大是多少？</p>
+<p>在 Go 中，Mutex 的结构体定义如下：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">&gt; Copy Codetype Mutex <span class="keyword">struct</span> &#123;</span><br><span class="line">&gt;     state <span class="keyword">int32</span></span><br><span class="line">&gt;     sema  <span class="keyword">uint32</span></span><br><span class="line">&gt; &#125;</span><br><span class="line">&gt;</span><br></pre></td></tr></table></figure>
+</blockquote>
+<blockquote>
+<p>其中的 <code>state</code> 字段是一个 32 位的有符号整数，表示 Mutex 的状态。具体来说，低 31 位用于计数器，并且最高位用于指示 Mutex 是否被锁定。</p>
+<p>因此，在理论上，等待一个 Mutex 的 Goroutine 数的最大值应该是 <code>(1&lt;&lt;31)-1</code>，即 2147483647，这是由于 Mutex 计数器使用了 31 位二进制数，所以可以支持的最大整数值为 2^31-1。</p>
+<p>不过，需要注意的是，实际情况中等待 Mutex 的 Goroutine 数可能会受到其他因素的限制，例如系统硬件、操作系统调度策略、Goroutine 的性质和访问共享资源的模式等因素，因此，实际上能够同时等待 Mutex 的 Goroutine 数量很少会达到这个最大值。</p>
+</blockquote>
+<blockquote>
+<p>没有理解 “低 31 位用于计数器，并且最高位用于指示 Mutex 是否被锁定。” 可以画个图解释下吗？</p>
+<p>当我们说“低31位用于计数器”时，意味着一个32位的二进制数的前31位（即最右边的31个位）将被用作计数器。这个计数器可以存储任何数字从0到2^31-1（因为每一位都可以是0或1，所以有2的31次方种可能性）。</p>
+<p>现在，考虑到这个32位二进制数的最高位（即最左边的一位）。这个位被称为“符号位”，其值可以为0或1。在这种情况下，我们使用它来表示Mutex是否被锁定。如果最高位为0，则Mutex未被锁定；如果最高位为1，则Mutex被锁定。</p>
+<p>下面是一个示意图，说明了32位的二进制数是如何被使用来实现Mutex的：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">&gt;   31       1</span><br><span class="line">&gt;    |       |</span><br><span class="line">&gt;    +-------+</span><br><span class="line">&gt;    |Mutex  |</span><br><span class="line">&gt;    |Locked |</span><br><span class="line">&gt;    |Bit    |</span><br><span class="line">&gt;    +-------+</span><br><span class="line">&gt;    |Counter|</span><br><span class="line">&gt;    +-------+</span><br><span class="line">&gt;</span><br></pre></td></tr></table></figure>
+</blockquote>
+<blockquote>
+<p>如上图所示，最高位的位被用作Mutex锁定标志。余下的31位被用作计数器，记录Mutex被锁定的次数。在实现Mutex时，每当Mutex被锁定时，计数器会递增。当Mutex被解锁时，计数器会递减。</p>
+</blockquote>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2023/03/13/Go 并发编程-1.Mutex/" rel="prev" title="Go 并发编程-1.Mutex">
+      <i class="fa fa-chevron-left"></i> Go 并发编程-1.Mutex
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2023/03/14/Go 并发编程-3.Mutex使用陷阱/" rel="next" title="Go 并发编程-3.Mutex使用陷阱">
+      Go 并发编程-3.Mutex使用陷阱 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#初版-Mutex"><span class="nav-number">1.</span> <span class="nav-text">初版 Mutex</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#第一次改进"><span class="nav-number">2.</span> <span class="nav-text">第一次改进</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#第二次改进"><span class="nav-number">3.</span> <span class="nav-text">第二次改进</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#第三次改进"><span class="nav-number">4.</span> <span class="nav-text">第三次改进</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#饥饿模式和正常模式"><span class="nav-number">5.</span> <span class="nav-text">饥饿模式和正常模式</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

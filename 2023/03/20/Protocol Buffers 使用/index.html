@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="概念proto 中的go_package 的作用?  在 Protocol Buffers 中，go_package 是一个可选的选项，用于指定生成的 Go 代码的包名和导入路径。它告诉编译器将生成的 Go 代码放在哪个包中，并且在需要时为该包添加必要的导入语句。 具体来说，go_package 的值应该是形如 “&amp;lt;import_path&amp;gt;/&amp;lt;package_name&amp;gt;”">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Protocol Buffers 使用">
+<meta property="og:url" content="https://rexyan.github.io/2023/03/20/Protocol Buffers 使用/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="概念proto 中的go_package 的作用?  在 Protocol Buffers 中，go_package 是一个可选的选项，用于指定生成的 Go 代码的包名和导入路径。它告诉编译器将生成的 Go 代码放在哪个包中，并且在需要时为该包添加必要的导入语句。 具体来说，go_package 的值应该是形如 “&amp;lt;import_path&amp;gt;/&amp;lt;package_name&amp;gt;”">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/202303202328010.png">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.397Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Protocol Buffers 使用">
+<meta name="twitter:description" content="概念proto 中的go_package 的作用?  在 Protocol Buffers 中，go_package 是一个可选的选项，用于指定生成的 Go 代码的包名和导入路径。它告诉编译器将生成的 Go 代码放在哪个包中，并且在需要时为该包添加必要的导入语句。 具体来说，go_package 的值应该是形如 “&amp;lt;import_path&amp;gt;/&amp;lt;package_name&amp;gt;”">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/202303202328010.png">
+
+<link rel="canonical" href="https://rexyan.github.io/2023/03/20/Protocol Buffers 使用/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Protocol Buffers 使用 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2023/03/20/Protocol Buffers 使用/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Protocol Buffers 使用
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2023-03-20 12:55:57" itemprop="dateCreated datePublished" datetime="2023-03-20T12:55:57+00:00">2023-03-20</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Go-微服务/" itemprop="url" rel="index"><span itemprop="name">Go 微服务</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="概念"><a href="#概念" class="headerlink" title="概念"></a>概念</h3><p>proto 中的go_package 的作用?</p>
+<blockquote>
+<p>在 Protocol Buffers 中，go_package 是一个可选的选项，用于指定生成的 Go 代码的包名和导入路径。它告诉编译器将生成的 Go 代码放在哪个包中，并且在需要时为该包添加必要的导入语句。</p>
+<p>具体来说，go_package 的值应该是形如 “&lt;import_path&gt;/&lt;package_name&gt;” 的字符串，其中 import_path 是所生成的 Go 代码的导入路径，而 package_name 则是代码所属的包名。例如：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&gt;syntax = &quot;proto3&quot;;</span><br><span class="line">&gt;package mypackage;</span><br><span class="line">&gt;option go_package = &quot;example.com/proto/mypackage;mypackage&quot;;</span><br><span class="line">&gt;</span><br><span class="line">&gt;message MyMessage &#123;</span><br><span class="line">&gt;  // ...</span><br><span class="line">&gt;&#125;</span><br><span class="line">&gt;</span><br></pre></td></tr></table></figure>
+</blockquote>
+<blockquote>
+<p>这里指定了生成的 Go 代码应该位于 <a href="http://example.com/proto/mypackage" target="_blank" rel="noopener">example.com/proto/mypackage</a> 包中，并且该包的名称为 mypackage。当编译器生成代码时，它会自动将生成的代码保存到正确的目录，并在需要时添加 <code>import &quot;example.com/proto/mypackage&quot;</code> 语句。</p>
+</blockquote>
+<p>go_package  字段 和 package 字段的关系和区别?</p>
+<blockquote>
+<p>在 Protocol Buffers 中，package 字段用于指定当前 .proto 文件中定义的所有消息和服务所属的包名。而 go_package 字段则是针对生成的 Go 代码的一个特殊选项，用于指定生成的 Go 代码的包名和导入路径。</p>
+<p>当一个 .proto 文件中定义了多个消息或服务时，它们都应该属于同一个包，这时就需要使用 package 字段来指定它们所属的包名，例如：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">&gt;syntax = &quot;proto3&quot;;</span><br><span class="line">&gt;package mypackage;</span><br><span class="line">&gt;</span><br><span class="line">&gt;message MyMessage &#123;</span><br><span class="line">&gt;  // ...</span><br><span class="line">&gt;&#125;</span><br><span class="line">&gt;</span><br><span class="line">&gt;service MyService &#123;</span><br><span class="line">&gt;  // ...</span><br><span class="line">&gt;&#125;</span><br><span class="line">&gt;</span><br></pre></td></tr></table></figure>
+</blockquote>
+<blockquote>
+<p>这里指定了 MyMessage 和 MyService 都属于 mypackage 包。在生成 Go 代码时，Protoc 编译器会自动将这些消息和服务保存到正确的目录结构中，并按照 Go 语言的规范将它们组织为一个 package。</p>
+<p>而 go_package 字段则是可选的，用于指定生成的 Go 代码所在的包名和导入路径。这个选项通常用于控制生成的 Go 代码文件的导入路径，以及生成的包的名称。例如：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&gt;syntax = &quot;proto3&quot;;</span><br><span class="line">&gt;package mypackage;</span><br><span class="line">&gt;option go_package = &quot;example.com/proto/mypackage;mypackage&quot;;</span><br><span class="line">&gt;</span><br><span class="line">&gt;message MyMessage &#123;</span><br><span class="line">&gt;  // ...</span><br><span class="line">&gt;&#125;</span><br><span class="line">&gt;</span><br></pre></td></tr></table></figure>
+</blockquote>
+<blockquote>
+<p>这里指定了生成的 Go 代码应该位于 <a href="http://example.com/proto/mypackage" target="_blank" rel="noopener">example.com/proto/mypackage</a> 包中，并且该包的名称为 mypackage。在执行 protoc 命令时，编译器会将生成的 Go 代码存储到指定的目录下，并修改生成的代码中的 import 语句，以便正确引用其他包。</p>
+</blockquote>
+<p>–go_out参数  和  proto 文件中的 go_package 有什么联系和区别?</p>
+<blockquote>
+<p><code>--go_out</code>参数和<code>go_package</code>选项都是与生成Go代码相关的选项，但它们的作用不同。</p>
+<p><code>--go_out</code>参数是protoc编译器的一个选项，用于指定生成的Go文件输出的目录和前缀。可以使用该选项来自定义生成的代码的输出位置和名称，同时还可以使用<code>--go_opt</code>选项来设置其他选项，例如输出路径为相对路径等。</p>
+<p>例如：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&gt; protoc --go_out=./generated --go_opt=paths=source_relative ./proto/example.proto</span><br><span class="line">&gt;</span><br></pre></td></tr></table></figure>
+</blockquote>
+<blockquote>
+<p>上面的命令将会把生成的Go代码输出到<code>./generated</code>目录下，并且设置包名使用相对路径。</p>
+<p>而<code>go_package</code>选项则是在<code>.proto</code>文件中定义的一个选项，用于指定生成的Go代码所在的包名。这个选项中的值必须是一个合法的Go包名（就像在Go源文件中一样），并且需要和<code>--go_out</code>参数中指定的目录结构匹配。如果没有指定<code>go_package</code>选项，则默认情况下，生成的Go代码的包名将会是<code>.proto</code>文件中的<code>package</code>语句的值。</p>
+<p>例如：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">&gt; syntax = &quot;proto3&quot;;</span><br><span class="line">&gt; package mypackage;</span><br><span class="line">&gt; </span><br><span class="line">&gt; option go_package = &quot;github.com/myusername/mypackage/proto&quot;;</span><br><span class="line">&gt; </span><br><span class="line">&gt; message MyMessage &#123;</span><br><span class="line">&gt;   // ...</span><br><span class="line">&gt; &#125;</span><br><span class="line">&gt;</span><br></pre></td></tr></table></figure>
+</blockquote>
+<blockquote>
+<p>上面的例子中，<code>go_package</code>选项指定了生成的Go代码所在的包名为<code>github.com/myusername/mypackage/proto</code>。然后，使用<code>--go_out</code>参数指定输出目录为<code>./generated</code>，那么编译器将会把生成的Go代码输出到<code>./generated/github.com/myusername/mypackage/proto</code>目录下。</p>
+<p>所以最终生成文件的目录 = –go_out + go_package 的值。</p>
+</blockquote>
+<p>举例：protoc 命令为 protoc –proto_path=pb –go_out=pb –go_opt=paths=source_relative book/price.proto， 文件中 option go_package=”proto_demo/pb/book”; 最终生成的文件会在哪个目录，为什么？</p>
+<blockquote>
+<p>执行完该命令后生成的文件会位于<code>proto_demo/pb/book</code>目录下，文件名为<code>price.pb.go</code>。这是因为在proto文件中指定了go_package选项值为”proto_demo/pb/book”，该选项会告诉编译器生成的Go代码的包名为”book”，并且使用相对于生成代码文件所在目录的路径作为包名。</p>
+<p>而在命令行中，<code>--go_out=pb</code>参数指定生成的Go代码文件应该输出到当前目录下的<code>pb</code>子目录中，<code>--go_opt=paths=source_relative</code>参数指定生成的Go代码中的导入路径使用相对路径，也就是相对于生成代码文件所在目录。</p>
+<p>因此，最终生成的文件会位于<code>proto_demo/pb/book/price.pb.go</code>路径下。</p>
+</blockquote>
+<p>举例：protoc 命令为 protoc –proto_path=pb –go_out=generated –go_opt=paths=source_relative book/price.proto， 文件中 option go_package=”proto_demo/pb/book”; 最终生成的文件会在哪个目录，为什么?</p>
+<blockquote>
+<p><code>protoc</code> 命令会将 <code>pb</code> 目录下的 <code>price.proto</code> 文件编译成 Go 语言的源代码，并将生成的代码放置在 <code>generated</code> 目录中。其中，<code>--proto_path=pb</code> 参数指定了查找 <code>.proto</code> 文件的目录为 <code>pb</code> 目录，<code>--go_out=generated</code> 参数指定了输出目录为 <code>generated</code> 目录，而 <code>--go_opt=paths=source_relative</code> 参数则是指定生成的 Go 源文件中的包路径使用相对路径。</p>
+<p>在 <code>price.proto</code> 文件中，<code>option go_package=&quot;proto_demo/pb/book&quot;;</code> 指定了生成的 Go 源代码的包路径为 <code>proto_demo/pb/book</code>。因此，最终生成的文件路径应该为 <code>generated/proto_demo/pb/book/price.pb.go</code>。其中，<code>proto_demo</code> 和 <code>pb</code> 目录都是根据 <code>go_package</code> 中的值来确定的，而 <code>price.pb.go</code> 则是根据原始的 <code>.proto</code> 文件名生成的。</p>
+</blockquote>
+<h3 id="引用同包下的-proto"><a href="#引用同包下的-proto" class="headerlink" title="引用同包下的 proto"></a>引用同包下的 proto</h3><p>文件目录结构如下，在 proto_demo 项目下，新建一个 pb 文件夹专门存放 proto 文件。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">|____proto_demo</span><br><span class="line">| |____pb</span><br><span class="line">| | |____author</span><br><span class="line">| | | |____author.proto</span><br><span class="line">| | |____book</span><br><span class="line">| | | |____book.proto</span><br><span class="line">| | | |____price.proto</span><br></pre></td></tr></table></figure>
+<p>price.proto 的内容如下</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">syntax = <span class="string">"proto3"</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">package</span> book; <span class="comment">// 声明 protoc buffer 的包名称</span></span><br><span class="line"></span><br><span class="line">option go_package=<span class="string">"proto_demo/pb/book"</span>;  <span class="comment">// proto_demo 是包名称</span></span><br><span class="line"></span><br><span class="line">message Price&#123;</span><br><span class="line">  <span class="keyword">int64</span> market_price = <span class="number">1</span>;</span><br><span class="line">  <span class="keyword">int64</span> sale_price =<span class="number">2</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>book.proto 的内容如下</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">syntax = <span class="string">"proto3"</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">package</span> book; <span class="comment">// 声明 protoc buffer 的包名称</span></span><br><span class="line"></span><br><span class="line">option go_package=<span class="string">"proto_demo/pb/book"</span>;  <span class="comment">// proto_demo 是包名称</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> <span class="string">"book/price.proto"</span>; <span class="comment">// 从编译的时候 --proto_path=pb 参数下面的路径去导入（注意起始位置为 proto_path 参数的下层开始）</span></span><br><span class="line"><span class="keyword">import</span> <span class="string">"author/author.proto"</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> <span class="string">"google/protobuf/timestamp.proto"</span>;  <span class="comment">// 导入谷歌自带的 proto</span></span><br><span class="line"></span><br><span class="line">message Book &#123;</span><br><span class="line">  <span class="keyword">string</span> title = <span class="number">1</span>;</span><br><span class="line">  <span class="comment">// 引用同包的 proto</span></span><br><span class="line">  Price price = <span class="number">2</span>;</span><br><span class="line">  <span class="comment">// 引用不同包的 proto, author 是包名</span></span><br><span class="line">  author.Info author= <span class="number">3</span>;</span><br><span class="line">  <span class="comment">// 导入谷歌自带的 proto</span></span><br><span class="line">  google.protobuf.Timestamp date = <span class="number">4</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">service BookService&#123;</span><br><span class="line">    rpc Create(Book)returns(Book);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在 book.proto 中引用了 price.proto 中的字段，因为 price.proto 和 book.proto 都是 <code>package book</code> 包，所以是同一个包，属于相同包的引用。这时只需要从起始位置为 proto_path 参数的下层开始导入即可。而且导入的 Price 字段前面不需要添加包名。</p>
+<h3 id="引用不同包下的-proto"><a href="#引用不同包下的-proto" class="headerlink" title="引用不同包下的 proto"></a>引用不同包下的 proto</h3><p>author.proto 的内容如下</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">syntax = <span class="string">"proto3"</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">package</span> author; <span class="comment">// 声明 protoc buffer 的包名称</span></span><br><span class="line"></span><br><span class="line">option go_package=<span class="string">"proto_demo/pb/author"</span>;  <span class="comment">// proto_demo 是包名称</span></span><br><span class="line"></span><br><span class="line">message Info&#123;</span><br><span class="line">  <span class="keyword">string</span> name=<span class="number">1</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>author.proto 属于 author 包，在 book中导入 author 的时候属于跨包导入，所以在 book 中导入字段需要添加包名，然后 . 字段名。例如上面的 <code>author.Info author= 3;</code></p>
+<h3 id="引用谷歌包下的-proto"><a href="#引用谷歌包下的-proto" class="headerlink" title="引用谷歌包下的 proto"></a>引用谷歌包下的 proto</h3><p>上面的 book 中引入了 google 的 Timestamp，前提是安装 Protocol Buffers  的时候将  include 文件夹也保留了，并且将 bin 下面的 protoc 添加到了环境变量。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash">protoc</span></span><br><span class="line">export PROTOC_DIR=/Users/rex/Documents/server/protoc-22.2-osx-x86_64</span><br><span class="line">export PATH=$PATH:$PROTOC_DIR/bin</span><br></pre></td></tr></table></figure>
+<p>protoc-22.2-osx-x86_64  目录下的 include 就含有谷歌内置的 proto 文件。</p>
+<h3 id="生成-go-代码"><a href="#生成-go-代码" class="headerlink" title="生成 go 代码"></a>生成 go 代码</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">protoc --proto_path=pb --go_out=pb --go_opt=paths=source_relative book/price.proto book/book.proto author/author.proto</span><br></pre></td></tr></table></figure>
+<p>上述命令在 proto_demo 目录下执行</p>
+<h3 id="生成-grpc-的代码"><a href="#生成-grpc-的代码" class="headerlink" title="生成 grpc 的代码"></a>生成 grpc 的代码</h3><p>定义了 service 才会生成 grpc 的代码</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">protoc --proto_path=pb --go-grpc_out=pb --go-grpc_opt=paths=source_relative book/book.proto book/price.proto author/author.proto</span><br></pre></td></tr></table></figure>
+<p>上述命令在 proto_demo 目录下执行</p>
+<h3 id="使用-makefile"><a href="#使用-makefile" class="headerlink" title="使用 makefile"></a>使用 makefile</h3><p>在 proto_demo 下新增  makefile 文件，内容如下，其中需要修改 PROTO_DIR 为自己的 proto 目录，这里为 pb </p>
+<figure class="highlight makefile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta"><span class="meta-keyword">.PHONY</span>: gen help</span></span><br><span class="line"></span><br><span class="line">PROTO_DIR=pb</span><br><span class="line"></span><br><span class="line"><span class="section">gen:</span></span><br><span class="line">	protoc \</span><br><span class="line">	--proto_path=<span class="variable">$(PROTO_DIR)</span> \</span><br><span class="line">	--go_out=<span class="variable">$(PROTO_DIR)</span> \</span><br><span class="line">	--go_opt=paths=source_relative \</span><br><span class="line">	--go-grpc_out=<span class="variable">$(PROTO_DIR)</span> \</span><br><span class="line">	--go-grpc_opt=paths=source_relative \</span><br><span class="line">	--grpc-gateway_out=<span class="variable">$(PROTO_DIR)</span> \</span><br><span class="line">	--grpc-gateway_opt=paths=source_relative \</span><br><span class="line">	<span class="variable">$(<span class="built_in">shell</span> find <span class="variable">$(PROTO_DIR)</span> -iname "*.proto")</span></span><br><span class="line"></span><br><span class="line"><span class="section">help:</span></span><br><span class="line">	@echo <span class="string">"make gen - 生成pb及grpc代码"</span></span><br></pre></td></tr></table></figure>
+<h3 id="解决-Goland-Proto-文件导入提出找不到问题"><a href="#解决-Goland-Proto-文件导入提出找不到问题" class="headerlink" title="解决 Goland Proto 文件导入提出找不到问题"></a>解决 Goland Proto 文件导入提出找不到问题</h3><p>在下面文件中，在 message Book 中，分别引入了同包的 proto 文件和 不同包的 proto 文件。但默认 goland 会提示不存在。解决方法是在 goland 的设置中 语言和框架 Protocol Buffers，不勾选 Configure automatically, 并在下面新增一个存放 –proto_path 参数的值，例如这里的 pb。</p>
+<figure class="highlight protobuf"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">syntax = &quot;proto3&quot;;</span><br><span class="line"></span><br><span class="line">package book; // 声明 protoc buffer 的包名称</span><br><span class="line"></span><br><span class="line">option go_package=&quot;proto_demo/pb/book&quot;;  // proto_demo 是包名称</span><br><span class="line"></span><br><span class="line">import &quot;book/price.proto&quot;; // 从编译的时候 --proto_path=pb 参数下面的路径去导入（注意起始位置为 proto_path 参数的下层开始）</span><br><span class="line">import &quot;author/author.proto&quot;;</span><br><span class="line"></span><br><span class="line">message Book &#123;</span><br><span class="line">  string title = 1;</span><br><span class="line">  // 引用同包的 proto</span><br><span class="line">  Price price = 2;</span><br><span class="line">  // 引用不同包的 proto, author 是包名</span><br><span class="line">  author.Info author= 3;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// protoc --proto_path=pb --go_out=pb --go_opt=paths=source_relative book/price.proto book/book.proto author/author.proto</span><br><span class="line">// 上述命令在 proto_demo 目录下执行，语法上提示报错，但是是可以生成的。</span><br><span class="line">// 解决方法是在 goland 的设置中 语言和框架 Protocol Buffers，不勾选 Configure automatically, 并在下面新增一个存放 --proto_path 参数的值，例如这里的 pb</span><br></pre></td></tr></table></figure>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/202303202328010.png" alt></p>
+<p>参考文章：<a href="https://www.liwenzhou.com/posts/Go/protobuf/" target="_blank" rel="noopener">https://www.liwenzhou.com/posts/Go/protobuf/</a></p>
+<p>本文代码：<a href="https://github.com/rexyan/Go-Microservice/tree/main/proto_demo" target="_blank" rel="noopener">https://github.com/rexyan/Go-Microservice/tree/main/proto_demo</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2023/03/20/Protocol Buffers3 语法/" rel="prev" title="Protocol Buffers3 语法">
+      <i class="fa fa-chevron-left"></i> Protocol Buffers3 语法
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2023/03/22/oneof、WrapValue 和 FieldMask/" rel="next" title="oneof、WrapValue 和 FieldMask">
+      oneof、WrapValue 和 FieldMask <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#概念"><span class="nav-number">1.</span> <span class="nav-text">概念</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#引用同包下的-proto"><span class="nav-number">2.</span> <span class="nav-text">引用同包下的 proto</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#引用不同包下的-proto"><span class="nav-number">3.</span> <span class="nav-text">引用不同包下的 proto</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#引用谷歌包下的-proto"><span class="nav-number">4.</span> <span class="nav-text">引用谷歌包下的 proto</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#生成-go-代码"><span class="nav-number">5.</span> <span class="nav-text">生成 go 代码</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#生成-grpc-的代码"><span class="nav-number">6.</span> <span class="nav-text">生成 grpc 的代码</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#使用-makefile"><span class="nav-number">7.</span> <span class="nav-text">使用 makefile</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#解决-Goland-Proto-文件导入提出找不到问题"><span class="nav-number">8.</span> <span class="nav-text">解决 Goland Proto 文件导入提出找不到问题</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

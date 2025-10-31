@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="元数据元数据（metadata）是指在处理RPC请求和响应过程中需要但又不属于具体业务（例如身份验证详细信息）的信息，采用键值对列表的形式，其中键是string类型，值通常是[]string类型，但也可以是二进制数据。gRPC中的 metadata 类似于我们在 HTTP headers中的键值对，元数据可以包含认证token、请求标识和监控标签等。 metadata中的键是大小写不敏感的，由字母">
+<meta property="og:type" content="article">
+<meta property="og:title" content="gRPC 元数据">
+<meta property="og:url" content="https://rexyan.github.io/2023/03/23/gRPC 元数据/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="元数据元数据（metadata）是指在处理RPC请求和响应过程中需要但又不属于具体业务（例如身份验证详细信息）的信息，采用键值对列表的形式，其中键是string类型，值通常是[]string类型，但也可以是二进制数据。gRPC中的 metadata 类似于我们在 HTTP headers中的键值对，元数据可以包含认证token、请求标识和监控标签等。 metadata中的键是大小写不敏感的，由字母">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.403Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="gRPC 元数据">
+<meta name="twitter:description" content="元数据元数据（metadata）是指在处理RPC请求和响应过程中需要但又不属于具体业务（例如身份验证详细信息）的信息，采用键值对列表的形式，其中键是string类型，值通常是[]string类型，但也可以是二进制数据。gRPC中的 metadata 类似于我们在 HTTP headers中的键值对，元数据可以包含认证token、请求标识和监控标签等。 metadata中的键是大小写不敏感的，由字母">
+
+<link rel="canonical" href="https://rexyan.github.io/2023/03/23/gRPC 元数据/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>gRPC 元数据 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2023/03/23/gRPC 元数据/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          gRPC 元数据
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2023-03-23 10:55:57" itemprop="dateCreated datePublished" datetime="2023-03-23T10:55:57+00:00">2023-03-23</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Go-微服务/" itemprop="url" rel="index"><span itemprop="name">Go 微服务</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="元数据"><a href="#元数据" class="headerlink" title="元数据"></a>元数据</h3><p>元数据（<a href="https://pkg.go.dev/google.golang.org/grpc/metadata" target="_blank" rel="noopener">metadata</a>）是指在处理RPC请求和响应过程中需要但又不属于具体业务（例如身份验证详细信息）的信息，采用键值对列表的形式，其中键是<code>string</code>类型，值通常是<code>[]string</code>类型，但也可以是二进制数据。gRPC中的 metadata 类似于我们在 HTTP headers中的键值对，元数据可以包含认证token、请求标识和监控标签等。</p>
+<p>metadata中的键是大小写不敏感的，由字母、数字和特殊字符<code>-</code>、<code>_</code>、<code>.</code>组成并且不能以<code>grpc-</code>开头（gRPC保留自用），二进制值的键名必须以<code>-bin</code>结尾。在Go语言中我们是用 <a href="https://pkg.go.dev/google.golang.org/grpc/metadata" target="_blank" rel="noopener">google.golang.org/grpc/metadata</a> 这个库来操作metadata。</p>
+<p>metadata 类型定义如下：这个 map 的值类型是<code>[]string</code>，因此用户可以使用一个键附加多个值。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> MD <span class="keyword">map</span>[<span class="keyword">string</span>][]<span class="keyword">string</span></span><br></pre></td></tr></table></figure>
+<h3 id="创建-metadata"><a href="#创建-metadata" class="headerlink" title="创建 metadata"></a>创建 metadata</h3><p>方法1：使用 <code>metadata.New</code> 创建（建议使用）</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">md := metadata.New(<span class="keyword">map</span>[<span class="keyword">string</span>]<span class="keyword">string</span>&#123;<span class="string">"key1"</span>: <span class="string">"val1"</span>, <span class="string">"key2"</span>: <span class="string">"val2"</span>&#125;)</span><br></pre></td></tr></table></figure>
+<p>方法2：使用 <code>metadata.Pairs</code> 合并到一个列表中</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">md := metadata.Pairs(</span><br><span class="line">    <span class="string">"key1"</span>, <span class="string">"val1"</span>,</span><br><span class="line">    <span class="string">"key1"</span>, <span class="string">"val1-2"</span>, <span class="comment">// "key1"的值将会是 []string&#123;"val1", "val1-2"&#125;</span></span><br><span class="line">    <span class="string">"key2"</span>, <span class="string">"val2"</span>,</span><br><span class="line">    <span class="string">"key-bin"</span>, <span class="keyword">string</span>([]<span class="keyword">byte</span>&#123;<span class="number">96</span>, <span class="number">102</span>&#125;), <span class="comment">// 二进制数据在发送前会进行(base64) 编码，收到后会进行解码</span></span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p>注意，所有的键将自动转换为小写。</p>
+<h3 id="客户端"><a href="#客户端" class="headerlink" title="客户端"></a>客户端</h3><h4 id="发送元数据"><a href="#发送元数据" class="headerlink" title="发送元数据"></a>发送元数据</h4><p>元数据的传递，是放在 ctx 中进行的，客户端可以通过 <code>AppendToOutgoingContext</code>（追加的方式） 将元数据附加到 ctx 中，也可以使用 <code>NewOutgoingContext</code> （如果 ctx 中已经存在，则会替换）来进行元数据的添加。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 创建带有metadata的context</span></span><br><span class="line">ctx := metadata.AppendToOutgoingContext(ctx, <span class="string">"k1"</span>, <span class="string">"v1"</span>, <span class="string">"k1"</span>, <span class="string">"v2"</span>, <span class="string">"k2"</span>, <span class="string">"v3"</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment">// 添加一些 metadata 到 context (e.g. in an interceptor)</span></span><br><span class="line">ctx := metadata.AppendToOutgoingContext(ctx, <span class="string">"k3"</span>, <span class="string">"v4"</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment">// 发起普通RPC请求</span></span><br><span class="line">response, err := client.SomeRPC(ctx, someRequest)</span><br><span class="line"></span><br><span class="line"><span class="comment">// 或者发起流式RPC请求</span></span><br><span class="line">stream, err := client.SomeStreamingRPC(ctx)</span><br></pre></td></tr></table></figure>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 创建带有metadata的context</span></span><br><span class="line">md := metadata.Pairs(<span class="string">"k1"</span>, <span class="string">"v1"</span>, <span class="string">"k1"</span>, <span class="string">"v2"</span>, <span class="string">"k2"</span>, <span class="string">"v3"</span>)</span><br><span class="line">ctx := metadata.NewOutgoingContext(context.Background(), md)</span><br><span class="line"></span><br><span class="line"><span class="comment">// 添加一些metadata到context (e.g. in an interceptor)</span></span><br><span class="line">send, _ := metadata.FromOutgoingContext(ctx)</span><br><span class="line">newMD := metadata.Pairs(<span class="string">"k3"</span>, <span class="string">"v3"</span>)</span><br><span class="line">ctx = metadata.NewOutgoingContext(ctx, metadata.Join(send, newMD))</span><br><span class="line"></span><br><span class="line"><span class="comment">// 发起普通RPC请求</span></span><br><span class="line">response, err := client.SomeRPC(ctx, someRequest)</span><br><span class="line"></span><br><span class="line"><span class="comment">// 或者发起流式RPC请求</span></span><br><span class="line">stream, err := client.SomeStreamingRPC(ctx)</span><br></pre></td></tr></table></figure>
+<h4 id="接收元数据"><a href="#接收元数据" class="headerlink" title="接收元数据"></a>接收元数据</h4><p>客户端可以接收的元数据包括 header 和 trailer。header在数据之前，trailer在数据之后。</p>
+<p>普通 RPC：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> header, trailer metadata.MD <span class="comment">// 声明存储header和trailer的变量</span></span><br><span class="line">r, err := client.SomeRPC(</span><br><span class="line">    ctx,</span><br><span class="line">    someRequest,</span><br><span class="line">    grpc.Header(&amp;header),    <span class="comment">// 将会接收header</span></span><br><span class="line">    grpc.Trailer(&amp;trailer),  <span class="comment">// 将会接收trailer</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment">// do something with header and trailer</span></span><br></pre></td></tr></table></figure>
+<p>流式 RPC：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">stream, err := client.SomeStreamingRPC(ctx)</span><br><span class="line"></span><br><span class="line"><span class="comment">// 接收 header</span></span><br><span class="line">header, err := stream.Header()</span><br><span class="line"></span><br><span class="line"><span class="comment">// 接收 trailer</span></span><br><span class="line">trailer := stream.Trailer()</span><br></pre></td></tr></table></figure>
+<h3 id="服务端"><a href="#服务端" class="headerlink" title="服务端"></a>服务端</h3><h4 id="发送元数据-1"><a href="#发送元数据-1" class="headerlink" title="发送元数据"></a>发送元数据</h4><p>普通 RPC：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *server)</span> <span class="title">SomeRPC</span><span class="params">(ctx context.Context, in *pb.someRequest)</span> <span class="params">(*pb.someResponse, error)</span></span> &#123;</span><br><span class="line">    <span class="comment">// 创建和发送 header</span></span><br><span class="line">    header := metadata.Pairs(<span class="string">"header-key"</span>, <span class="string">"val"</span>)</span><br><span class="line">    grpc.SendHeader(ctx, header)</span><br><span class="line">    <span class="comment">// 创建和发送 trailer</span></span><br><span class="line">    trailer := metadata.Pairs(<span class="string">"trailer-key"</span>, <span class="string">"val"</span>)</span><br><span class="line">    grpc.SetTrailer(ctx, trailer)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>流式RPC：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *server)</span> <span class="title">SomeStreamingRPC</span><span class="params">(stream pb.Service_SomeStreamingRPCServer)</span> <span class="title">error</span></span> &#123;</span><br><span class="line">    <span class="comment">// 创建和发送 header</span></span><br><span class="line">    header := metadata.Pairs(<span class="string">"header-key"</span>, <span class="string">"val"</span>)</span><br><span class="line">    stream.SendHeader(header)</span><br><span class="line">    <span class="comment">// 创建和发送 trailer</span></span><br><span class="line">    trailer := metadata.Pairs(<span class="string">"trailer-key"</span>, <span class="string">"val"</span>)</span><br><span class="line">    stream.SetTrailer(trailer)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h4 id="接收元数据-1"><a href="#接收元数据-1" class="headerlink" title="接收元数据"></a>接收元数据</h4><p>普通 RPC：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *server)</span> <span class="title">SomeRPC</span><span class="params">(ctx context.Context, in *pb.someRequest)</span> <span class="params">(*pb.someResponse, error)</span></span> &#123;</span><br><span class="line">    md, ok := metadata.FromIncomingContext(ctx)</span><br><span class="line">    <span class="comment">// do something with metadata</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>流式RPC：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *server)</span> <span class="title">SomeStreamingRPC</span><span class="params">(stream pb.Service_SomeStreamingRPCServer)</span> <span class="title">error</span></span> &#123;</span><br><span class="line">    md, ok := metadata.FromIncomingContext(stream.Context()) <span class="comment">// get context from stream</span></span><br><span class="line">    <span class="comment">// do something with metadata</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="普通-RPC-传递元数据示例"><a href="#普通-RPC-传递元数据示例" class="headerlink" title="普通 RPC 传递元数据示例"></a>普通 RPC 传递元数据示例</h3><p>完整代码可参考：<a href="https://github.com/rexyan/Go-Microservice/tree/main/metadata" target="_blank" rel="noopener">https://github.com/rexyan/Go-Microservice/tree/main/metadata</a></p>
+<p>客户端</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">"client/pb"</span></span><br><span class="line">	<span class="string">"context"</span></span><br><span class="line">	<span class="string">"fmt"</span></span><br><span class="line">	<span class="string">"google.golang.org/grpc"</span></span><br><span class="line">	<span class="string">"google.golang.org/grpc/credentials/insecure"</span></span><br><span class="line">	<span class="string">"google.golang.org/grpc/metadata"</span></span><br><span class="line">	<span class="string">"time"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	conn, err := grpc.Dial(<span class="string">"127.0.0.1:9999"</span>, grpc.WithTransportCredentials(insecure.NewCredentials()))</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span></span><br><span class="line">	&#125;</span><br><span class="line">	c := pb.NewGreeterClient(conn)</span><br><span class="line">	ctx, cancel := context.WithTimeout(context.Background(), time.Second*<span class="number">10</span>)</span><br><span class="line">	<span class="keyword">defer</span> cancel()</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 设置元数据，注意这里传送到服务端后 key 变成了小写</span></span><br><span class="line">	ctx = metadata.AppendToOutgoingContext(ctx, <span class="string">"Authorization"</span>, <span class="string">"Token"</span>)</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 调用方法并接收服务端返回的元数据</span></span><br><span class="line">	<span class="keyword">var</span> header, trailer metadata.MD</span><br><span class="line">	response, err := c.SayHello(ctx, &amp;pb.HelloRequest&#123;</span><br><span class="line">		Name: <span class="string">"zh"</span>,</span><br><span class="line">	&#125;, grpc.Header(&amp;header), grpc.Trailer(&amp;trailer))</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		fmt.Printf(<span class="string">"Call SayHello Error: %v\n"</span>, err.Error())</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	fmt.Println(response.Reply)</span><br><span class="line">	<span class="comment">// 元数据</span></span><br><span class="line">	fmt.Println(header)</span><br><span class="line">	fmt.Println(trailer)</span><br><span class="line">	<span class="comment">/**</span></span><br><span class="line"><span class="comment">	hello: zh</span></span><br><span class="line"><span class="comment">	map[content-type:[application/grpc] timestamp:[1679579992315]]</span></span><br><span class="line"><span class="comment">	map[location:[ShangHai]]</span></span><br><span class="line"><span class="comment">	*/</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>服务端</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">"context"</span></span><br><span class="line">	<span class="string">"fmt"</span></span><br><span class="line">	<span class="string">"google.golang.org/grpc"</span></span><br><span class="line">	<span class="string">"google.golang.org/grpc/codes"</span></span><br><span class="line">	<span class="string">"google.golang.org/grpc/metadata"</span></span><br><span class="line">	<span class="string">"google.golang.org/grpc/status"</span></span><br><span class="line">	<span class="string">"net"</span></span><br><span class="line">	<span class="string">"server/pb"</span></span><br><span class="line">	<span class="string">"strconv"</span></span><br><span class="line">	<span class="string">"time"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> server <span class="keyword">struct</span> &#123;</span><br><span class="line">	pb.UnimplementedGreeterServer</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *server)</span> <span class="title">SayHello</span><span class="params">(ctx context.Context, in *pb.HelloRequest)</span> <span class="params">(*pb.HelloResponse, error)</span></span> &#123;</span><br><span class="line">	<span class="comment">// 设置 元数据 trailer</span></span><br><span class="line">	<span class="keyword">defer</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">		md := metadata.New(<span class="keyword">map</span>[<span class="keyword">string</span>]<span class="keyword">string</span>&#123;<span class="string">"Location"</span>: <span class="string">"ShangHai"</span>&#125;)</span><br><span class="line">		err := grpc.SetTrailer(ctx, md)</span><br><span class="line">		<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">			<span class="keyword">return</span></span><br><span class="line">		&#125;</span><br><span class="line">	&#125;()</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 获取元数据信息</span></span><br><span class="line">	md, ok := metadata.FromIncomingContext(ctx)</span><br><span class="line">	<span class="keyword">if</span> ok &#123;</span><br><span class="line">		fmt.Printf(<span class="string">"metadata %v\n"</span>, md)</span><br><span class="line">		<span class="comment">// 这里要注意，所有的 key 都变为了小写</span></span><br><span class="line">		Authorization := md.Get(<span class="string">"authorization"</span>)</span><br><span class="line">		<span class="keyword">if</span> <span class="built_in">len</span>(Authorization) &gt; <span class="number">0</span> &#123;</span><br><span class="line">			<span class="keyword">if</span> Authorization[<span class="number">0</span>] != <span class="string">"Token"</span> &#123;</span><br><span class="line">				<span class="keyword">return</span> <span class="literal">nil</span>, status.Error(codes.Unauthenticated, <span class="string">"Authorization Error!"</span>)</span><br><span class="line">			&#125;</span><br><span class="line">		&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">			<span class="keyword">return</span> <span class="literal">nil</span>, status.Error(codes.Unauthenticated, <span class="string">"Authorization Metadata Not Found!"</span>)</span><br><span class="line">		&#125;</span><br><span class="line">	&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">nil</span>, status.Error(codes.Unauthenticated, <span class="string">"Metadata Not Found!"</span>)</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 设置元数据信息</span></span><br><span class="line">	<span class="comment">// 设置 元数据 header</span></span><br><span class="line">	headerMd := metadata.New(<span class="keyword">map</span>[<span class="keyword">string</span>]<span class="keyword">string</span>&#123;<span class="string">"Timestamp"</span>: strconv.Itoa(<span class="keyword">int</span>(time.Now().UnixMilli()))&#125;)</span><br><span class="line">	err := grpc.SetHeader(ctx, headerMd)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="literal">nil</span>, err</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="comment">// 返回数据</span></span><br><span class="line">	<span class="keyword">return</span> &amp;pb.HelloResponse&#123;Reply: <span class="string">"hello: "</span> + in.Name&#125;, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	listen, err := net.Listen(<span class="string">"tcp"</span>, <span class="string">":9999"</span>)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span></span><br><span class="line">	&#125;</span><br><span class="line">	s := grpc.NewServer()</span><br><span class="line">	pb.RegisterGreeterServer(s, &amp;server&#123;&#125;)</span><br><span class="line">	err = s.Serve(listen)</span><br><span class="line">	<span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">		<span class="keyword">return</span></span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2023/03/22/gRPC流式操作/" rel="prev" title="Go gRPC流式操作">
+      <i class="fa fa-chevron-left"></i> Go gRPC流式操作
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2023/03/23/错误处理/" rel="next" title="错误处理">
+      错误处理 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#元数据"><span class="nav-number">1.</span> <span class="nav-text">元数据</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#创建-metadata"><span class="nav-number">2.</span> <span class="nav-text">创建 metadata</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#客户端"><span class="nav-number">3.</span> <span class="nav-text">客户端</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#发送元数据"><span class="nav-number">3.1.</span> <span class="nav-text">发送元数据</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#接收元数据"><span class="nav-number">3.2.</span> <span class="nav-text">接收元数据</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#服务端"><span class="nav-number">4.</span> <span class="nav-text">服务端</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#发送元数据-1"><span class="nav-number">4.1.</span> <span class="nav-text">发送元数据</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#接收元数据-1"><span class="nav-number">4.2.</span> <span class="nav-text">接收元数据</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#普通-RPC-传递元数据示例"><span class="nav-number">5.</span> <span class="nav-text">普通 RPC 传递元数据示例</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

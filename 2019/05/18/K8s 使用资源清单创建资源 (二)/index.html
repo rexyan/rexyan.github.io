@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="标签选选择器是 K8s 中的一个重要的组成部分，用于不同的 Pod 控制器控制此类标签的 Pod，用于 Service 进行后端的关联等，所以对 Pod 标签的操作显得尤为的种要。同时在基本的 Pod 配置清单中, Containers 部分的配置包含了镜像的拉取规则，当 Docker 和 配置清单都配置有要执行的命令时，到底执行那一部分的命令？Pod 有生命周期，当然我们也可以在容器启动和销毁之">
+<meta name="keywords" content="Kubernetes">
+<meta property="og:type" content="article">
+<meta property="og:title" content="K8s 使用资源清单创建资源 (二)">
+<meta property="og:url" content="https://rexyan.github.io/2019/05/18/K8s 使用资源清单创建资源 (二)/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="标签选选择器是 K8s 中的一个重要的组成部分，用于不同的 Pod 控制器控制此类标签的 Pod，用于 Service 进行后端的关联等，所以对 Pod 标签的操作显得尤为的种要。同时在基本的 Pod 配置清单中, Containers 部分的配置包含了镜像的拉取规则，当 Docker 和 配置清单都配置有要执行的命令时，到底执行那一部分的命令？Pod 有生命周期，当然我们也可以在容器启动和销毁之">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190518175212.png">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.395Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="K8s 使用资源清单创建资源 (二)">
+<meta name="twitter:description" content="标签选选择器是 K8s 中的一个重要的组成部分，用于不同的 Pod 控制器控制此类标签的 Pod，用于 Service 进行后端的关联等，所以对 Pod 标签的操作显得尤为的种要。同时在基本的 Pod 配置清单中, Containers 部分的配置包含了镜像的拉取规则，当 Docker 和 配置清单都配置有要执行的命令时，到底执行那一部分的命令？Pod 有生命周期，当然我们也可以在容器启动和销毁之">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190518175212.png">
+
+<link rel="canonical" href="https://rexyan.github.io/2019/05/18/K8s 使用资源清单创建资源 (二)/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>K8s 使用资源清单创建资源 (二) | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2019/05/18/K8s 使用资源清单创建资源 (二)/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          K8s 使用资源清单创建资源 (二)
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-05-18 23:00:57" itemprop="dateCreated datePublished" datetime="2019-05-18T23:00:57+00:00">2019-05-18</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Kubernetes/" itemprop="url" rel="index"><span itemprop="name">Kubernetes</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>标签选选择器是 K8s 中的一个重要的组成部分，用于不同的 Pod 控制器控制此类标签的 Pod，用于 Service 进行后端的关联等，所以对 Pod 标签的操作显得尤为的种要。同时在基本的 Pod 配置清单中, Containers 部分的配置包含了镜像的拉取规则，当 Docker 和 配置清单都配置有要执行的命令时，到底执行那一部分的命令？Pod 有生命周期，当然我们也可以在容器启动和销毁之前做一些操作。包括容器的重启策略等。从这些知识点中可以看，K8s 在保证已经存活，并且达到用户理想的状态其实做了很多的工作，在了解之后的原理之后就会觉得很有意思。</p>
+<h3 id="镜像拉取规则"><a href="#镜像拉取规则" class="headerlink" title="镜像拉取规则"></a>镜像拉取规则</h3><p>Pod.spec.containers 字段中，spec.containers 类型为&lt;[] object&gt;，格式如下。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">- name &lt;String&gt;</span><br><span class="line">  image &lt;String&gt;</span><br><span class="line">  imagePullPolicy &lt;String&gt;, 支持的值有 Always(总是拉取， 默认值)，Never(从不拉取)，IfNotPresent(如果存在则不拉取)。默认是 Always，但是如果镜像是 latest 版本，那么也是总是拉取的，除非手动指定 imagePullPolicy</span><br></pre></td></tr></table></figure>
+<h3 id="命令优先级"><a href="#命令优先级" class="headerlink" title="命令优先级"></a>命令优先级</h3><p>在 Docker 中，命令的执行有 cmd 和 entrypoint。如果只有 cmd 那么就执行 cmd 的内容，如果同时存在 entrypoint 和 cmd，那么会将 cmd 的值作为参数传入 entrypoint 中执行。</p>
+<p>而在 K8s 中，没有了 cmd 和 entrypoint，而是有 command 和 args。command 相当于 docker 中的 entrypoint，args 相当于 docker 中的 cmd。</p>
+<p>那么什么时候使用容器的命令，什么时候使用 k8s 资源清单中的命令就显得及其的重要了，具体可以分为以下四种情况：</p>
+<ol>
+<li>如果没有提供 command 和 args，那么就默认使用 docker 镜像中的 cmd 和 entrypoint。</li>
+<li>如果提供了 command 但是没有 args，那么就只运行 command，镜像中的 entrypoint 和 cmd 都被忽略。</li>
+<li>如果提供了 args 但是没有 command，那么就使用镜像中的 entrypoint，args 将作为 entrypoint 的参数，镜像中的 cmd 将被忽略。</li>
+<li>如果 command 和 args 都提供了，那么镜像中的 entrypoint 和 args 都将被忽略。</li>
+</ol>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190518175212.png" alt><br>更多信息，可见 <a href="https://k8smeetup.github.io/docs/tasks/inject-data-application/define-command-argument-container/" target="_blank" rel="noopener">https://k8smeetup.github.io/docs/tasks/inject-data-application/define-command-argument-container/</a></p>
+<h3 id="标签操作"><a href="#标签操作" class="headerlink" title="标签操作"></a>标签操作</h3><p>一个资源应用可能有多个标签，而一个标签也可以分布在不同的资源上。标签的灵活使用可以将资源从不同角度进行分组，从而实现不同的管理。标签的名称和值的长度为最大36个字符。</p>
+<h4 id="查看-Pod-显示标签"><a href="#查看-Pod-显示标签" class="headerlink" title="查看 Pod 显示标签"></a>查看 Pod 显示标签</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get pods --show-labels</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">NAME                            READY   STATUS    RESTARTS   AGE    LABELS</span><br><span class="line">nginx-deploy<span class="number">-5</span>c9b546997-nv2xp   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">4</span>h7m   pod-template-hash=<span class="number">5</span>c9b546997,run=nginx-deploy</span><br></pre></td></tr></table></figure>
+<h4 id="Pod-标签过滤"><a href="#Pod-标签过滤" class="headerlink" title="Pod 标签过滤"></a>Pod 标签过滤</h4><p>查看包含 app 的标签。显示结果新增一列，新增的一列为过滤的标签名称，下面显示过滤匹配的结果。-L 后面可跟多个标签，多个过滤的时候使用 “,” 进行分割。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get pods -L app</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[root@iZrj94q5l72imm6kxm11qvZ rexyan]<span class="comment"># kubectl get pods -L app</span></span><br><span class="line">NAME                            READY   STATUS    RESTARTS   AGE     APP</span><br><span class="line">nginx-deploy<span class="number">-5</span>c9b546997-nv2xp   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">4</span>h10m   </span><br><span class="line">pod-demo                        <span class="number">2</span>/<span class="number">2</span>     Running   <span class="number">0</span>          <span class="number">15</span>s     myapp</span><br></pre></td></tr></table></figure>
+<p>表示只显示包含的 app 的标签，其余的不显示。后面也可跟多个标签，多个过滤的时候使用 “,” 进行分割。<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get pods -l app</span><br></pre></td></tr></table></figure></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">NAME       READY   STATUS    RESTARTS   AGE</span><br><span class="line">pod-demo   <span class="number">2</span>/<span class="number">2</span>     Running   <span class="number">0</span>          <span class="number">4</span>m57s</span><br></pre></td></tr></table></figure>
+<h4 id="Pod-新增标签"><a href="#Pod-新增标签" class="headerlink" title="Pod 新增标签"></a>Pod 新增标签</h4><p>为 pod-demo 新增一个 release=canary 的标签。命令格式为 kubectl label + 资源类型 + 资源名称 + 标签值</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl label pods pod-demo release=canary</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[root@iZrj94q5l72imm6kxm11qvZ rexyan]<span class="comment"># kubectl get pods --show-labels</span></span><br><span class="line">NAME                            READY   STATUS    RESTARTS   AGE     LABELS</span><br><span class="line">nginx-deploy<span class="number">-5</span>c9b546997-nv2 xp   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">4</span>h21m   pod-template-hash=<span class="number">5</span>c9b546997,run=nginx-deploy</span><br><span class="line">pod-demo                        <span class="number">2</span>/<span class="number">2</span>     Running   <span class="number">0</span>          <span class="number">10</span>m     app=myapp,author=rexyan,release=canary</span><br></pre></td></tr></table></figure>
+<h4 id="Pod修改标签"><a href="#Pod修改标签" class="headerlink" title="Pod修改标签"></a>Pod修改标签</h4><p>将上面的 release=canary 改为 release=stable，需要在刚才新增的命令上加上 –overwrite 选项。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl label pods pod-demo release=stable --overwrite</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[root@iZrj94q5l72imm6kxm11qvZ rexyan]<span class="comment"># kubectl get pods --show-labels</span></span><br><span class="line">NAME                            READY   STATUS    RESTARTS   AGE     LABELS</span><br><span class="line">nginx-deploy<span class="number">-5</span>c9b546997-nv2xp   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">4</span>h23m   pod-template-hash=<span class="number">5</span>c9b546997,run=nginx-deploy</span><br><span class="line">pod-demo                        <span class="number">2</span>/<span class="number">2</span>     Running   <span class="number">0</span>          <span class="number">13</span>m     app=myapp,author=rexyan,release=stable</span><br></pre></td></tr></table></figure>
+<h4 id="Node-查看标签"><a href="#Node-查看标签" class="headerlink" title="Node 查看标签"></a>Node 查看标签</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get node --show-labels</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">izrj94q5l72imm6kxm11qvz   Ready    master   <span class="number">4</span>h57m   v1<span class="number">.14</span><span class="number">.2</span>   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,kubernetes.io/arch=amd64,kubernetes.io/hostname=izrj94q5l72imm6kxm11qvz,kubernetes.io/os=linux,node-role.kubernetes.io/master=</span><br><span class="line">izrj94q5l72imm6kxm11qwz   Ready    &lt;none&gt;   <span class="number">4</span>h50m   v1<span class="number">.14</span><span class="number">.2</span>   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,kubernetes.io/arch=amd64,kubernetes.io/hostname=izrj94q5l72imm6kxm11qwz,kubernetes.io/os=linux</span><br><span class="line">izrj94q5l72imm6kxm11qxz   Ready    &lt;none&gt;   <span class="number">4</span>h51m   v1<span class="number">.14</span><span class="number">.2</span>   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,kubernetes.io/arch=amd64,kubernetes.io/hostname=izrj94q5l72imm6kxm11qxz,kubernetes.io/os=linux</span><br></pre></td></tr></table></figure>
+<h4 id="Node-新增标签"><a href="#Node-新增标签" class="headerlink" title="Node 新增标签"></a>Node 新增标签</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl label nodes izrj94q5l72imm6kxm11qxz type=test</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">kubectl get node --show-labels</span><br><span class="line">NAME                      STATUS   ROLES    AGE     VERSION   LABELS</span><br><span class="line">izrj94q5l72imm6kxm11qvz   Ready    master   <span class="number">5</span>h10m   v1<span class="number">.14</span><span class="number">.2</span>   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,kubernetes.io/arch=amd64,kubernetes.io/hostname=izrj94q5l72imm6kxm11qvz,kubernetes.io/os=linux,node-role.kubernetes.io/master=,type=master</span><br><span class="line">izrj94q5l72imm6kxm11qwz   Ready    &lt;none&gt;   <span class="number">5</span>h3m    v1<span class="number">.14</span><span class="number">.2</span>   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,kubernetes.io/arch=amd64,kubernetes.io/hostname=izrj94q5l72imm6kxm11qwz,kubernetes.io/os=linux</span><br><span class="line">izrj94q5l72imm6kxm11qxz   Ready    &lt;none&gt;   <span class="number">5</span>h4m    v1<span class="number">.14</span><span class="number">.2</span>   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,kubernetes.io/arch=amd64,kubernetes.io/hostname=izrj94q5l72imm6kxm11qxz,kubernetes.io/os=linux,type=test</span><br></pre></td></tr></table></figure>
+<h4 id="指定-Pod-调度节点"><a href="#指定-Pod-调度节点" class="headerlink" title="指定 Pod 调度节点"></a>指定 Pod 调度节点</h4><h5 id="nodelSelecter"><a href="#nodelSelecter" class="headerlink" title="nodelSelecter"></a>nodelSelecter</h5><p>Node 有标签，那我们就可以将一个 Pod 指定调度在哪一个节点上运行。在 Pod.spec 下有 nodelSelecter 字段，nodelSelecter 代表的意思是节点标签选择器。我们为之前的 pod-demo 设置 ports 和 nodeSelector，示例如下：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">apiVersion: v1</span><br><span class="line">kind: Pod</span><br><span class="line">metadata: </span><br><span class="line">  name: pod-demo</span><br><span class="line">  namespace: default</span><br><span class="line">  labels: </span><br><span class="line">    app: myapp</span><br><span class="line">    author: rexyan</span><br><span class="line">spec:</span><br><span class="line">  containers: </span><br><span class="line">  - name: myapp</span><br><span class="line">    image: ikubernetes/myapp:v1</span><br><span class="line">    ports:</span><br><span class="line">    - name: http</span><br><span class="line">    - containerPort: <span class="number">80</span></span><br><span class="line">  - name: busybox</span><br><span class="line">    image: busybox </span><br><span class="line">    command:</span><br><span class="line">    - <span class="string">"/bin/sh"</span></span><br><span class="line">    - <span class="string">"-c"</span></span><br><span class="line">    - <span class="string">"sleep 3600"</span></span><br><span class="line">  nodeSelector:</span><br><span class="line">    type: test</span><br></pre></td></tr></table></figure>
+<p>示例会将 pod 调度到 type=test 的 节点上。 </p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">kubectl delete -f pod-demo.yaml </span><br><span class="line">kubectl create -f pod-demo.yaml</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">kubectl get pods -o wide </span><br><span class="line">NAME                            READY   STATUS    RESTARTS   AGE    IP           NODE                      NOMINATED NODE   READINESS GATES</span><br><span class="line">nginx-deploy<span class="number">-5</span>c9b546997-nv2xp   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">5</span>h7m   <span class="number">10.244</span><span class="number">.1</span><span class="number">.2</span>   izrj94q5l72imm6kxm11qxz   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">pod-demo                        <span class="number">2</span>/<span class="number">2</span>     Running   <span class="number">0</span>          <span class="number">19</span>s    <span class="number">10.244</span><span class="number">.1</span><span class="number">.3</span>   izrj94q5l72imm6kxm11qxz   &lt;none&gt;           &lt;none&gt;</span><br></pre></td></tr></table></figure>
+<p>可以看到两个容器均调度到了 izrj945l72imm6kxm11qxz 的节点上，而这个节点就是被打上 type=test 标签的节点。</p>
+<p>查看 pod 的详细信息中的 default-scheduler  字段也可以看到调度的结果</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">kubectl describe pods pod-demo</span><br><span class="line">......</span><br><span class="line">Events:</span><br><span class="line">  Type    Reason     Age    From                              Message</span><br><span class="line">  ----    ------     ----   ----                              -------</span><br><span class="line">  Normal  Scheduled  <span class="number">3</span>m35s  default-scheduler                 Successfully assigned default/pod-demo to izrj94q5l72imm6kxm11qxz</span><br><span class="line">  Normal  Pulling    <span class="number">3</span>m35s  kubelet, izrj94q5l72imm6kxm11qxz  Pulling image <span class="string">"ikubernetes/myapp:v1"</span></span><br><span class="line">  Normal  Pulled     <span class="number">3</span>m32s  kubelet, izrj94q5l72imm6kxm11qxz  Successfully pulled image <span class="string">"ikubernetes/myapp:v1"</span></span><br><span class="line">  Normal  Created    <span class="number">3</span>m32s  kubelet, izrj94q5l72imm6kxm11qxz  Created container myapp</span><br><span class="line">  Normal  Started    <span class="number">3</span>m32s  kubelet, izrj94q5l72imm6kxm11qxz  Started container myapp</span><br><span class="line">  Normal  Pulling    <span class="number">3</span>m32s  kubelet, izrj94q5l72imm6kxm11qxz  Pulling image <span class="string">"busybox"</span></span><br><span class="line">  Normal  Pulled     <span class="number">3</span>m30s  kubelet, izrj94q5l72imm6kxm11qxz  Successfully pulled image <span class="string">"busybox"</span></span><br><span class="line">  Normal  Created    <span class="number">3</span>m30s  kubelet, izrj94q5l72imm6kxm11qxz  Created container busybox</span><br><span class="line">  Normal  Started    <span class="number">3</span>m30s  kubelet, izrj94q5l72imm6kxm11qxz  Started container busybox</span><br></pre></td></tr></table></figure>
+<h5 id="nodeName"><a href="#nodeName" class="headerlink" title="nodeName"></a>nodeName</h5><p>使用 nodeName，可以直接将一个 Pod 指定运行在某个 node 上，根据 node 名称。</p>
+<p>许多资源支持内嵌的字段来定义其自己使用的标签选择器： </p>
+<ol>
+<li>matchLabels：表示直接给定键值就能进行选择</li>
+<li>matchExpressions：表示要基于给定的表达式来进行选择</li>
+</ol>
+<h3 id="标签选择器"><a href="#标签选择器" class="headerlink" title="标签选择器"></a>标签选择器</h3><h4 id="等值关系"><a href="#等值关系" class="headerlink" title="等值关系"></a>等值关系</h4><p>可以使用 = ，== 或者 !=<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get pods -l author=rexyan</span><br></pre></td></tr></table></figure></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get pods -l author==rexyan,app=test  <span class="comment"># author==rexyan且app=test</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get pods -l author!=rexyan  <span class="comment"># author不等于rexyan</span></span><br></pre></td></tr></table></figure>
+<h4 id="集合关系"><a href="#集合关系" class="headerlink" title="集合关系"></a>集合关系</h4><p>可以使用 KEY in (VALUE1, VALUE2)  或者 notin 或者 !KEY<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get pods -l <span class="string">"author in (rexyan, yanrunsha, runsha.yan)"</span></span><br></pre></td></tr></table></figure></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get pods -l <span class="string">"author notin (rexyan, yanrunsha, runsha.yan)"</span></span><br></pre></td></tr></table></figure>
+<h3 id="Pod-注解"><a href="#Pod-注解" class="headerlink" title="Pod 注解"></a>Pod 注解</h3><p>annotations 是 Pod 的注解。与 lable 不同的地方在于，他不能用于挑选资源对象，仅用于为对象提供 “元数据”</p>
+<p>修改 pod-demo.yaml, 内容如下</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">apiVersion: v1</span><br><span class="line">kind: Pod</span><br><span class="line">metadata:</span><br><span class="line">  name: pod-demo</span><br><span class="line">  namespace: default</span><br><span class="line">  labels:</span><br><span class="line">    app: myapp</span><br><span class="line">    author: rexyan</span><br><span class="line">  annotations:</span><br><span class="line">    rexyan.me/create-by: <span class="string">"rexyan"</span></span><br><span class="line">spec:</span><br><span class="line">  containers:</span><br><span class="line">  - name: myapp</span><br><span class="line">    image: ikubernetes/myapp:v1</span><br><span class="line">    ports:</span><br><span class="line">    - name: http</span><br><span class="line">      containerPort: <span class="number">80</span></span><br><span class="line">  - name: busybox</span><br><span class="line">    image: busybox</span><br><span class="line">    command:</span><br><span class="line">    - <span class="string">"/bin/sh"</span></span><br><span class="line">    - <span class="string">"-c"</span></span><br><span class="line">    - <span class="string">"sleep 3600"</span></span><br><span class="line">  nodeSelector:</span><br><span class="line">    type: test</span><br></pre></td></tr></table></figure>
+<p>将 pod 删除，并且重新创建</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">kubectl delete -f pod-demo.yaml </span><br><span class="line">kubectl create -f pod-demo.yaml</span><br></pre></td></tr></table></figure>
+<p>可以使用 describe 查看资源的注解</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br></pre></td><td class="code"><pre><span class="line">kubectl describe pods pod-demo</span><br><span class="line">Name:               pod-demo</span><br><span class="line">Namespace:          default</span><br><span class="line">Priority:           <span class="number">0</span></span><br><span class="line">PriorityClassName:  &lt;none&gt;</span><br><span class="line">Node:               izrj94q5l72imm6kxm11qxz/<span class="number">172.20</span><span class="number">.245</span><span class="number">.188</span></span><br><span class="line">Start Time:         Sat, <span class="number">18</span> May <span class="number">2019</span> <span class="number">22</span>:<span class="number">27</span>:<span class="number">11</span> +<span class="number">0800</span></span><br><span class="line">Labels:             app=myapp</span><br><span class="line">                    author=rexyan</span><br><span class="line">Annotations:        rexyan.me/create-by: rexyan</span><br><span class="line">Status:             Running</span><br><span class="line">IP:                 <span class="number">10.244</span><span class="number">.1</span><span class="number">.4</span></span><br><span class="line">Containers:</span><br><span class="line">  myapp:</span><br><span class="line">    Container ID:   docker://<span class="number">0</span>f3a448bb2c66d26c060ebf0fb65941265dc8b2cf9cb837fed88641e5478df0f</span><br><span class="line">    Image:          ikubernetes/myapp:v1</span><br><span class="line">    Image ID:       docker-pullable://docker.io/ikubernetes/myapp@sha256:<span class="number">9</span>c3dc30b5219788b2b8a4b065f548b922a34479577befb54b03330999d30d513</span><br><span class="line">    Port:           <span class="number">80</span>/TCP</span><br><span class="line">    Host Port:      <span class="number">0</span>/TCP</span><br><span class="line">    State:          Running</span><br><span class="line">      Started:      Sat, <span class="number">18</span> May <span class="number">2019</span> <span class="number">22</span>:<span class="number">27</span>:<span class="number">12</span> +<span class="number">0800</span></span><br><span class="line">    Ready:          <span class="literal">True</span></span><br><span class="line">    Restart Count:  <span class="number">0</span></span><br><span class="line">    Environment:    &lt;none&gt;</span><br><span class="line">    Mounts:</span><br><span class="line">      /var/run/secrets/kubernetes.io/serviceaccount <span class="keyword">from</span> default-token<span class="number">-8</span>dmfd (ro)</span><br><span class="line">  busybox:</span><br><span class="line">    Container ID:  docker://<span class="number">89e2</span>a12051d98435c427f091b4753a2900455641b397a5396f59b16426561c06</span><br><span class="line">    Image:         busybox</span><br><span class="line">    Image ID:      docker-pullable://docker.io/busybox@sha256:<span class="number">4</span>b6ad3a68d34da29bf7c8ccb5d355ba8b4babcad1f99798204e7abb43e54ee3d</span><br><span class="line">    Port:          &lt;none&gt;</span><br><span class="line">    Host Port:     &lt;none&gt;</span><br><span class="line">    Command:</span><br><span class="line">      /bin/sh</span><br><span class="line">      -c</span><br><span class="line">      sleep <span class="number">3600</span></span><br><span class="line">    State:          Running</span><br><span class="line">      Started:      Sat, <span class="number">18</span> May <span class="number">2019</span> <span class="number">22</span>:<span class="number">27</span>:<span class="number">13</span> +<span class="number">0800</span></span><br><span class="line">    Ready:          <span class="literal">True</span></span><br><span class="line">    Restart Count:  <span class="number">0</span></span><br><span class="line">    Environment:    &lt;none&gt;</span><br><span class="line">    Mounts:</span><br><span class="line">      /var/run/secrets/kubernetes.io/serviceaccount <span class="keyword">from</span> default-token<span class="number">-8</span>dmfd (ro)</span><br><span class="line">Conditions:</span><br><span class="line">  Type              Status</span><br><span class="line">  Initialized       <span class="literal">True</span> </span><br><span class="line">  Ready             <span class="literal">True</span> </span><br><span class="line">  ContainersReady   <span class="literal">True</span> </span><br><span class="line">  PodScheduled      <span class="literal">True</span> </span><br><span class="line">Volumes:</span><br><span class="line">  default-token<span class="number">-8</span>dmfd:</span><br><span class="line">    Type:        Secret (a volume populated by a Secret)</span><br><span class="line">    SecretName:  default-token<span class="number">-8</span>dmfd</span><br><span class="line">    Optional:    false</span><br><span class="line">QoS Class:       BestEffort</span><br><span class="line">Node-Selectors:  type=test</span><br><span class="line">Tolerations:     node.kubernetes.io/<span class="keyword">not</span>-ready:NoExecute <span class="keyword">for</span> <span class="number">300</span>s</span><br><span class="line">                 node.kubernetes.io/unreachable:NoExecute <span class="keyword">for</span> <span class="number">300</span>s</span><br><span class="line">Events:</span><br><span class="line">  Type    Reason     Age   From                              Message</span><br><span class="line">  ----    ------     ----  ----                              -------</span><br><span class="line">  Normal  Scheduled  <span class="number">18</span>s   default-scheduler                 Successfully assigned default/pod-demo to izrj94q5l72imm6kxm11qxz</span><br><span class="line">  Normal  Pulled     <span class="number">17</span>s   kubelet, izrj94q5l72imm6kxm11qxz  Container image <span class="string">"ikubernetes/myapp:v1"</span> already present on machine</span><br><span class="line">  Normal  Created    <span class="number">17</span>s   kubelet, izrj94q5l72imm6kxm11qxz  Created container myapp</span><br><span class="line">  Normal  Started    <span class="number">17</span>s   kubelet, izrj94q5l72imm6kxm11qxz  Started container myapp</span><br><span class="line">  Normal  Pulling    <span class="number">17</span>s   kubelet, izrj94q5l72imm6kxm11qxz  Pulling image <span class="string">"busybox"</span></span><br><span class="line">  Normal  Pulled     <span class="number">16</span>s   kubelet, izrj94q5l72imm6kxm11qxz  Successfully pulled image <span class="string">"busybox"</span></span><br><span class="line">  Normal  Created    <span class="number">16</span>s   kubelet, izrj94q5l72imm6kxm11qxz  Created container busybox</span><br><span class="line">  Normal  Started    <span class="number">16</span>s   kubelet, izrj94q5l72imm6kxm11qxz  Started container busybox</span><br></pre></td></tr></table></figure>
+<h3 id="Pod-的生命周期"><a href="#Pod-的生命周期" class="headerlink" title="Pod 的生命周期"></a>Pod 的生命周期</h3><p>状态：Pending，Running，Failed，Succeeded，Unknow……</p>
+<p>Pod 生命周期中的重要行为：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">初始化容器</span><br><span class="line">容器探测：</span><br><span class="line">	liveness(用来判定容器是否正常)</span><br><span class="line">	readiness(用来判定容器中的服务是否正常)</span><br></pre></td></tr></table></figure>
+<h3 id="容器重启策略"><a href="#容器重启策略" class="headerlink" title="容器重启策略"></a>容器重启策略</h3><p>restartPolicy 用于定义容器的充气策略。支持以下几种。</p>
+<p>Always（默认），OnFailure（失败后才重启），Never（从不重启）</p>
+<h3 id="进入容器和日志查看"><a href="#进入容器和日志查看" class="headerlink" title="进入容器和日志查看"></a>进入容器和日志查看</h3><p>查看容器日志和进入容器分别使用<code>kubectl logs</code> 和 <code>kubectl exec</code> 命令。当 Pod 中只有一个容器的时候，我们可以不使用 <code>-c</code> 参数指定进入哪一个容器，但是如果 Pod 中有多个容器的时候，就需要使用<code>-c</code> 来指定具体的容器。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"><i class="fa fa-tag"></i> Kubernetes</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/05/18/K8s 使用资源清单创建资源/" rel="prev" title="K8s 使用资源清单创建资源">
+      <i class="fa fa-chevron-left"></i> K8s 使用资源清单创建资源
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/05/19/K8s 应用存活和容器启动结束钩子/" rel="next" title="K8s 应用存活和容器启动结束钩子">
+      K8s 应用存活和容器启动结束钩子 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#镜像拉取规则"><span class="nav-number">1.</span> <span class="nav-text">镜像拉取规则</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#命令优先级"><span class="nav-number">2.</span> <span class="nav-text">命令优先级</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#标签操作"><span class="nav-number">3.</span> <span class="nav-text">标签操作</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#查看-Pod-显示标签"><span class="nav-number">3.1.</span> <span class="nav-text">查看 Pod 显示标签</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Pod-标签过滤"><span class="nav-number">3.2.</span> <span class="nav-text">Pod 标签过滤</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Pod-新增标签"><span class="nav-number">3.3.</span> <span class="nav-text">Pod 新增标签</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Pod修改标签"><span class="nav-number">3.4.</span> <span class="nav-text">Pod修改标签</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Node-查看标签"><span class="nav-number">3.5.</span> <span class="nav-text">Node 查看标签</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Node-新增标签"><span class="nav-number">3.6.</span> <span class="nav-text">Node 新增标签</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#指定-Pod-调度节点"><span class="nav-number">3.7.</span> <span class="nav-text">指定 Pod 调度节点</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#nodelSelecter"><span class="nav-number">3.7.1.</span> <span class="nav-text">nodelSelecter</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#nodeName"><span class="nav-number">3.7.2.</span> <span class="nav-text">nodeName</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#标签选择器"><span class="nav-number">4.</span> <span class="nav-text">标签选择器</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#等值关系"><span class="nav-number">4.1.</span> <span class="nav-text">等值关系</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#集合关系"><span class="nav-number">4.2.</span> <span class="nav-text">集合关系</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Pod-注解"><span class="nav-number">5.</span> <span class="nav-text">Pod 注解</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Pod-的生命周期"><span class="nav-number">6.</span> <span class="nav-text">Pod 的生命周期</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#容器重启策略"><span class="nav-number">7.</span> <span class="nav-text">容器重启策略</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#进入容器和日志查看"><span class="nav-number">8.</span> <span class="nav-text">进入容器和日志查看</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

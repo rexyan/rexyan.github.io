@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="Docker 启动, 并开启 binlog启动服务12345678910111213141516171819version: &quot;3&quot;services:    mysql_ac:      container_name: mysql_5.7_docker      image: nexus-docker.mycyclone.com/testdev/mysql:5.7.34      restart:">
+<meta name="keywords" content="MySQL,数据库">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Docker 搭建 MySQL 主从">
+<meta property="og:url" content="https://rexyan.github.io/2021/11/01/Docker 搭建 MySQL 主从/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="Docker 启动, 并开启 binlog启动服务12345678910111213141516171819version: &quot;3&quot;services:    mysql_ac:      container_name: mysql_5.7_docker      image: nexus-docker.mycyclone.com/testdev/mysql:5.7.34      restart:">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230607133750.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230607133815.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230607134013.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230607133948.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230607133921.png">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.391Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Docker 搭建 MySQL 主从">
+<meta name="twitter:description" content="Docker 启动, 并开启 binlog启动服务12345678910111213141516171819version: &quot;3&quot;services:    mysql_ac:      container_name: mysql_5.7_docker      image: nexus-docker.mycyclone.com/testdev/mysql:5.7.34      restart:">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230607133750.png">
+
+<link rel="canonical" href="https://rexyan.github.io/2021/11/01/Docker 搭建 MySQL 主从/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Docker 搭建 MySQL 主从 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2021/11/01/Docker 搭建 MySQL 主从/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Docker 搭建 MySQL 主从
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-11-01 17:32:57" itemprop="dateCreated datePublished" datetime="2021-11-01T17:32:57+00:00">2021-11-01</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/数据库/" itemprop="url" rel="index"><span itemprop="name">数据库</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="Docker-启动-并开启-binlog"><a href="#Docker-启动-并开启-binlog" class="headerlink" title="Docker 启动, 并开启 binlog"></a>Docker 启动, 并开启 binlog</h3><h4 id="启动服务"><a href="#启动服务" class="headerlink" title="启动服务"></a>启动服务</h4><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">version:</span> <span class="string">"3"</span></span><br><span class="line"><span class="attr">services:</span></span><br><span class="line">    <span class="attr">mysql_ac:</span></span><br><span class="line">      <span class="attr">container_name:</span> <span class="string">mysql_5.7_docker</span></span><br><span class="line">      <span class="attr">image:</span> <span class="string">nexus-docker.mycyclone.com/testdev/mysql:5.7.34</span></span><br><span class="line">      <span class="attr">restart:</span> <span class="string">always</span></span><br><span class="line">      <span class="attr">ports:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="number">33008</span><span class="string">:3306</span></span><br><span class="line">      <span class="attr">command:</span></span><br><span class="line">        <span class="string">[</span></span><br><span class="line">          <span class="string">"mysqld"</span><span class="string">,</span></span><br><span class="line">          <span class="string">"--character-set-server=utf8mb4"</span><span class="string">,</span></span><br><span class="line">          <span class="string">"--collation-server=utf8mb4_unicode_ci"</span><span class="string">,</span></span><br><span class="line">        <span class="string">]</span></span><br><span class="line">      <span class="attr">environment:</span></span><br><span class="line">          <span class="attr">MYSQL_ROOT_PASSWORD:</span> <span class="string">cyclone</span></span><br><span class="line">      <span class="attr">volumes:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">./etc/mysql:/etc/mysql</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">./opt/mysql:/var/lib/mysql</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose up -d</span><br></pre></td></tr></table></figure>
+<a id="more"></a>
+<h4 id="开启-binlog"><a href="#开启-binlog" class="headerlink" title="开启 binlog"></a>开启 binlog</h4><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker exec mysql_5.7_docker bash -c "echo 'log-bin=/var/lib/mysql/mysql-bin' &gt;&gt; /etc/mysql/mysql.conf.d/mysqld.cnf"</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker exec mysql_5.7_docker bash -c "echo 'server-id=123454' &gt;&gt; /etc/mysql/mysql.conf.d/mysqld.cnf"</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker restart mysql_5.7_docker</span><br></pre></td></tr></table></figure>
+<h3 id="操作日志文件"><a href="#操作日志文件" class="headerlink" title="操作日志文件"></a>操作日志文件</h3><h4 id="查看开启状态"><a href="#查看开启状态" class="headerlink" title="查看开启状态"></a>查看开启状态</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">show variables like &apos;%log_bin%&apos;;</span><br></pre></td></tr></table></figure>
+<p>以下格式就为开启了 binlog </p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">-- log_bin	ON</span><br><span class="line">-- log_bin_basename	/var/lib/mysql/mysql-bin</span><br><span class="line">-- log_bin_index	/var/lib/mysql/mysql-bin.index</span><br><span class="line">-- log_bin_trust_function_creators	OFF</span><br><span class="line">-- log_bin_use_v1_row_events	OFF</span><br><span class="line">-- sql_log_bin	ON</span><br></pre></td></tr></table></figure>
+<h4 id="查看-binlog-日志文件"><a href="#查看-binlog-日志文件" class="headerlink" title="查看 binlog 日志文件"></a>查看 binlog 日志文件</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">show BINARY logs;</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-- mysql-bin.000001	812</span><br></pre></td></tr></table></figure>
+<h4 id="查看正在写入的文件"><a href="#查看正在写入的文件" class="headerlink" title="查看正在写入的文件"></a>查看正在写入的文件</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">show master status</span><br></pre></td></tr></table></figure>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230607133750.png" alt></p>
+<h4 id="清空-binlog"><a href="#清空-binlog" class="headerlink" title="清空 binlog"></a>清空 binlog</h4><p>清空后数据还在, binlog 大小不会为0。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">reset master</span><br></pre></td></tr></table></figure>
+<h3 id="查看日志内容"><a href="#查看日志内容" class="headerlink" title="查看日志内容"></a>查看日志内容</h3><h4 id="使用-mysqlbinlog"><a href="#使用-mysqlbinlog" class="headerlink" title="使用 mysqlbinlog"></a>使用 mysqlbinlog</h4><p>mysqlbinlog 是 mysql 自带的查看 binlog 的工具，需要在安装 mysql 的机器上执行，并非在 mysql 命令行中。</p>
+<p>另外，执行路径需要到日志文件路径下才能执行。</p>
+<p>ROW 模式生成的 sql 需要 base 解码才能看到内容, <code>--base64-output=decode-rows -v</code> 的作用即为解码</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysqlbinlog  mysql-bin.000001 --base64-output=decode-rows -v</span><br></pre></td></tr></table></figure>
+<h4 id="使用-mysql-命令查看"><a href="#使用-mysql-命令查看" class="headerlink" title="使用  mysql 命令查看"></a>使用  mysql 命令查看</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">show binlog events in &apos;mysql-bin.000001&apos;</span><br></pre></td></tr></table></figure>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230607133815.png" alt></p>
+<h4 id="查看当前-binlog-日志格式"><a href="#查看当前-binlog-日志格式" class="headerlink" title="查看当前 binlog 日志格式"></a>查看当前 binlog 日志格式</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">show variables like &apos;binlog_format&apos;</span><br></pre></td></tr></table></figure>
+<h3 id="一主多从搭建"><a href="#一主多从搭建" class="headerlink" title="一主多从搭建"></a>一主多从搭建</h3><p>docker-compose.yaml 文件如下， mysql_master_1设置在 33008, mysql_slave_1 在 33009，mysql_slave_2 在 33010</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">version:</span> <span class="string">"3"</span></span><br><span class="line"><span class="attr">services:</span></span><br><span class="line">    <span class="attr">mysql_master_1:</span></span><br><span class="line">      <span class="attr">container_name:</span> <span class="string">mysql_master_1</span></span><br><span class="line">      <span class="attr">image:</span> <span class="string">nexus-docker.mycyclone.com/testdev/mysql:5.7.34</span></span><br><span class="line">      <span class="attr">restart:</span> <span class="string">always</span></span><br><span class="line">      <span class="attr">ports:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="number">33008</span><span class="string">:3306</span></span><br><span class="line">      <span class="attr">command:</span></span><br><span class="line">        <span class="string">[</span></span><br><span class="line">          <span class="string">"mysqld"</span><span class="string">,</span></span><br><span class="line">          <span class="string">"--character-set-server=utf8mb4"</span><span class="string">,</span></span><br><span class="line">          <span class="string">"--collation-server=utf8mb4_unicode_ci"</span><span class="string">,</span></span><br><span class="line">        <span class="string">]</span></span><br><span class="line">      <span class="attr">environment:</span></span><br><span class="line">          <span class="attr">MYSQL_ROOT_PASSWORD:</span> <span class="number">123456</span></span><br><span class="line">    </span><br><span class="line">    <span class="attr">mysql_slave_1:</span></span><br><span class="line">      <span class="attr">container_name:</span> <span class="string">mysql_slave_1</span></span><br><span class="line">      <span class="attr">image:</span> <span class="string">nexus-docker.mycyclone.com/testdev/mysql:5.7.34</span></span><br><span class="line">      <span class="attr">restart:</span> <span class="string">always</span></span><br><span class="line">      <span class="attr">ports:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="number">33009</span><span class="string">:3306</span></span><br><span class="line">      <span class="attr">command:</span></span><br><span class="line">        <span class="string">[</span></span><br><span class="line">          <span class="string">"mysqld"</span><span class="string">,</span></span><br><span class="line">          <span class="string">"--character-set-server=utf8mb4"</span><span class="string">,</span></span><br><span class="line">          <span class="string">"--collation-server=utf8mb4_unicode_ci"</span><span class="string">,</span></span><br><span class="line">        <span class="string">]</span></span><br><span class="line">      <span class="attr">environment:</span></span><br><span class="line">          <span class="attr">MYSQL_ROOT_PASSWORD:</span> <span class="number">123456</span></span><br><span class="line">    </span><br><span class="line">    <span class="attr">mysql_slave_2:</span></span><br><span class="line">      <span class="attr">container_name:</span> <span class="string">mysql_slave_2</span></span><br><span class="line">      <span class="attr">image:</span> <span class="string">nexus-docker.mycyclone.com/testdev/mysql:5.7.34</span></span><br><span class="line">      <span class="attr">restart:</span> <span class="string">always</span></span><br><span class="line">      <span class="attr">ports:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="number">33010</span><span class="string">:3306</span></span><br><span class="line">      <span class="attr">command:</span></span><br><span class="line">        <span class="string">[</span></span><br><span class="line">          <span class="string">"mysqld"</span><span class="string">,</span></span><br><span class="line">          <span class="string">"--character-set-server=utf8mb4"</span><span class="string">,</span></span><br><span class="line">          <span class="string">"--collation-server=utf8mb4_unicode_ci"</span><span class="string">,</span></span><br><span class="line">        <span class="string">]</span></span><br><span class="line">      <span class="attr">environment:</span></span><br><span class="line">          <span class="attr">MYSQL_ROOT_PASSWORD:</span> <span class="number">123456</span></span><br></pre></td></tr></table></figure>
+<h4 id="开启主库-binlog"><a href="#开启主库-binlog" class="headerlink" title="开启主库 binlog"></a>开启主库 binlog</h4><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker exec mysql_master_1 bash -c "echo 'log-bin=/var/lib/mysql/mysql-bin' &gt;&gt; /etc/mysql/mysql.conf.d/mysqld.cnf"</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker exec mysql_master_1 bash -c "echo 'server-id=123454' &gt;&gt; /etc/mysql/mysql.conf.d/mysqld.cnf"</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker restart mysql_master_1</span><br></pre></td></tr></table></figure>
+<h4 id="创建同步用户"><a href="#创建同步用户" class="headerlink" title="创建同步用户"></a>创建同步用户</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">CREATE USER &apos;sync_user&apos;@&apos;%&apos; IDENTIFIED BY &apos;123456&apos;;</span><br><span class="line">GRANT REPLICATION SLAVE ON *.* TO &apos;sync_user&apos;@&apos;%&apos;;</span><br></pre></td></tr></table></figure>
+<h4 id="创建表插入数据"><a href="#创建表插入数据" class="headerlink" title="创建表插入数据"></a>创建表插入数据</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">CREATE TABLE `tb_person` (</span><br><span class="line">	`id` INT ( 11 ) NOT NULL AUTO_INCREMENT,</span><br><span class="line">	`name` VARCHAR ( 36 ) NOT NULL,</span><br><span class="line">	`address` VARCHAR ( 36 ) NOT NULL DEFAULT &apos;&apos;,</span><br><span class="line">	`sex` VARCHAR ( 12 ) NOT NULL DEFAULT &apos;Man&apos;,</span><br><span class="line">	`other` VARCHAR ( 256 ) NOT NULL,</span><br><span class="line">	PRIMARY KEY ( `id` ) </span><br><span class="line">) ENGINE = INNODB AUTO_INCREMENT = 0 DEFAULT CHARSET = utf8;</span><br><span class="line">             </span><br><span class="line">insert into tb_person  set name=&quot;name1&quot;, address=&quot;beijing&quot;, sex=&quot;man&quot;, other=&quot;nothing&quot;;</span><br><span class="line">insert into tb_person  set name=&quot;name2&quot;, address=&quot;beijing&quot;, sex=&quot;man&quot;, other=&quot;nothing&quot;;</span><br><span class="line">insert into tb_person  set name=&quot;name3&quot;, address=&quot;beijing&quot;, sex=&quot;man&quot;, other=&quot;nothing&quot;;</span><br><span class="line">insert into tb_person  set name=&quot;name4&quot;, address=&quot;beijing&quot;, sex=&quot;man&quot;, other=&quot;nothing&quot;;</span><br></pre></td></tr></table></figure>
+<h4 id="Slave-配置"><a href="#Slave-配置" class="headerlink" title="Slave 配置"></a>Slave 配置</h4><p>设置 server-id</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker exec mysql_slave_1 bash -c "echo 'server-id=123454' &gt;&gt; /etc/mysql/mysql.conf.d/mysqld.cnf"</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker restart mysql_slave_1</span><br></pre></td></tr></table></figure>
+<p>连接 master</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">change master to</span><br><span class="line">master_host=&apos;mysql_master_1&apos;,</span><br><span class="line">master_user=&apos;sync_user&apos;,</span><br><span class="line">master_port=3306,</span><br><span class="line">master_password=&apos;123456&apos;,</span><br><span class="line">master_log_file=&apos;mysql-bin.000001&apos;,</span><br><span class="line">master_log_pos=123;</span><br></pre></td></tr></table></figure>
+<p>查看 slave 状态</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">show slave status\G</span><br></pre></td></tr></table></figure>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230607134013.png" alt></p>
+<p>启动复制</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">start slave;</span><br></pre></td></tr></table></figure>
+<p>再次查看 slave 状态</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230607133948.png" alt></p>
+<p>查看两个库数据是否一致</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230607133921.png" alt></p>
+<h4 id="判断主从是否延迟"><a href="#判断主从是否延迟" class="headerlink" title="判断主从是否延迟"></a>判断主从是否延迟</h4><ol>
+<li>首先看 Relay_Master_Log_File 和 Maser_Log_File 是否有差异;</li>
+<li>如果Relay_Master_Log_File 和 Master_Log_File 是一样的话，再来看Exec_Master_Log_Pos 和 Read_Master_Log_Pos 的差异，对比SQL线程比IO线程慢了多少个binlog事件</li>
+<li>如果Relay_Master_Log_File 和 Master_Log_File 不一样，那说明延迟可能较大，需要从MASTER上取得binlog status，判断当前的binlog和MASTER上的差距</li>
+<li>如果以上都不能发现问题，可使用 pt_heartbeat工具来监控主备复制的延迟。</li>
+</ol>
+<h3 id="数据恢复"><a href="#数据恢复" class="headerlink" title="数据恢复"></a>数据恢复</h3>
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/MySQL/" rel="tag"><i class="fa fa-tag"></i> MySQL</a>
+              <a href="/tags/数据库/" rel="tag"><i class="fa fa-tag"></i> 数据库</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/08/08/《不平等社会》- 经济不平等产生的原因/" rel="prev" title="《不平等社会》- 经济不平等产生的原因">
+      <i class="fa fa-chevron-left"></i> 《不平等社会》- 经济不平等产生的原因
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/12/06/UML 速记/" rel="next" title="UML 速记口诀">
+      UML 速记口诀 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#Docker-启动-并开启-binlog"><span class="nav-number">1.</span> <span class="nav-text">Docker 启动, 并开启 binlog</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#启动服务"><span class="nav-number">1.1.</span> <span class="nav-text">启动服务</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#开启-binlog"><span class="nav-number">1.2.</span> <span class="nav-text">开启 binlog</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#操作日志文件"><span class="nav-number">2.</span> <span class="nav-text">操作日志文件</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#查看开启状态"><span class="nav-number">2.1.</span> <span class="nav-text">查看开启状态</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#查看-binlog-日志文件"><span class="nav-number">2.2.</span> <span class="nav-text">查看 binlog 日志文件</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#查看正在写入的文件"><span class="nav-number">2.3.</span> <span class="nav-text">查看正在写入的文件</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#清空-binlog"><span class="nav-number">2.4.</span> <span class="nav-text">清空 binlog</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#查看日志内容"><span class="nav-number">3.</span> <span class="nav-text">查看日志内容</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#使用-mysqlbinlog"><span class="nav-number">3.1.</span> <span class="nav-text">使用 mysqlbinlog</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#使用-mysql-命令查看"><span class="nav-number">3.2.</span> <span class="nav-text">使用  mysql 命令查看</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#查看当前-binlog-日志格式"><span class="nav-number">3.3.</span> <span class="nav-text">查看当前 binlog 日志格式</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#一主多从搭建"><span class="nav-number">4.</span> <span class="nav-text">一主多从搭建</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#开启主库-binlog"><span class="nav-number">4.1.</span> <span class="nav-text">开启主库 binlog</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#创建同步用户"><span class="nav-number">4.2.</span> <span class="nav-text">创建同步用户</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#创建表插入数据"><span class="nav-number">4.3.</span> <span class="nav-text">创建表插入数据</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Slave-配置"><span class="nav-number">4.4.</span> <span class="nav-text">Slave 配置</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#判断主从是否延迟"><span class="nav-number">4.5.</span> <span class="nav-text">判断主从是否延迟</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#数据恢复"><span class="nav-number">5.</span> <span class="nav-text">数据恢复</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

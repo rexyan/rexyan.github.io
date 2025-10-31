@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="分区表创建表的时候可以使用 PARTITIONED BY 来创建分区表。分区表实际上就是对应一个 HDFS 文件系统上的独立的文件夹，该文件夹下是该分区所有的数据文件。Hive 中的分区就是分目录，把一个大的数据集根据业务需要分割成小的数据集。在查询时通过 WHERE 子句中的表达式选择查询所需要的指定的分区，这样的查询效率会提高很多。 1234567891011CREATE [EXTERNAL]">
+<meta name="keywords" content="Hadoop,Hive">
+<meta property="og:type" content="article">
+<meta property="og:title" content="8. Hive-2">
+<meta property="og:url" content="https://rexyan.github.io/2020/08/27/8. Hive-2/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="分区表创建表的时候可以使用 PARTITIONED BY 来创建分区表。分区表实际上就是对应一个 HDFS 文件系统上的独立的文件夹，该文件夹下是该分区所有的数据文件。Hive 中的分区就是分目录，把一个大的数据集根据业务需要分割成小的数据集。在查询时通过 WHERE 子句中的表达式选择查询所需要的指定的分区，这样的查询效率会提高很多。 1234567891011CREATE [EXTERNAL]">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5sOpFy8xoP8XtuRSh.AcDOkdikJpgpMA1yDQUAJcBMQyevdQWYEWo6NEPVnjCK8VZu*Ou6m*INeVWXTW59AAais!/mnull&bo=9gNkAvYDZAIDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5sOpFy8xoP8XtuRSh.AcDOl7EzdQFyS*Sh9XwYZGMZ7nnaxlUJ5*W7fFWNSZntsWG8ixgjo5jVbnclvDWeQBEV0!/mnull&bo=9APsAPQD7AADCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5s6J6uFGQqPFYcQi.4ATqeY7TmCRiWG2ZXFcmSrIOcw7k1O0fGuWA.rGQIKC5bR1DRkCnHnlQ4R5fJ.Y7*YWN8I!/mnull&bo=.wNZAPsDWQADCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.389Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="8. Hive-2">
+<meta name="twitter:description" content="分区表创建表的时候可以使用 PARTITIONED BY 来创建分区表。分区表实际上就是对应一个 HDFS 文件系统上的独立的文件夹，该文件夹下是该分区所有的数据文件。Hive 中的分区就是分目录，把一个大的数据集根据业务需要分割成小的数据集。在查询时通过 WHERE 子句中的表达式选择查询所需要的指定的分区，这样的查询效率会提高很多。 1234567891011CREATE [EXTERNAL]">
+<meta name="twitter:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5sOpFy8xoP8XtuRSh.AcDOkdikJpgpMA1yDQUAJcBMQyevdQWYEWo6NEPVnjCK8VZu*Ou6m*INeVWXTW59AAais!/mnull&bo=9gNkAvYDZAIDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+
+<link rel="canonical" href="https://rexyan.github.io/2020/08/27/8. Hive-2/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>8. Hive-2 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2020/08/27/8. Hive-2/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          8. Hive-2
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-08-27 17:44:57" itemprop="dateCreated datePublished" datetime="2020-08-27T17:44:57+00:00">2020-08-27</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Java-大数据进阶/" itemprop="url" rel="index"><span itemprop="name">Java 大数据进阶</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="分区表"><a href="#分区表" class="headerlink" title="分区表"></a>分区表</h3><p>创建表的时候可以使用 PARTITIONED BY 来创建分区表。分区表实际上就是对应一个 HDFS 文件系统上的独立的文件夹，该文件夹下是该分区所有的数据文件。Hive 中的分区就是分目录，把一个大的数据集根据业务需要分割成小的数据集。在查询时通过 WHERE 子句中的表达式选择查询所需要的指定的分区，这样的查询效率会提高很多。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">CREATE [EXTERNAL] TABLE [IF NOT EXISTS] table_name </span><br><span class="line">[(col_name data_type [COMMENT col_comment], ...)]   //表中的字段信息</span><br><span class="line">[COMMENT table_comment]  //表的注释</span><br><span class="line"></span><br><span class="line">[PARTITIONED BY (col_name data_type [COMMENT col_comment], ...)] </span><br><span class="line">[CLUSTERED BY (col_name, col_name, ...) </span><br><span class="line">[SORTED BY (col_name [ASC|DESC], ...)] INTO num_buckets BUCKETS] </span><br><span class="line"></span><br><span class="line">[ROW FORMAT row_format]   // 表中数据每行的格式，定义数据字段的分隔符，集合元素的分隔符等</span><br><span class="line">[STORED AS file_format]   //表中的数据要以哪种文件格式来存储，默认为TEXTFILE（文本文件）</span><br><span class="line">[LOCATION hdfs_path]  //表在hdfs上的位置</span><br></pre></td></tr></table></figure>
+<h4 id="分区表的创建方式"><a href="#分区表的创建方式" class="headerlink" title="分区表的创建方式"></a>分区表的创建方式</h4><h5 id="直接使用-create-创建分区表"><a href="#直接使用-create-创建分区表" class="headerlink" title="直接使用 create 创建分区表"></a>直接使用 create 创建分区表</h5><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">create</span> <span class="keyword">external</span> <span class="keyword">table</span> <span class="keyword">if</span> <span class="keyword">not</span> <span class="keyword">exists</span> default.deptpart1(</span><br><span class="line">deptno <span class="built_in">int</span>,</span><br><span class="line">dname <span class="keyword">string</span>,</span><br><span class="line">loc <span class="built_in">int</span></span><br><span class="line">)</span><br><span class="line">PARTITIONED <span class="keyword">BY</span>(area <span class="keyword">string</span>)</span><br><span class="line"><span class="keyword">row</span> <span class="keyword">format</span> <span class="keyword">delimited</span> <span class="keyword">fields</span> <span class="keyword">terminated</span> <span class="keyword">by</span> <span class="string">'\t'</span>;</span><br></pre></td></tr></table></figure>
+<p>创建数据</p>
+<p>partition_data1</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">1       测试    1</span><br><span class="line">2       dev     2</span><br><span class="line">3       data    3</span><br><span class="line">4       test    4</span><br></pre></td></tr></table></figure>
+<p>partition_data2</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">5       测试    5</span><br><span class="line">6       dev     6</span><br><span class="line">7       data    7</span><br><span class="line">8       test    8</span><br></pre></td></tr></table></figure>
+<p>加载数据到分区表中</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">load data local inpath '/home/rexyan/test_file/partition_data1' into table default.deptpart1 partition(area='shanghai');</span><br><span class="line"></span><br><span class="line">load data local inpath '/home/rexyan/test_file/partition_data2' into table default.deptpart1 partition(area='beijing');</span><br></pre></td></tr></table></figure>
+<p>上面命令会将数据放在不同的分区中，partition_data1 的数据放在分区 area=’shanghai’ 中，partition_data2 的数据放在 area=’beijing’ 中。查询数据时会发现字段中默认增加了一列 area，area 的值就是分区的值。可以使用where 条件过滤该列的值。在 hdfs 中，会发现 deptpart1 目录下有 area=’shanghai’ 和 area=’beijing’ 两个分区目录。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">hive (default)&gt; select * from deptpart1;</span><br><span class="line">OK</span><br><span class="line">deptpart1.deptno        deptpart1.dname deptpart1.loc   deptpart1.area</span><br><span class="line">5       					测试   		 5       		beijing</span><br><span class="line">6       					dev     	   6       		  beijing</span><br><span class="line">7       					data    	   7       		  beijing</span><br><span class="line">8       					test    	   8       		  beijing</span><br><span class="line">1       					测试    		 1       		shanghai</span><br><span class="line">2       					dev     	   2       		  shanghai</span><br><span class="line">3       					data    	   3       		  shanghai</span><br><span class="line">4       					test    	   4       		  shanghai</span><br><span class="line">Time taken: 0.201 seconds, Fetched: 8 row(s)</span><br></pre></td></tr></table></figure>
+<h5 id="使用-alter-增加分区字段"><a href="#使用-alter-增加分区字段" class="headerlink" title="使用 alter  增加分区字段"></a>使用 alter  增加分区字段</h5><p>创建普通表后或者在目前分区表的基础上使用 alter 增加分区字段</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hive (default)&gt; alter table deptpart1 add partition(area="shandong");</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">hive (default)&gt; show partitions deptpart1;  # 查看添加的分区</span><br><span class="line">OK</span><br><span class="line">partition</span><br><span class="line">area=beijing</span><br><span class="line">area=shandong</span><br><span class="line">area=shanghai</span><br><span class="line">Time taken: 0.183 seconds, Fetched: 3 row(s)</span><br></pre></td></tr></table></figure>
+<h5 id="使用-load-直接加载数据"><a href="#使用-load-直接加载数据" class="headerlink" title="使用 load 直接加载数据"></a>使用 load 直接加载数据</h5><p>使用 load 命令向分区加载数据，如果分区不存在，load 时自动帮我们生成分区</p>
+<p>创建一张分区表</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">create</span> <span class="keyword">external</span> <span class="keyword">table</span> <span class="keyword">if</span> <span class="keyword">not</span> <span class="keyword">exists</span> default.deptpart2(</span><br><span class="line">deptno <span class="built_in">int</span>,</span><br><span class="line">dname <span class="keyword">string</span>,</span><br><span class="line">loc <span class="built_in">int</span></span><br><span class="line">)</span><br><span class="line">PARTITIONED <span class="keyword">BY</span>(area <span class="keyword">string</span>)</span><br><span class="line"><span class="keyword">row</span> <span class="keyword">format</span> <span class="keyword">delimited</span> <span class="keyword">fields</span> <span class="keyword">terminated</span> <span class="keyword">by</span> <span class="string">'\t'</span>;</span><br></pre></td></tr></table></figure>
+<p>使用 load 命令加载数据，将加载时指定分区，因为上面刚创建的表是没有分区 area=’jiangshu’ 和 area=’wuhan’ 的，使用下面方式导入后就能直接创建分区，并将数据导入。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">load data local inpath '/home/rexyan/test_file/partition_data1' into table default.deptpart2 partition(area='jiangshu');</span><br><span class="line"></span><br><span class="line">load data local inpath '/home/rexyan/test_file/partition_data2' into table default.deptpart2 partition(area='wuhan');</span><br></pre></td></tr></table></figure>
+<h5 id="修复分区命令"><a href="#修复分区命令" class="headerlink" title="修复分区命令"></a>修复分区命令</h5><p>创建一张分区表，直接将数据上传到 hdfs 目录下，这时使用 hive 是查询不了数的，需要使用命令修复分区自动生成分区的元数据。</p>
+<p>创建分区表</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">create</span> <span class="keyword">external</span> <span class="keyword">table</span> <span class="keyword">if</span> <span class="keyword">not</span> <span class="keyword">exists</span> default.deptpart3(</span><br><span class="line">deptno <span class="built_in">int</span>,</span><br><span class="line">dname <span class="keyword">string</span>,</span><br><span class="line">loc <span class="built_in">int</span></span><br><span class="line">)</span><br><span class="line">PARTITIONED <span class="keyword">BY</span>(area <span class="keyword">string</span>)</span><br><span class="line"><span class="keyword">row</span> <span class="keyword">format</span> <span class="keyword">delimited</span> <span class="keyword">fields</span> <span class="keyword">terminated</span> <span class="keyword">by</span> <span class="string">'\t'</span>;</span><br></pre></td></tr></table></figure>
+<p>上传数据到 hdfs</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -mkdir -p /hive/deptpart3/area=guiyang</span><br><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -mkdir -p /hive/deptpart3/area=guangxi</span><br><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -put test_file/partition_data1 /hive/deptpart3/area=guiyang</span><br><span class="line">[rexyan@hadoop10 ~]$ hadoop fs -put test_file/partition_data2 /hive/deptpart3/area=guangxi</span><br></pre></td></tr></table></figure>
+<p>修复分区</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">hive (default)&gt; msck repair table deptpart3;  # 修复分区</span><br><span class="line">OK</span><br><span class="line">Partitions not in metastore:    deptpart3:area=guangxi  deptpart3:area=guiyang</span><br><span class="line">Repair: Added partition to metastore deptpart3:area=guangxi</span><br><span class="line">Repair: Added partition to metastore deptpart3:area=guiyang</span><br><span class="line">Time taken: 0.395 seconds, Fetched: 3 row(s)</span><br></pre></td></tr></table></figure>
+<h3 id="分桶表"><a href="#分桶表" class="headerlink" title="分桶表"></a>分桶表</h3><p>建表时指定了 CLUSTERED BY，这个表就为分桶表，分桶本质上也是为了分散数据，在分桶后，可以结合 hive 提供的抽样查询，只查询指定桶的数据。在分桶时，也可以指定将每个桶的数据根据一定的规则来排序，如果需要排序，那么可以在 CLUSTERED BY 后根 SORTED BY</p>
+<p>创建分桶表</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">create</span> <span class="keyword">table</span> stu_buck(<span class="keyword">id</span> <span class="built_in">int</span>, <span class="keyword">name</span> <span class="keyword">string</span>)</span><br><span class="line">clustered <span class="keyword">by</span>(<span class="keyword">id</span>)  <span class="comment">-- 根据 id 进行分桶</span></span><br><span class="line">SORTED <span class="keyword">BY</span> (<span class="keyword">id</span> <span class="keyword">desc</span>)  <span class="comment">--根据 id 进行排序</span></span><br><span class="line"><span class="keyword">into</span> <span class="number">4</span> buckets  <span class="comment">-- 分 4 个桶</span></span><br><span class="line"><span class="keyword">row</span> <span class="keyword">format</span> <span class="keyword">delimited</span> <span class="keyword">fields</span> <span class="keyword">terminated</span> <span class="keyword">by</span> <span class="string">'\t'</span>;  <span class="comment">-- 指定数据之间分隔符为 '\t'</span></span><br></pre></td></tr></table></figure>
+<p>向分桶表导入数据时，必须运行 MR 程序，才能实现分桶操作，之前使用的 load 操作只是相当于执行的 put 操作，无法满足分桶表导入数据，必须使用 insert into (hive 会自动转换为 MR 程序运行)。</p>
+<p>在导入数据前还需要打开强制分桶开关和强制排序开关</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">打开强制分桶开关： set hive.enforce.bucketing=true;</span><br><span class="line">打开强制排序开关： set hive.enforce.sorting=true;</span><br></pre></td></tr></table></figure>
+<p>插入数据除了使用 insert into 一条条的插入外，还可以使用查询插入的方式，即查询一张表的结果，并将这正表的数据插入到分桶表中。这里使用查询插入的方式实现。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">create</span> <span class="keyword">table</span> stu_buck_tmp(<span class="keyword">id</span> <span class="built_in">int</span>, <span class="keyword">name</span> <span class="keyword">string</span>)  <span class="comment">-- 创建普通表 stu_buck_tmp</span></span><br><span class="line"><span class="keyword">row</span> <span class="keyword">format</span> <span class="keyword">delimited</span> <span class="keyword">fields</span> <span class="keyword">terminated</span> <span class="keyword">by</span> <span class="string">'\t'</span>;</span><br></pre></td></tr></table></figure>
+<p>将数据加载到表 stu_buck_tmp 中</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[rexyan@hadoop10 test_file]$ hadoop fs -put ~/test_file/stu_buck_tmp_data /hive/stu_buck_tmp</span><br></pre></td></tr></table></figure>
+<p>将数据从 stu_buck_tmp 中查出插入到 stu_buck 中</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">insert</span> <span class="keyword">into</span> <span class="keyword">table</span> stu_buck <span class="keyword">select</span> * <span class="keyword">from</span> stu_buck_tmp;</span><br></pre></td></tr></table></figure>
+<p>因为 stu_buck 表分桶数量是 4， 所以会看到在插入数据的时候有 4 个 reduce task 执行，查看 hdfs 结构会看到在 stu_buck 下有四个数据文件，每个代表一个桶，每个里面存放一部分数据，且数据都是按照 hash 取模的方式分配的，且数据是倒序存在的。</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5sOpFy8xoP8XtuRSh.AcDOkdikJpgpMA1yDQUAJcBMQyevdQWYEWo6NEPVnjCK8VZu*Ou6m*INeVWXTW59AAais!/mnull&amp;bo=9gNkAvYDZAIDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5sOpFy8xoP8XtuRSh.AcDOl7EzdQFyS*Sh9XwYZGMZ7nnaxlUJ5*W7fFWNSZntsWG8ixgjo5jVbnclvDWeQBEV0!/mnull&amp;bo=9APsAPQD7AADCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<h3 id="抽样查询"><a href="#抽样查询" class="headerlink" title="抽样查询"></a>抽样查询</h3><p>抽样查询的表必须是分桶表，语法格式为 <code>select * from 分桶表 tablesample(bucket x out of y on 分桶表分桶字段);</code> 以上面创建的分桶表为例，查询示例如下</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> stu_buck <span class="keyword">tablesample</span>(<span class="keyword">bucket</span> <span class="number">1</span> <span class="keyword">out</span> <span class="keyword">of</span> <span class="number">2</span> <span class="keyword">on</span> <span class="keyword">id</span>);  <span class="comment">--代表从第1桶(0号桶)开始抽，每隔2桶抽一次，一共抽2桶（4/2，4为总桶数，2为每次抽取桶的间隔数）。即最后抽取的桶为 0号桶，1号桶</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> stu_buck <span class="keyword">tablesample</span>(<span class="keyword">bucket</span> <span class="number">1</span> <span class="keyword">out</span> <span class="keyword">of</span> <span class="number">1</span> <span class="keyword">on</span> <span class="keyword">id</span>);  <span class="comment">--代表从第1桶(0号桶)开始抽，每个1桶抽一次，一共抽4桶（4/1，4为总桶数，1为每次抽取桶的间隔数）。即最后抽取的桶为 0号桶，1号桶，2号桶，3号桶</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> stu_buck <span class="keyword">tablesample</span>(<span class="keyword">bucket</span> <span class="number">2</span> <span class="keyword">out</span> <span class="keyword">of</span> <span class="number">4</span> <span class="keyword">on</span> <span class="keyword">id</span>);  <span class="comment">--代表从第2桶(1号桶)开始抽，每个4桶抽一次，一共抽1桶（4/4，4为总桶数，4为每次抽取桶的间隔数）。即最后抽取的桶为 1号桶</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> stu_buck <span class="keyword">tablesample</span>(<span class="keyword">bucket</span> <span class="number">2</span> <span class="keyword">out</span> <span class="keyword">of</span> <span class="number">8</span> <span class="keyword">on</span> <span class="keyword">id</span>);  <span class="comment">--代表从第2桶(1号桶)开始抽，每个8桶抽一次，一共抽0.5桶（4/8，4为总桶数，8为每次抽取桶的间隔数）。即最后抽取的桶为 1号桶的一半</span></span><br></pre></td></tr></table></figure>
+<h3 id="数据导入"><a href="#数据导入" class="headerlink" title="数据导入"></a>数据导入</h3><h4 id="load"><a href="#load" class="headerlink" title="load"></a>load</h4><p>将数据直接加载到表目录中，语法:<code>load data [local] inpath 路径 into table 表名 partition(xx=xx)</code>，local 参数的作用是将本地文件系统的文件上传到 hdfs 中。不加 local 代表着，文件在 hdfs 上，并且将文件从 hdfs 上将源文件移动到目标目录。</p>
+<h4 id="insert"><a href="#insert" class="headerlink" title="insert"></a>insert</h4><p>insert 的方式会运行 MR 程序，通过程序将数据输出到表目录。在某些场景, 必须使用 insert 的方式来导入数据：</p>
+<ol>
+<li>向分桶表插入数据</li>
+<li>如果指定表中的数据，不是以纯文本（TextFile）形式存储，需要使用 insert 方式导入</li>
+</ol>
+<p>语法：<code>insert into/overwrite table 表名 select xxx/values(),(),()</code> 可以使用 insert into 或者 insert overwrite 两种方式来插入数据，insert into 代表向表中追加新的数据，insert overwrite 代表先清空表中所有的数据，再向表中添加新的数据。后面数据的来源方式可以自己写在 values 中，也可以使用 select 来将查询结果进行插入。</p>
+<h4 id="import"><a href="#import" class="headerlink" title="import"></a>import</h4><p>不仅可以导入数据还可以顺便导入元数据(表结构)。Import 只能导入 export 导出的内容。</p>
+<p>语法格式为 <code>import external table 表名 from HDFS路径</code> ，使用 import 导入要遵循这些约束，如果向一个新表中导入数据，hive 会根据要导入表的元数据自动创建表。如果向一个已经存在的表导入数据，在导入之前会先检查表的结构和属性是否一致，只有在表的结构和属性一致时，才会执行导入。不管表是否为空，要导入的分区必须是不存在的。</p>
+<h3 id="数据导出"><a href="#数据导出" class="headerlink" title="数据导出"></a>数据导出</h3><h4 id="insert-1"><a href="#insert-1" class="headerlink" title="insert"></a>insert</h4><p>将一条 sql 运算的结果，插入到指定的路径，语法格式为 <code>insert overwrite [local] directory 目录 row format 格式</code>。这里 local 的含义和导入的时候一样，不加 local 代表着将文件导出到 hdfs 上，加上则是导出到文件系统中。</p>
+<h4 id="export"><a href="#export" class="headerlink" title="export"></a>export</h4><p>导出数据和元数据(表结构)，export 会在 hdfs 的导出目录中，生成数据和元数据，并且导出的元数据是和 RDMS无关的。如果是分区表，可以选择将分区表的部分分区进行导出</p>
+<p>语法格式为 <code>export table 表名 [partiton(分区信息) ] to HDFS路径</code></p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">export table deptpart1 to "/export";  <span class="comment">-- 导出 deptpart1</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">import table deptpart1_import from "/export";  <span class="comment">-- 导入 deptpart1_import</span></span><br></pre></td></tr></table></figure>
+<p>元数据信息还在</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">hive (default)&gt; show partitions deptpart1_import;</span><br><span class="line">OK</span><br><span class="line">partition</span><br><span class="line">area=beijing</span><br><span class="line">area=shandong</span><br><span class="line">area=shanghai</span><br><span class="line">Time taken: 0.21 seconds, Fetched: 3 row(s)</span><br></pre></td></tr></table></figure>
+<h3 id="排序"><a href="#排序" class="headerlink" title="排序"></a>排序</h3><p>Hive 的本质是 MR，MR 中的排序有以下几种：</p>
+<ol>
+<li>全排序：  结果只有一个(只有一个分区)，所有的数据整体有序</li>
+<li>部分排序：  结果有多个(有多个分区)，每个分区内部有序</li>
+<li>二次排序：  在排序时，比较的条件有多个</li>
+</ol>
+<p>在 MR 中，排序在 reduce 之前就已经排好序了，排序是 shuffle 阶段的主要工作。分区是指使用 Partitioner 来进行分区，当 reduceTaskNum&gt;1，使用用户自己定义的分区器，如果没有就使用 HashParitioner，HashParitioner 只根据 key 的 hashcode 来分区。</p>
+<p>Hive 中可以使用以下排序：</p>
+<ol>
+<li>ORDER BY 列名: 全排序</li>
+<li>SORT BY 列名: 部分排序，如果希望自定定义使用哪个字段分区，需要使用 DISTRIBUTE BY</li>
+<li>DISTRIBUTE BY  列名: 指定按照哪个字段分区, 结合 sort by 使用</li>
+<li>CLUSTER BY 列名: 如果分区的字段和排序的字段一致，且是正序排序，那么可以用 CLUSTER BY，即<code>DISTRIBUTE BY 列名 sort by 列名 asc</code>  等价于 <code>CLUSTER BY  列名</code> , CLUSTER BY  后不能写排序方式，只能使用默认的按照 asc 排序。</li>
+</ol>
+<p>操作实例：</p>
+<p>创建表 emp1，并插入数据，数据如下</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">create</span> <span class="keyword">table</span> default.emp1(</span><br><span class="line">empno <span class="built_in">int</span>,</span><br><span class="line">ename <span class="keyword">string</span>,</span><br><span class="line">job <span class="keyword">string</span>,</span><br><span class="line">mgr <span class="built_in">int</span>,</span><br><span class="line">hiredate <span class="keyword">string</span>, </span><br><span class="line">sal <span class="keyword">double</span>, </span><br><span class="line">comm <span class="keyword">double</span>,</span><br><span class="line">deptno <span class="built_in">int</span>)</span><br><span class="line"><span class="keyword">row</span> <span class="keyword">format</span> <span class="keyword">delimited</span> <span class="keyword">fields</span> <span class="keyword">terminated</span> <span class="keyword">by</span> <span class="string">'\t'</span>;</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">7369    SMITH   CLERK   7902    1980-12-17      800.00</span><br><span class="line">207499  ALLEN   SALESMAN        7698    1981-2-20       1600.00 300.00</span><br><span class="line">307521  WARD    SALESMAN        7698    1981-2-22       1250.00 500.00</span><br><span class="line">307566  JONES   MANAGER 7839    1981-4-2        2975.00</span><br><span class="line">207654  MARTIN  SALESMAN        7698    1981-9-28       1250.00 1400.00</span><br><span class="line">307698  BLAKE   MANAGER 7839    1981-5-1        2850.00</span><br><span class="line">307782  CLARK   MANAGER 7839    1981-6-9        2450.00</span><br><span class="line">107788  SCOTT   ANALYST 7566    1987-4-19       3000.00</span><br><span class="line">207839  KING    PRESIDENT               1981-11-17      5000.00</span><br><span class="line">107844  TURNER  SALESMAN        7698    1981-9-8        1500.00 0.00</span><br><span class="line">307876  ADAMS   CLERK   7788    1987-5-23       1100.00</span><br><span class="line">207900  JAMES   CLERK   7698    1981-12-3       950.00</span><br><span class="line">307902  FORD    ANALYST 7566    1981-12-3       3000.00</span><br><span class="line">207934  MILLER  CLERK   7782    1982-1-23       1300.00         10</span><br></pre></td></tr></table></figure>
+<p>ORDER BY 查询示例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> empno <span class="keyword">order</span> <span class="keyword">by</span> empno <span class="keyword">desc</span>;</span><br></pre></td></tr></table></figure>
+<p>结果显示如下</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">emp1.empno      emp1.ename      emp1.job        emp1.mgr        emp1.hiredate   emp1.sal        emp1.comm       emp1.deptno</span><br><span class="line">307902  FORD    ANALYST 7566    1981-12-3       3000.0  NULL    NULL</span><br><span class="line">307876  ADAMS   CLERK   7788    1987-5-23       1100.0  NULL    NULL</span><br><span class="line">307782  CLARK   MANAGER 7839    1981-6-9        2450.0  NULL    NULL</span><br><span class="line">307698  BLAKE   MANAGER 7839    1981-5-1        2850.0  NULL    NULL</span><br><span class="line">307566  JONES   MANAGER 7839    1981-4-2        2975.0  NULL    NULL</span><br><span class="line">307521  WARD    SALESMAN        7698    1981-2-22       1250.0  500.0   NULL</span><br><span class="line">207934  MILLER  CLERK   7782    1982-1-23       1300.0  NULL    10</span><br><span class="line">207900  JAMES   CLERK   7698    1981-12-3       950.0   NULL    NULL</span><br><span class="line">207839  KING    PRESIDENT       NULL    1981-11-17      5000.0  NULL    NULL</span><br><span class="line">207654  MARTIN  SALESMAN        7698    1981-9-28       1250.0  1400.0  NULL</span><br><span class="line">207499  ALLEN   SALESMAN        7698    1981-2-20       1600.0  300.0   NULL</span><br><span class="line">107844  TURNER  SALESMAN        7698    1981-9-8        1500.0  0.0     NULL</span><br><span class="line">107788  SCOTT   ANALYST 7566    1987-4-19       3000.0  NULL    NULL</span><br><span class="line">7369    SMITH   CLERK   7902    1980-12-17      800.0   NULL    NULL</span><br><span class="line">7369    SMITH   CLERK   7902    1980-12-17      800.0   NULL    207499</span><br><span class="line">Time taken: 38.149 seconds, Fetched: 15 row(s)</span><br></pre></td></tr></table></figure>
+<p>SORT BY 和 DISTRIBUTE BY  查询示例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">set</span> mapreduce.job.reduces=<span class="number">3</span>; <span class="comment">-- 设置 reduce task 的数量为 3</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">insert</span> overwrite <span class="keyword">local</span> <span class="keyword">directory</span> <span class="string">"/tmp/orderby"</span> <span class="keyword">ROW</span> <span class="keyword">FORMAT</span> <span class="keyword">DELIMITED</span> <span class="keyword">FIELDS</span> <span class="keyword">TERMINATED</span> <span class="keyword">BY</span> <span class="string">'\t'</span> <span class="keyword">select</span> * <span class="keyword">from</span> emp1 <span class="keyword">distribute</span> <span class="keyword">by</span> mgr <span class="keyword">sort</span> <span class="keyword">by</span> empno <span class="keyword">desc</span>;</span><br></pre></td></tr></table></figure>
+<p>上面 HQL 的意思是对 empno 进行降序排序，并且按照 mgr 字段进行分区【如果不加 distribute by，那么就不知道会对哪个字段进行分区】，mgr 字段是 int 类型的，所以会将该列的值 %3 进行分区，所以结果文件为 3 个。因为 mgr 这一列的值 %3 都等于 0，所以只有第一个分区（分区0）有值，其他的两个分区都是空的。</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5s6J6uFGQqPFYcQi.4ATqeY7TmCRiWG2ZXFcmSrIOcw7k1O0fGuWA.rGQIKC5bR1DRkCnHnlQ4R5fJ.Y7*YWN8I!/mnull&amp;bo=.wNZAPsDWQADCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>CLUSTER BY 查询示例</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">set</span> mapreduce.job.reduces=<span class="number">3</span>; <span class="comment">-- 设置 reduce task 的数量为 3</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">insert</span> overwrite <span class="keyword">local</span> <span class="keyword">directory</span> <span class="string">"/tmp/orderby"</span> <span class="keyword">ROW</span> <span class="keyword">FORMAT</span> <span class="keyword">DELIMITED</span> <span class="keyword">FIELDS</span> <span class="keyword">TERMINATED</span> <span class="keyword">BY</span> <span class="string">'\t'</span> <span class="keyword">select</span> * <span class="keyword">from</span> emp1 cluster <span class="keyword">by</span> empno;</span><br></pre></td></tr></table></figure>
+<p><code>cluster by empno</code> 相当于 <code>distribute by empno sort by empno desc</code></p>
+<h3 id="函数"><a href="#函数" class="headerlink" title="函数"></a>函数</h3><p>函数有所属库的概念，系统提供的除外。系统提供的函数可以在任意库中使用。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">查看当前库所有的函数：show functions;</span><br><span class="line">查看函数的使用： desc function 函数名</span><br><span class="line">查看函数的详细使用： desc function extended 函数名</span><br></pre></td></tr></table></figure>
+<p>函数的来源</p>
+<ol>
+<li>系统函数，自带的，直接使用即可</li>
+<li>用户自定义的函数</li>
+</ol>
+<p>函数按照特征分类</p>
+<ol>
+<li>UDF：  用户定义的函数。 一进一出。 输入单个参数，返回单个结果</li>
+<li>UDTF:  用户定义的表生成函数。 一进多出。传入一个参数(集合类型)，返回一个结果集</li>
+<li>UDAF： 用户定义的聚集函数。 多进一出。 传入一列多行的数据，返回一个结果(一列一行) </li>
+</ol>
+<p>常用日期函数（hive 默认解析的日期格式必须是： 2019-11-24 08:09:10）</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">unix_timestamp：返回当前或指定时间的时间戳	</span><br><span class="line">from_unixtime：将时间戳转为日期格式</span><br><span class="line">current_date：当前日期</span><br><span class="line">current_timestamp：当前的日期加时间</span><br><span class="line">* to_date：抽取日期部分</span><br><span class="line">year：获取年</span><br><span class="line">month：获取月</span><br><span class="line">day：获取日</span><br><span class="line">hour：获取时</span><br><span class="line">minute：获取分</span><br><span class="line">second：获取秒</span><br><span class="line">weekofyear：当前时间是一年中的第几周</span><br><span class="line">dayofmonth：当前时间是一个月中的第几天</span><br><span class="line">months_between： 两个日期间的月份，前-后</span><br><span class="line">add_months：日期加减月</span><br><span class="line">datediff：两个日期相差的天数，前-后</span><br><span class="line">date_add：日期加天数</span><br><span class="line">date_sub：日期减天数</span><br><span class="line">last_day：日期的当月的最后一天</span><br><span class="line">date_format格式化日期</span><br></pre></td></tr></table></figure>
+<p>常用取整函数</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">round： 四舍五入</span><br><span class="line">ceil：  向上取整</span><br><span class="line">floor： 向下取整</span><br></pre></td></tr></table></figure>
+<p>常用字符串操作函数</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">upper： 转大写</span><br><span class="line">lower： 转小写</span><br><span class="line">length： 长度</span><br><span class="line">trim：  前后去空格</span><br><span class="line">lpad： 向左补齐，到指定长度</span><br><span class="line">rpad：  向右补齐，到指定长度</span><br><span class="line">regexp_replace： 使用正则表达式匹配目标字符串，匹配成功后替换。SELECT regexp_replace(&apos;100-200&apos;, &apos;(\d+)&apos;, &apos;num&apos;)=&apos;num-num</span><br></pre></td></tr></table></figure>
+<p>集合操作</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">size： 集合（map和list）中元素的个数</span><br><span class="line">map_keys： 返回map中的key</span><br><span class="line">map_values：返回map中的value</span><br><span class="line">array_contains：判断array中是否包含某个元素</span><br><span class="line">sort_array： 将array中的元素排序</span><br></pre></td></tr></table></figure>
+<h3 id="查询语句和-MySQL-的不同点"><a href="#查询语句和-MySQL-的不同点" class="headerlink" title="查询语句和 MySQL 的不同点"></a>查询语句和 MySQL 的不同点</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">A &lt;=&gt; B :  ①A,B都为null,返回true</span><br><span class="line">				   ②A,B一方为null，返回null</span><br><span class="line">				   ③A,B都不为null，等同于A=B</span><br><span class="line">				   </span><br><span class="line">A Rlike B :  B是一个正则表达式，判断A是否负责B表达式的要求，返回true和false</span><br><span class="line">		</span><br><span class="line">在关联时，只支持等值连接</span><br><span class="line">		</span><br><span class="line">在管理时，支持满连接，使用full join</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Hadoop/" rel="tag"><i class="fa fa-tag"></i> Hadoop</a>
+              <a href="/tags/Hive/" rel="tag"><i class="fa fa-tag"></i> Hive</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/08/25/7. Hive-1/" rel="prev" title="7. Hive-1">
+      <i class="fa fa-chevron-left"></i> 7. Hive-1
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/08/29/9. Hive-3/" rel="next" title="9. Hive-3">
+      9. Hive-3 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#分区表"><span class="nav-number">1.</span> <span class="nav-text">分区表</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#分区表的创建方式"><span class="nav-number">1.1.</span> <span class="nav-text">分区表的创建方式</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#直接使用-create-创建分区表"><span class="nav-number">1.1.1.</span> <span class="nav-text">直接使用 create 创建分区表</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#使用-alter-增加分区字段"><span class="nav-number">1.1.2.</span> <span class="nav-text">使用 alter  增加分区字段</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#使用-load-直接加载数据"><span class="nav-number">1.1.3.</span> <span class="nav-text">使用 load 直接加载数据</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#修复分区命令"><span class="nav-number">1.1.4.</span> <span class="nav-text">修复分区命令</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#分桶表"><span class="nav-number">2.</span> <span class="nav-text">分桶表</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#抽样查询"><span class="nav-number">3.</span> <span class="nav-text">抽样查询</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#数据导入"><span class="nav-number">4.</span> <span class="nav-text">数据导入</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#load"><span class="nav-number">4.1.</span> <span class="nav-text">load</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#insert"><span class="nav-number">4.2.</span> <span class="nav-text">insert</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#import"><span class="nav-number">4.3.</span> <span class="nav-text">import</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#数据导出"><span class="nav-number">5.</span> <span class="nav-text">数据导出</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#insert-1"><span class="nav-number">5.1.</span> <span class="nav-text">insert</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#export"><span class="nav-number">5.2.</span> <span class="nav-text">export</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#排序"><span class="nav-number">6.</span> <span class="nav-text">排序</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#函数"><span class="nav-number">7.</span> <span class="nav-text">函数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#查询语句和-MySQL-的不同点"><span class="nav-number">8.</span> <span class="nav-text">查询语句和 MySQL 的不同点</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

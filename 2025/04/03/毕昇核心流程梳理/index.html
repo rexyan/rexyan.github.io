@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="业务场景毕昇总结了它遇到的业务场景，并且给出了产品解决问题的成熟度，这可能和目前我们遇到的大部分需求有类似的地方，可以在商务和技术上提供参考能力。  文档链接： ‍‍‬⁠‌‌﻿‌‌‬⁠⁠﻿‌﻿‌‬‬⁠⁠⁠‬‍‌‬﻿场景列表 - 飞书云文档 应用分类毕昇的应用分为三类，分别是，工作流，助手，技能  助手的功能和普通的知识库应用类似，设置 Prompt，配置大模型，外挂知识库，添加工具等等，只不过毕昇">
+<meta property="og:type" content="article">
+<meta property="og:title" content="毕昇核心流程梳理">
+<meta property="og:url" content="https://rexyan.github.io/2025/04/03/毕昇核心流程梳理/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="业务场景毕昇总结了它遇到的业务场景，并且给出了产品解决问题的成熟度，这可能和目前我们遇到的大部分需求有类似的地方，可以在商务和技术上提供参考能力。  文档链接： ‍‍‬⁠‌‌﻿‌‌‬⁠⁠﻿‌﻿‌‬‬⁠⁠⁠‬‍‌‬﻿场景列表 - 飞书云文档 应用分类毕昇的应用分为三类，分别是，工作流，助手，技能  助手的功能和普通的知识库应用类似，设置 Prompt，配置大模型，外挂知识库，添加工具等等，只不过毕昇">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17441664045191744166404461.png">
+<meta property="og:image" content="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17436496803341743649679856.png">
+<meta property="og:image" content="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17436503133371743650313052.png">
+<meta property="og:image" content="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17436505803321743650579422.png">
+<meta property="og:image" content="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17436521464101743652146370.png">
+<meta property="og:image" content="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17436616373761743661637155.png">
+<meta property="og:image" content="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17441650295141744165029113.png">
+<meta property="og:image" content="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17441649985131744164997706.png">
+<meta property="og:image" content="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17436632523801743663252292.png">
+<meta property="og:image" content="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17436634263761743663425910.png">
+<meta property="og:image" content="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17441657515291744165750826.png">
+<meta property="og:image" content="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17441811685391744181168223.png">
+<meta property="og:image" content="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17441810125311744181011698.png">
+<meta property="og:image" content="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17436737443991743673743478.png">
+<meta property="og:image" content="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17441819715351744181970630.png">
+<meta property="og:image" content="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17441823375271744182337265.png">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.409Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="毕昇核心流程梳理">
+<meta name="twitter:description" content="业务场景毕昇总结了它遇到的业务场景，并且给出了产品解决问题的成熟度，这可能和目前我们遇到的大部分需求有类似的地方，可以在商务和技术上提供参考能力。  文档链接： ‍‍‬⁠‌‌﻿‌‌‬⁠⁠﻿‌﻿‌‬‬⁠⁠⁠‬‍‌‬﻿场景列表 - 飞书云文档 应用分类毕昇的应用分为三类，分别是，工作流，助手，技能  助手的功能和普通的知识库应用类似，设置 Prompt，配置大模型，外挂知识库，添加工具等等，只不过毕昇">
+<meta name="twitter:image" content="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17441664045191744166404461.png">
+
+<link rel="canonical" href="https://rexyan.github.io/2025/04/03/毕昇核心流程梳理/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>毕昇核心流程梳理 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2025/04/03/毕昇核心流程梳理/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          毕昇核心流程梳理
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2025-04-03 22:55:57" itemprop="dateCreated datePublished" datetime="2025-04-03T22:55:57+00:00">2025-04-03</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/博客/" itemprop="url" rel="index"><span itemprop="name">博客</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="业务场景"><a href="#业务场景" class="headerlink" title="业务场景"></a>业务场景</h3><p>毕昇总结了它遇到的业务场景，并且给出了产品解决问题的成熟度，这可能和目前我们遇到的大部分需求有类似的地方，可以在商务和技术上提供参考能力。</p>
+<p><img src="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17441664045191744166404461.png" alt="17441664045191744166404461.png"></p>
+<p>文档链接： <a href="https://dataelem.feishu.cn/wiki/BlAZwupR7iNVXzk4SLIces55nqe?table=tbl1OJa9vYkwfqZ9&amp;view=vewTlDP6A2" target="_blank" rel="noopener">‍‍‬⁠‌‌﻿‌‌‬⁠⁠﻿‌﻿‌‬‬⁠⁠⁠‬‍‌‬﻿场景列表 - 飞书云文档</a></p>
+<h3 id="应用分类"><a href="#应用分类" class="headerlink" title="应用分类"></a>应用分类</h3><p>毕昇的应用分为三类，分别是，工作流，助手，技能</p>
+<p><img src="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17436496803341743649679856.png" alt="17436496803341743649679856.png"></p>
+<p><strong>助手</strong>的功能和普通的知识库应用类似，设置 Prompt，配置大模型，外挂知识库，添加工具等等，只不过毕昇这里有一个特殊的实现，可以外挂技能。</p>
+<p><img src="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17436503133371743650313052.png" alt="17436503133371743650313052.png"></p>
+<p><strong>工作流</strong>方面，毕昇应该也是接触了市面上常见的需求了，所以大多数的业务场景都有对应的或者和其他产品类似的解决方案，例如表单收集。在其他地方毕昇借用了 langgraph 的强大，实现了工作流的轻松构建，以及人机交互等有特色的节点。</p>
+<p><img src="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17436505803321743650579422.png" alt="17436505803321743650579422.png"></p>
+<table>
+<thead>
+<tr>
+<th>节点名称</th>
+<th>节点类型</th>
+<th>节点功能</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>输入</td>
+<td>基础节点</td>
+<td>工作流运行的起始节点</td>
+</tr>
+<tr>
+<td>输出</td>
+<td>基础节点</td>
+<td>可向用户发送消息，并且支持进行更丰富的交互，例如请求用户批准进行某项敏感操作、允许用户在模型输出内容的基础上直接修改并提交。</td>
+</tr>
+<tr>
+<td>大模型</td>
+<td>基础节点</td>
+<td>调用大模型回答用户问题或者处理任务</td>
+</tr>
+<tr>
+<td>助手</td>
+<td>基础节点</td>
+<td>AI 自主进行任务规划，选择合适的知识库、数据库或工具进行调用。</td>
+</tr>
+<tr>
+<td>QA知识库检索</td>
+<td>基础节点</td>
+<td>从 QA 知识库中检索问题以及对应的答案。</td>
+</tr>
+<tr>
+<td>文档知识库问答</td>
+<td>基础节点</td>
+<td>根据用户问题从知识库中检索相关内容，结合检索结果调用大模型生成最终结果，支持多个问题并行执行。</td>
+</tr>
+<tr>
+<td>报告</td>
+<td>基础节点</td>
+<td>按照预设的word模板生成报告</td>
+</tr>
+<tr>
+<td>代码</td>
+<td>基础节点</td>
+<td>自定义需要执行的代码</td>
+</tr>
+<tr>
+<td>条件分支</td>
+<td>基础节点</td>
+<td>根据条件表达式执行不同的分支</td>
+</tr>
+<tr>
+<td>结束</td>
+<td>基础节点</td>
+<td>工作流运行到此结束</td>
+</tr>
+<tr>
+<td>论文获取</td>
+<td>工具节点</td>
+<td>从 Arxiv 网站检索论文的工具，输入为检索关键词。</td>
+</tr>
+<tr>
+<td>Dalle3画图</td>
+<td>工具节点</td>
+<td>OpenAI 文生图模型</td>
+</tr>
+<tr>
+<td>Bing Web 搜索</td>
+<td>工具节点</td>
+<td>BIng 搜索引擎，可联网检索互联网信息，例如天气、汇率、时事等</td>
+</tr>
+<tr>
+<td>天眼查</td>
+<td>工具节点</td>
+<td>企业信息查询</td>
+</tr>
+<tr>
+<td>经济经融数据</td>
+<td>工具节点</td>
+<td>包含股票、基金、期货等行情数据和宏观经济、公司财务等基本面数据的金融大数据平台</td>
+</tr>
+<tr>
+<td>钉钉</td>
+<td>工具节点</td>
+<td>钉钉群机器人发送消息工具</td>
+</tr>
+<tr>
+<td>Firecrawl</td>
+<td>工具节点</td>
+<td>指定 URL 爬取网页内容，并将其转换为 Markdown 格式</td>
+</tr>
+<tr>
+<td>Jina AI</td>
+<td>工具节点</td>
+<td>将目标网址（支持 PDF）内容转换为大模型可处理的 Markdown 格式</td>
+</tr>
+<tr>
+<td>飞书消息</td>
+<td>工具节点</td>
+<td>支持获取飞书单聊或群聊历史消息，向指定用户或者群聊发送消息</td>
+</tr>
+<tr>
+<td>发送邮件</td>
+<td>工具节点</td>
+<td>通过smtp协议发送电子邮件</td>
+</tr>
+<tr>
+<td>SiliconFlow</td>
+<td>工具节点</td>
+<td>基于文本提示生成高质量图像，支持 Flux 和 Stable Diffusion 模型</td>
+</tr>
+<tr>
+<td>企业微信</td>
+<td>工具节点</td>
+<td>企业微信机器人发送群消息工具</td>
+</tr>
+</tbody>
+</table>
+<p><strong>技能</strong>是工作流的前身，也是基于 Langchain 的组件，但是使用起来比较复杂</p>
+<p><img src="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17436521464101743652146370.png" alt="17436521464101743652146370.png"></p>
+<h3 id="langgraph"><a href="#langgraph" class="headerlink" title="langgraph"></a>langgraph</h3><p>langchain 官方有一个项目叫做 <a href="[langchain-ai/opengpts](https://github.com/langchain-ai/opengpts">opengpts</a>)，使用 langgraph 分别实现了助手，RAG，Chatbot 三种场景的代码。毕昇中的 bisheng_langchain 包应该就是借鉴该项目的。（在这基础上加上了自己的一些私有的东西，例如工具，然后重新封装为了 bisheng_langchain 这个包）</p>
+<p>二者都是用了 langgraph 来构建工作流，例如使用下面代码就可以轻松构建一个 chatbot 的工作流</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">route_tools</span><span class="params">(state: State)</span>:</span></span><br><span class="line">    <span class="keyword">if</span> isinstance(state, list):</span><br><span class="line">        ai_message = state[<span class="number">-1</span>]</span><br><span class="line">    <span class="keyword">elif</span> messages := state.get(<span class="string">"messages"</span>, []):</span><br><span class="line">        ai_message = messages[<span class="number">-1</span>]</span><br><span class="line">    <span class="keyword">else</span>:</span><br><span class="line">        <span class="keyword">raise</span> ValueError(<span class="string">f"No messages found in input state to tool_edge: <span class="subst">&#123;state&#125;</span>"</span>)</span><br><span class="line">    <span class="keyword">if</span> hasattr(ai_message, <span class="string">"tool_calls"</span>) <span class="keyword">and</span> len(ai_message.tool_calls) &gt; <span class="number">0</span>:</span><br><span class="line">        <span class="keyword">return</span> <span class="string">"tools"</span></span><br><span class="line">    <span class="keyword">return</span> END</span><br><span class="line"></span><br><span class="line">graph_builder.add_conditional_edges(</span><br><span class="line">    <span class="string">"chatbot"</span>,</span><br><span class="line">    route_tools,</span><br><span class="line">    &#123;<span class="string">"tools"</span>: <span class="string">"tools"</span>, END: END&#125;,</span><br><span class="line">)</span><br><span class="line">graph_builder.add_edge(<span class="string">"tools"</span>, <span class="string">"chatbot"</span>)</span><br><span class="line">graph_builder.add_edge(START, <span class="string">"chatbot"</span>)</span><br><span class="line">graph = graph_builder.compile()</span><br></pre></td></tr></table></figure>
+<p>上述代码构建出的工作流结构如下：</p>
+<p><img src="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17436616373761743661637155.png" alt="17436616373761743661637155.png"></p>
+<h3 id="助手"><a href="#助手" class="headerlink" title="助手"></a>助手</h3><p>因为有的模型不支持 FunctionCall，所以毕昇的助手在加载对应 agent 的时候，也是通过不同类型来加载的</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">AssistantAgent</span><span class="params">(AssistantUtils)</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, assistant_info: Assistant, chat_id: str)</span>:</span></span><br><span class="line">        ...</span><br><span class="line">        <span class="comment"># 不同模型，根据其能力调用不同的 agent executor</span></span><br><span class="line">        self.agent_executor_dict = &#123;</span><br><span class="line">            <span class="string">'ReAct'</span>: <span class="string">'get_react_agent_executor'</span>,</span><br><span class="line">            <span class="string">'function call'</span>: <span class="string">'get_openai_functions_agent_executor'</span>,</span><br><span class="line">        &#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">agent_executor_type = self.llm_agent_executor</span><br><span class="line"></span><br><span class="line"><span class="comment"># 获取到对应的 executor type</span></span><br><span class="line">agent_executor_type = self.agent_executor_dict.get(agent_executor_type, agent_executor_type)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 初始化agent</span></span><br><span class="line">self.agent = ConfigurableAssistant(agent_executor_type=agent_executor_type,</span><br><span class="line">                                   tools=self.tools,</span><br><span class="line">                                   llm=self.llm,</span><br><span class="line">                                   assistant_message=prompt)</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">ConfigurableAssistant</span><span class="params">(RunnableBinding)</span>:</span></span><br><span class="line">    agent_executor_type: str</span><br><span class="line">    tools: Sequence[BaseTool]</span><br><span class="line">    llm: LanguageModelLike</span><br><span class="line">    assistant_message: str</span><br><span class="line">    interrupt_before_action: bool = <span class="literal">False</span></span><br><span class="line">    recursion_limit: int = <span class="number">50</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(</span></span></span><br><span class="line"><span class="function"><span class="params">        self,</span></span></span><br><span class="line"><span class="function"><span class="params">        *,</span></span></span><br><span class="line"><span class="function"><span class="params">        agent_executor_type: str,</span></span></span><br><span class="line"><span class="function"><span class="params">        tools: Sequence[BaseTool],</span></span></span><br><span class="line"><span class="function"><span class="params">        llm: LanguageModelLike,</span></span></span><br><span class="line"><span class="function"><span class="params">        assistant_message: str,</span></span></span><br><span class="line"><span class="function"><span class="params">        interrupt_before_action: bool = False,</span></span></span><br><span class="line"><span class="function"><span class="params">        recursion_limit: int = <span class="number">50</span>,</span></span></span><br><span class="line"><span class="function"><span class="params">        kwargs: Optional[Mapping[str, Any]] = None,</span></span></span><br><span class="line"><span class="function"><span class="params">        config: Optional[Mapping[str, Any]] = None,</span></span></span><br><span class="line"><span class="function"><span class="params">        **others: Any,</span></span></span><br><span class="line"><span class="function"><span class="params">    )</span> -&gt; <span class="keyword">None</span>:</span></span><br><span class="line">        others.pop(<span class="string">'bound'</span>, <span class="literal">None</span>)</span><br><span class="line">        <span class="comment"># 这里动态根据传入的类型去导入对应包类型</span></span><br><span class="line">        agent_executor_object = import_class(</span><br><span class="line">            <span class="string">f'bisheng_langchain.gpts.agent_types.<span class="subst">&#123;agent_executor_type&#125;</span>'</span>)</span><br><span class="line">		<span class="comment"># 实例化具体的类型</span></span><br><span class="line">        _agent_executor = agent_executor_object(tools, llm, assistant_message,</span><br><span class="line">                                                interrupt_before_action)</span><br><span class="line">        agent_executor = _agent_executor.with_config(&#123;<span class="string">'recursion_limit'</span>: recursion_limit&#125;)</span><br><span class="line">        super().__init__(</span><br><span class="line">            agent_executor_type=agent_executor_type,</span><br><span class="line">            tools=tools,</span><br><span class="line">            llm=llm,</span><br><span class="line">            assistant_message=assistant_message,</span><br><span class="line">            bound=agent_executor,</span><br><span class="line">            kwargs=kwargs <span class="keyword">or</span> &#123;&#125;,</span><br><span class="line">            config=config <span class="keyword">or</span> &#123;&#125;,</span><br><span class="line">        )</span><br></pre></td></tr></table></figure>
+<p><img src="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17441650295141744165029113.png" alt="17441650295141744165029113.png"></p>
+<p>通过上述逻辑，就能动态的根据模型能力，来加载不同的 Agent。dify 中也有类似的逻辑</p>
+<p><img src="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17441649985131744164997706.png" alt="17441649985131744164997706.png"></p>
+<p>助手的工作逻辑和上述 langgraph 构建出来的工作是一致的，也是以 agent 为入口，然后构建一个循环的工作流。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># FunctionCall 方式判断是否继续执行</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">should_continue</span><span class="params">(messages)</span>:</span></span><br><span class="line">    last_message = messages[<span class="number">-1</span>]</span><br><span class="line">    <span class="comment"># If there is no function call, then we finish</span></span><br><span class="line">    <span class="keyword">if</span> <span class="string">'tool_calls'</span> <span class="keyword">not</span> <span class="keyword">in</span> last_message.additional_kwargs:</span><br><span class="line">        <span class="keyword">if</span> <span class="string">'|&lt;instruct&gt;|'</span> <span class="keyword">in</span> system_message:</span><br><span class="line">            <span class="comment"># cohere model</span></span><br><span class="line">            pattern = <span class="string">r'Answer:(.+)\nGrounded answer'</span></span><br><span class="line">            match = re.search(pattern, last_message.content)</span><br><span class="line">            <span class="keyword">if</span> match:</span><br><span class="line">                last_message.content = match.group(<span class="number">1</span>)</span><br><span class="line">        <span class="keyword">return</span> <span class="string">'end'</span></span><br><span class="line">    <span class="comment"># Otherwise if there is, we continue</span></span><br><span class="line">    <span class="keyword">else</span>:</span><br><span class="line">        <span class="keyword">return</span> <span class="string">'continue'</span></span><br><span class="line">    </span><br><span class="line"><span class="comment"># ========================================</span></span><br><span class="line"><span class="comment"># 不支持 FunctionCall 的模型，使用 ReAct 来推理，判断是否继续执行</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">should_continue</span><span class="params">(data)</span>:</span></span><br><span class="line">    <span class="keyword">if</span> isinstance(data[<span class="string">'agent_outcome'</span>], AgentFinish):</span><br><span class="line">        <span class="keyword">return</span> <span class="string">'end'</span></span><br><span class="line">    <span class="keyword">else</span>:</span><br><span class="line">        <span class="keyword">return</span> <span class="string">'continue'</span></span><br><span class="line">    </span><br><span class="line"><span class="comment"># ========================================</span></span><br><span class="line"><span class="comment"># 组装工具和 Agent 节点</span></span><br><span class="line"><span class="keyword">if</span> tools:</span><br><span class="line">    llm_with_tools = llm.bind(tools=[format_tool_to_openai_tool(t) <span class="keyword">for</span> t <span class="keyword">in</span> tools])</span><br><span class="line"><span class="keyword">else</span>:</span><br><span class="line">    llm_with_tools = llm</span><br><span class="line"></span><br><span class="line">agent = _get_messages | llm_with_tools</span><br><span class="line">workflow = MessageGraph()</span><br><span class="line">workflow.add_node(<span class="string">'agent'</span>, agent)</span><br><span class="line">workflow.add_node(<span class="string">'action'</span>, RunnableCallable(call_tool, acall_tool))</span><br><span class="line">workflow.set_entry_point(<span class="string">'agent'</span>)</span><br><span class="line">workflow.add_conditional_edges(</span><br><span class="line">    <span class="string">'agent'</span>,</span><br><span class="line">    should_continue,</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="string">'continue'</span>: <span class="string">'action'</span>,</span><br><span class="line">        <span class="string">'end'</span>: END,</span><br><span class="line">    &#125;,</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p>从 Langsmith 的日志来看的确是如此的，run_agent 运行调用大模型，然后解析输出结果，判断是否需要继续执行。</p>
+<p><img src="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17436632523801743663252292.png" alt="17436632523801743663252292.png"></p>
+<p>上述 Langsmith 是没有携带工具的，携带工具反复调用的截图如下：</p>
+<p><img src="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17436634263761743663425910.png" alt="17436634263761743663425910.png"></p>
+<p>上述流程中可以看到，在进行 should_continue 的判断后，进行了工具的调用，并且整个流程运行了两次（这是因为 deepseek v3 版本的 FunctionCall 功能不完善导致的循环调用，按道理应该第二个 agent 的运行里面应该返回的是 end）</p>
+<blockquote>
+<p>Langsmith  是什么？</p>
+<p>Langsmith 是由 LangChain 团队开发的一款工具，旨在帮助开发者更高效地构建、测试和优化基于大语言模型（LLM）的应用程序。它是一个面向开发者的平台，专注于简化 LLM 应用的开发流程，同时提供强大的调试、评估和监控功能。Langsmith 的核心目标是解决在开发 LLM 应用过程中遇到的各种挑战，例如性能调优、链路追踪、日志记录和结果验证等。</p>
+</blockquote>
+<p>在毕昇中，工具的执行是 Langchain 来完成的，而 Dify 中，这个过程是自己实现的</p>
+<p><img src="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17441657515291744165750826.png" alt="17441657515291744165750826.png"></p>
+<h3 id="工作流"><a href="#工作流" class="headerlink" title="工作流"></a>工作流</h3><p>工作流的建立，也是在 Langgraph 的基础上来实现的，整个实现的过程总的来说是将前端构建的数据结构，转换为 Langgraph 数据结构的过程。</p>
+<p>Workflow 类是工作流的入口。Workflow  在初始化的时候会构建 GraphEngine，整个流程的节点的构建，边的管理，将数据转换为 Langgraph  的结构都是在 GraphEngine 中完成的。</p>
+<p>Workflow 的运行就是调用 GraphEngine  的运行，GraphEngine  底层又去调用 Langgraph  的运行。Workflow 的定义如下：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Workflow</span>:</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self,</span></span></span><br><span class="line"><span class="function"><span class="params">                 workflow_id: str,</span></span></span><br><span class="line"><span class="function"><span class="params">                 user_id: str = None,</span></span></span><br><span class="line"><span class="function"><span class="params">                 workflow_data: Dict = None,</span></span></span><br><span class="line"><span class="function"><span class="params">                 async_mode: bool = False,</span></span></span><br><span class="line"><span class="function"><span class="params">                 max_steps: int = <span class="number">0</span>,</span></span></span><br><span class="line"><span class="function"><span class="params">                 timeout: int = <span class="number">0</span>,</span></span></span><br><span class="line"><span class="function"><span class="params">                 callback: BaseCallback = None)</span>:</span></span><br><span class="line"></span><br><span class="line">        <span class="comment"># 运行的唯一标识，保存到数据库的唯一ID</span></span><br><span class="line">        self.workflow_id = workflow_id</span><br><span class="line">        self.user_id = user_id</span><br><span class="line"></span><br><span class="line">        <span class="comment"># 超时时间，多久没有接收到用户输入终止workflow运行（单位：分钟）</span></span><br><span class="line">        self.timeout = timeout</span><br><span class="line">        self.current_time = <span class="literal">None</span></span><br><span class="line">		</span><br><span class="line">        <span class="comment"># 初始化一个 GraphEngine 对象</span></span><br><span class="line">        self.graph_engine = GraphEngine(user_id=user_id,</span><br><span class="line">                                        async_mode=async_mode,</span><br><span class="line">                                        workflow_id=workflow_id,</span><br><span class="line">                                        workflow_data=workflow_data,</span><br><span class="line">                                        max_steps=max_steps,</span><br><span class="line">                                        callback=callback)</span><br></pre></td></tr></table></figure>
+<p>GraphEngine 的定义如下:</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">GraphEngine</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self,</span></span></span><br><span class="line"><span class="function"><span class="params">                 user_id: str = None,</span></span></span><br><span class="line"><span class="function"><span class="params">                 workflow_id: str = None,</span></span></span><br><span class="line"><span class="function"><span class="params">                 workflow_data: Dict = None,</span></span></span><br><span class="line"><span class="function"><span class="params">                 async_mode: bool = False,</span></span></span><br><span class="line"><span class="function"><span class="params">                 max_steps: int = <span class="number">0</span>,</span></span></span><br><span class="line"><span class="function"><span class="params">                 callback: BaseCallback = None)</span>:</span></span><br><span class="line">        self.user_id = user_id</span><br><span class="line">        self.workflow_id = workflow_id</span><br><span class="line">        self.workflow_data = workflow_data</span><br><span class="line">        self.max_steps = max_steps</span><br><span class="line">        self.async_mode = async_mode</span><br><span class="line">        <span class="comment"># 回调</span></span><br><span class="line">        self.callback = callback</span><br><span class="line"></span><br><span class="line">        <span class="comment"># node_id: NodeInstance</span></span><br><span class="line">        self.nodes_map = &#123;&#125;</span><br><span class="line">        <span class="comment"># record how many nodes fan in this node</span></span><br><span class="line">        self.nodes_fan_in = &#123;&#125;  <span class="comment"># node_id: [node_ids]</span></span><br><span class="line">        <span class="comment"># record how many nodes next to this node</span></span><br><span class="line">        self.nodes_next_nodes = &#123;&#125;  <span class="comment"># node_id: &#123;node_ids&#125;</span></span><br><span class="line"></span><br><span class="line">        <span class="comment"># node_id: 1; 表示从start节点到此节点的最长路径</span></span><br><span class="line">        self.node_level = &#123;&#125;</span><br><span class="line">        <span class="comment"># 互斥节点列表，包含condition节点和output节点（选择型交互）</span></span><br><span class="line">        self.condition_nodes = []</span><br><span class="line"></span><br><span class="line">        self.edges = <span class="literal">None</span></span><br><span class="line">        self.graph_state = GraphState()</span><br><span class="line"></span><br><span class="line">        <span class="comment"># 初始化 langgraph stategraph</span></span><br><span class="line">        self.graph_builder = StateGraph(TempState)</span><br><span class="line">        self.graph = <span class="literal">None</span></span><br><span class="line">        <span class="comment"># langgraph 的设置，用于中断恢复和限制速率</span></span><br><span class="line">        self.graph_config = &#123;<span class="string">'configurable'</span>: &#123;<span class="string">'thread_id'</span>: <span class="string">'1'</span>&#125;, <span class="string">'recursion_limit'</span>: <span class="number">50</span>&#125;</span><br><span class="line"></span><br><span class="line">        self.status = WorkflowStatus.RUNNING.value</span><br><span class="line">        self.reason = <span class="string">''</span>  <span class="comment"># 失败原因</span></span><br><span class="line">		</span><br><span class="line">        <span class="comment"># 使用前端传过来的数据构建边和节点</span></span><br><span class="line">        self.build_edges()</span><br><span class="line">        self.build_nodes()</span><br><span class="line">        </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">build_edges</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="comment"># 构建边</span></span><br><span class="line">        ...</span><br><span class="line">        <span class="number">1.</span> 初始化一个 EdgeManage 对象，主要创建两个数据结构</span><br><span class="line">        <span class="number">2.</span> 一个数据结构是哪个节点连接我，另一个数据结构是我连接到哪些节点</span><br><span class="line">        </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">build_nodes</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="comment"># 构建节点</span></span><br><span class="line">        ...</span><br><span class="line">        <span class="number">1.</span> 初始化节点，获取开始节点，结束节点和需要中断的节点</span><br><span class="line">        <span class="number">2.</span> 处理开始节点和结束节点(可能有多个)，然后在连接其他节点</span><br><span class="line">        </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">run</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="comment"># 运行图</span></span><br><span class="line">        ...</span><br><span class="line">        </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">continue_run</span><span class="params">(self, data: Any = None)</span>:</span></span><br><span class="line">        <span class="comment"># 接收用户的输入</span></span><br><span class="line">        ...</span><br><span class="line">        <span class="number">1.</span> 主要是接收用户输入，然后继续执行</span><br><span class="line">        </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">judge_status</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="comment"># 状态判断</span></span><br><span class="line">        ...</span><br></pre></td></tr></table></figure>
+<p>例如，我在页面上构建一个合同审核的应用，得到的 Langgraph 实际结构如图所示：<a href="[BISHENG](https://bisheng.dataelem.com/flow/20db4b1a-8391-49b1-a572-8bf5727f1fa8">在线地址</a>)</p>
+<p><img src="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17441811685391744181168223.png" alt="17441811685391744181168223.png"></p>
+<p>对应生成 Langgraph 流程如下:</p>
+<p> <img src="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17441810125311744181011698.png" alt="17441810125311744181011698.png"></p>
+<h3 id="技能"><a href="#技能" class="headerlink" title="技能"></a>技能</h3><p>技能是毕昇中对于初学者，或者使用者比较难以上手的一部分，因为节点的学习也需要一些能力，毕昇目前也不推荐使用了，而是推荐采用工作流的方式来搭建。</p>
+<p><img src="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17436737443991743673743478.png" alt="17436737443991743673743478.png"></p>
+<h3 id="FAQ"><a href="#FAQ" class="headerlink" title="FAQ"></a>FAQ</h3><p><strong>Q</strong>: 节点有哪些状态？</p>
+<p><strong>A</strong>: 节点有 WAITING，RUNNING，SUCCESS，FAILED，INPUT，INPUT_OVER</p>
+<p><strong>Q</strong>: 节点如何实现中断的？</p>
+<p><strong>A</strong>: 是借助 Langgraph 来实现的，在获取到开始，结束，中断节点后，就会设置在这些中断节点运行之前进行中断，具体可参考 Langgraph 官方示例: <a href="https://langchain-ai.github.io/langgraph/how-tos/human_in_the_loop/breakpoints/#interacting-with-the-agent" target="_blank" rel="noopener">如何设置断点 — How to add breakpoints</a></p>
+<p>毕昇的实现如下所示：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># compile langgraph</span></span><br><span class="line">self.graph = self.graph_builder.compile(checkpointer=MemorySaver(), interrupt_before=interrupt_nodes)</span><br></pre></td></tr></table></figure>
+<p><strong>Q</strong>: 节点之间的数据如何保存？</p>
+<p><strong>A</strong>: 节点的数据（输入输出），聊天历史记录是通过一个叫 GraphState 的对象来进行管理的</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">GraphState</span><span class="params">(BaseModel)</span>:</span></span><br><span class="line">    <span class="comment"># 存储聊天历史</span></span><br><span class="line">    history_memory: Optional[ConversationBufferWindowMemory]</span><br><span class="line"></span><br><span class="line">    <span class="comment"># 全局变量池</span></span><br><span class="line">    variables_pool: Dict[str, Dict[str, Any]] = Field(default=&#123;&#125;, description=<span class="string">'全局变量池: &#123;node_id: &#123;key: value&#125;&#125;'</span>)</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">get_history_memory</span><span class="params">(self, count: int)</span> -&gt; str:</span></span><br><span class="line">        <span class="string">""" 获取聊天历史记录 因为不是1对1，所以重写 buffer_as_str"""</span></span><br><span class="line">        ...</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">get_history_list</span><span class="params">(self, count: int)</span> -&gt; List[BaseMessage]:</span></span><br><span class="line">        <span class="keyword">return</span> self.history_memory.buffer_as_messages[-count:]</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">save_context</span><span class="params">(self, content: str, msg_sender: str)</span> -&gt; <span class="keyword">None</span>:</span></span><br><span class="line">        <span class="string">"""  保存聊天记录</span></span><br><span class="line"><span class="string">        workflow 特殊情况，过程会有多轮交互，所以不是一条对一条，重制消息结构"""</span></span><br><span class="line">        <span class="keyword">if</span> msg_sender == <span class="string">'human'</span>:</span><br><span class="line">            self.history_memory.chat_memory.add_messages([HumanMessage(content=content)])</span><br><span class="line">        <span class="keyword">elif</span> msg_sender == <span class="string">'AI'</span>:</span><br><span class="line">            self.history_memory.chat_memory.add_messages([AIMessage(content=content)])</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">set_variable</span><span class="params">(self, node_id: str, key: str, value: Any)</span>:</span></span><br><span class="line">        <span class="string">""" 将节点产生的数据放到全局变量里 """</span></span><br><span class="line">        <span class="keyword">if</span> node_id <span class="keyword">not</span> <span class="keyword">in</span> self.variables_pool:</span><br><span class="line">            self.variables_pool[node_id] = &#123;&#125;</span><br><span class="line">        self.variables_pool[node_id][key] = value</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">get_variable</span><span class="params">(self, node_id: str, key: str, count: Optional[int] = None)</span> -&gt; Any:</span></span><br><span class="line">        <span class="string">""" 从全局变量中获取数据 """</span></span><br><span class="line">        <span class="keyword">if</span> node_id <span class="keyword">not</span> <span class="keyword">in</span> self.variables_pool:</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">None</span></span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> key == <span class="string">'chat_history'</span>:</span><br><span class="line">            <span class="keyword">return</span> self.get_history_memory(count=count)</span><br><span class="line">        <span class="keyword">return</span> self.variables_pool[node_id].get(key)</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">get_variable_by_str</span><span class="params">(self, contact_key: str, history_count: Optional[int] = None)</span> -&gt; Any:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        从全局变量中获取数据</span></span><br><span class="line"><span class="string">        contact_key: node_id.key#index  #index不一定需要</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        ...</span><br><span class="line">        </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">set_variable_by_str</span><span class="params">(self, contact_key: str, value: Any)</span>:</span></span><br><span class="line">        ...</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">get_all_variables</span><span class="params">(self)</span> -&gt; Dict[str, Any]:</span></span><br><span class="line">        <span class="string">""" 获取所有的变量，key为node_id.key的格式 """</span></span><br><span class="line">        ret = &#123;&#125;</span><br><span class="line">        <span class="keyword">for</span> node_id, node_variables <span class="keyword">in</span> self.variables_pool.items():</span><br><span class="line">            <span class="keyword">for</span> key, value <span class="keyword">in</span> node_variables.items():</span><br><span class="line">                ret[<span class="string">f'<span class="subst">&#123;node_id&#125;</span>.<span class="subst">&#123;key&#125;</span>'</span>] = self.get_variable(node_id, key)</span><br><span class="line">                <span class="comment"># 特殊处理下 preset_question key</span></span><br><span class="line">                <span class="keyword">if</span> key == <span class="string">'preset_question'</span>:</span><br><span class="line">                    <span class="keyword">for</span> k, v <span class="keyword">in</span> value.items():</span><br><span class="line">                        ret[<span class="string">f'<span class="subst">&#123;node_id&#125;</span>.<span class="subst">&#123;key&#125;</span>#<span class="subst">&#123;k&#125;</span>'</span>] = v</span><br><span class="line">        <span class="keyword">return</span> ret</span><br></pre></td></tr></table></figure>
+<p><strong>Q</strong>: 如何传递用户输入的数据？</p>
+<p><strong>A</strong>: 当接收到 init_data 的事件后，Redis 中会缓存 WorkFlow 的 data（前端传过来的结构信息），除此之外，Redis 还会缓存 WorkFlow 的 status，event，input，stop 信息, 处理用户输入也是如此，先保存到 Redis 中，使用时再从 Redis 中获取</p>
+<p>保存输入：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">handle_user_input</span><span class="params">(self, data: dict)</span>:</span></span><br><span class="line">    status_info = self.workflow.get_workflow_status(user_cache=<span class="literal">False</span>)</span><br><span class="line">    <span class="keyword">if</span> status_info[<span class="string">'status'</span>] != WorkflowStatus.INPUT.value:</span><br><span class="line">        logger.warning(<span class="string">f'workflow is not input status: <span class="subst">&#123;status_info&#125;</span>'</span>)</span><br><span class="line">    <span class="keyword">else</span>:</span><br><span class="line">        user_input = &#123;&#125;</span><br><span class="line">        message_id = <span class="literal">None</span></span><br><span class="line">        new_message = <span class="literal">None</span></span><br><span class="line">        <span class="comment"># 目前支持一个输入节点</span></span><br><span class="line">        <span class="keyword">for</span> node_id, node_info <span class="keyword">in</span> data.items():</span><br><span class="line">            user_input[node_id] = node_info[<span class="string">'data'</span>]</span><br><span class="line">            message_id = node_info.get(<span class="string">'message_id'</span>)</span><br><span class="line">            new_message = node_info.get(<span class="string">'message'</span>)</span><br><span class="line">            <span class="keyword">break</span></span><br><span class="line">        self.workflow.set_user_input(user_input, message_id=message_id, message_content=new_message)</span><br><span class="line">        self.workflow.set_workflow_status(WorkflowStatus.INPUT_OVER.value)</span><br><span class="line">        </span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">set_user_input</span><span class="params">(self, data: dict, message_id: int = None, message_content: str = None)</span>:</span></span><br><span class="line">    <span class="keyword">if</span> self.chat_id <span class="keyword">and</span> message_id:</span><br><span class="line">        message_db = ChatMessageDao.get_message_by_id(message_id)</span><br><span class="line">        <span class="keyword">if</span> message_db:</span><br><span class="line">            self.update_old_message(data, message_db, message_content)</span><br><span class="line">    <span class="comment"># 通知异步任务用户输入</span></span><br><span class="line">    self.redis_client.set(self.workflow_input_key, data, expiration=self.workflow_expire_time)</span><br><span class="line">    <span class="keyword">return</span></span><br></pre></td></tr></table></figure>
+<p>使用输入：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">get_user_input</span><span class="params">(self)</span> -&gt; dict | <span class="keyword">None</span>:</span></span><br><span class="line">    ret = self.redis_client.get(self.workflow_input_key)</span><br><span class="line">    <span class="keyword">if</span> ret:</span><br><span class="line">        self.redis_client.delete(self.workflow_input_key)</span><br><span class="line">    <span class="keyword">return</span> ret</span><br><span class="line"></span><br><span class="line">user_input = redis_callback.get_user_input()</span><br><span class="line"><span class="keyword">if</span> <span class="keyword">not</span> user_input:</span><br><span class="line">    <span class="keyword">continue</span></span><br><span class="line">redis_callback.set_workflow_status(WorkflowStatus.RUNNING.value)</span><br><span class="line">status, reason = workflow.run(user_input)</span><br></pre></td></tr></table></figure>
+<p><strong>Q</strong>: 那就是为什么这里不使用 GraphState，而是使用 Redis 做为中间媒介？</p>
+<p><strong>A</strong>: 这是因为 WorkFlow 的执行是一个 Celery 的 Worker 有关，即没法将用户的中断输入内容传递到一个 Worker 中去，只能通过外部 Redis，通过在里面循环的来读取才能获取得到相关的输入内容。</p>
+<p><strong>Q</strong>: 工作流最大支持运行多少时间？</p>
+<p><strong>A</strong>: 工作流运行默认最大时间为 720 分钟，节点默认最大步数为 50 步</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">WorkflowConf</span><span class="params">(BaseModel)</span>:</span></span><br><span class="line">    max_steps: int = Field(default=<span class="number">50</span>, description=<span class="string">"节点运行最大步数"</span>)</span><br><span class="line">    timeout: int = Field(default=<span class="number">720</span>, description=<span class="string">"节点超时时间（min）"</span>)</span><br></pre></td></tr></table></figure>
+<p><strong>Q</strong>: 工作流的运行代码是什么样的</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">_execute_workflow</span><span class="params">(unique_id: str, workflow_id: str, chat_id: str, user_id: str)</span>:</span></span><br><span class="line">    redis_callback = RedisCallback(unique_id, workflow_id, chat_id, user_id)</span><br><span class="line">    <span class="keyword">try</span>:</span><br><span class="line">        <span class="comment"># update workflow status</span></span><br><span class="line">        redis_callback.set_workflow_status(WorkflowStatus.RUNNING.value)</span><br><span class="line">        <span class="comment"># get workflow data</span></span><br><span class="line">        workflow_data = redis_callback.get_workflow_data()</span><br><span class="line">        <span class="keyword">if</span> <span class="keyword">not</span> workflow_data:</span><br><span class="line">            <span class="keyword">raise</span> Exception(<span class="string">'workflow data not found maybe data is expired'</span>)</span><br><span class="line"></span><br><span class="line">        <span class="comment"># init workflow</span></span><br><span class="line">        workflow_conf = settings.get_workflow_conf()</span><br><span class="line">        workflow = Workflow(workflow_id, user_id, workflow_data, <span class="literal">False</span>,</span><br><span class="line">                            workflow_conf.max_steps,</span><br><span class="line">                            workflow_conf.timeout,</span><br><span class="line">                            redis_callback)</span><br><span class="line">        redis_callback.workflow = workflow</span><br><span class="line">        start_time = time.time()</span><br><span class="line">        status, reason = workflow.run()</span><br><span class="line">        first_input = <span class="literal">True</span></span><br><span class="line">        <span class="comment"># run workflow</span></span><br><span class="line">        <span class="keyword">while</span> <span class="literal">True</span>:</span><br><span class="line">            logger.debug(<span class="string">f'workflow execute status: <span class="subst">&#123;workflow.status()&#125;</span>'</span>)</span><br><span class="line">            <span class="keyword">if</span> workflow.status() <span class="keyword">in</span> [WorkflowStatus.FAILED.value, WorkflowStatus.SUCCESS.value]:</span><br><span class="line">                redis_callback.set_workflow_status(status, reason)</span><br><span class="line">                <span class="keyword">break</span></span><br><span class="line">            <span class="keyword">elif</span> workflow.status() == WorkflowStatus.INPUT.value:</span><br><span class="line">                <span class="keyword">if</span> first_input:</span><br><span class="line">                    start_time = time.time()</span><br><span class="line">                    first_input = <span class="literal">False</span></span><br><span class="line">                redis_callback.set_workflow_status(status, reason)</span><br><span class="line">                time.sleep(<span class="number">1</span>)</span><br><span class="line">                <span class="keyword">if</span> time.time() - start_time &gt; workflow.timeout * <span class="number">60</span>:</span><br><span class="line">                    <span class="keyword">raise</span> IgnoreException(<span class="string">'workflow wait user input timeout'</span>)</span><br><span class="line">                <span class="keyword">if</span> redis_callback.get_workflow_stop():</span><br><span class="line">                    <span class="keyword">raise</span> IgnoreException(<span class="string">'workflow stop by user'</span>)</span><br><span class="line">                user_input = redis_callback.get_user_input()</span><br><span class="line">                <span class="keyword">if</span> <span class="keyword">not</span> user_input:</span><br><span class="line">                    <span class="keyword">continue</span></span><br><span class="line">                redis_callback.set_workflow_status(WorkflowStatus.RUNNING.value)</span><br><span class="line">                status, reason = workflow.run(user_input)</span><br><span class="line">                first_input = <span class="literal">True</span></span><br><span class="line">            <span class="keyword">else</span>:</span><br><span class="line">                <span class="keyword">raise</span> Exception(<span class="string">f'unexpected workflow status error: <span class="subst">&#123;status&#125;</span>'</span>)</span><br><span class="line">    <span class="keyword">except</span> IgnoreException <span class="keyword">as</span> e:</span><br><span class="line">        logger.warning(<span class="string">f'execute_workflow ignore error: <span class="subst">&#123;e&#125;</span>'</span>)</span><br><span class="line">        redis_callback.set_workflow_status(WorkflowStatus.FAILED.value, str(e))</span><br><span class="line">    <span class="keyword">except</span> Exception <span class="keyword">as</span> e:</span><br><span class="line">        logger.exception(<span class="string">'execute_workflow error'</span>)</span><br><span class="line">        redis_callback.set_workflow_status(WorkflowStatus.FAILED.value, str(e)[:<span class="number">100</span>])</span><br></pre></td></tr></table></figure>
+<p>可以看出 WorkFlow 的运行本质上是一个 while 循环，直到状态变为 FAILED 或者 SUCCESS 为止</p>
+<p><strong>Q</strong>: 如何添加节点</p>
+<p>前端部分：需要在 workflowTemplate 中添加节点信息</p>
+<p><img src="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17441819715351744181970630.png" alt="17441819715351744181970630.png"></p>
+<p>后端部分：则需要继承 BaseNode，实现其中的抽象方法等逻辑</p>
+<p><img src="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17441823375271744182337265.png" alt="17441823375271744182337265.png"></p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>普通助手类应用，就是一个带有条件分支的 chatbot 的过程，如果满足条件则调用工具，否则则结束对话。</p>
+<p>工作流应用，则是一个将前端数据结构转换为 Langgraph 结构的过程，借用 Langgraph 的实现，达到不用重复造轮子的目的。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2025/04/02/openManus源码解析/" rel="prev" title="OpenManus 源码解析">
+      <i class="fa fa-chevron-left"></i> OpenManus 源码解析
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2025/06/09/阅读-202506020-20250609/" rel="next" title="阅读(2025-0602-0609)">
+      阅读(2025-0602-0609) <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#业务场景"><span class="nav-number">1.</span> <span class="nav-text">业务场景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#应用分类"><span class="nav-number">2.</span> <span class="nav-text">应用分类</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#langgraph"><span class="nav-number">3.</span> <span class="nav-text">langgraph</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#助手"><span class="nav-number">4.</span> <span class="nav-text">助手</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#工作流"><span class="nav-number">5.</span> <span class="nav-text">工作流</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#技能"><span class="nav-number">6.</span> <span class="nav-text">技能</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#FAQ"><span class="nav-number">7.</span> <span class="nav-text">FAQ</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#总结"><span class="nav-number">8.</span> <span class="nav-text">总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

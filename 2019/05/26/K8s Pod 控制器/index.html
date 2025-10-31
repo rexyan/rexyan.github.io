@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="之前我们共使用两种方式创建 Pod。一种是 kubectl run，另一种为 kubectl create + 配置文件。当我们将以 kubectl create 创建的 Pod 删除之后，Pod 是不会重新被创建的，也就是说此类 Pod 是没有被控制器管理的，删除之后就没有了。而使用 kubectl run 创建的 Pod 是被控制器管理的，删除之后还会重新启动，达到你定义的状态。Replica">
+<meta name="keywords" content="Kubernetes">
+<meta property="og:type" content="article">
+<meta property="og:title" content="K8s Pod 控制器">
+<meta property="og:url" content="https://rexyan.github.io/2019/05/26/K8s Pod 控制器/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="之前我们共使用两种方式创建 Pod。一种是 kubectl run，另一种为 kubectl create + 配置文件。当我们将以 kubectl create 创建的 Pod 删除之后，Pod 是不会重新被创建的，也就是说此类 Pod 是没有被控制器管理的，删除之后就没有了。而使用 kubectl run 创建的 Pod 是被控制器管理的，删除之后还会重新启动，达到你定义的状态。Replica">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190526194724.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190526194304.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/%E4%B8%8B%E8%BD%BD.jpeg">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.395Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="K8s Pod 控制器">
+<meta name="twitter:description" content="之前我们共使用两种方式创建 Pod。一种是 kubectl run，另一种为 kubectl create + 配置文件。当我们将以 kubectl create 创建的 Pod 删除之后，Pod 是不会重新被创建的，也就是说此类 Pod 是没有被控制器管理的，删除之后就没有了。而使用 kubectl run 创建的 Pod 是被控制器管理的，删除之后还会重新启动，达到你定义的状态。Replica">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190526194724.png">
+
+<link rel="canonical" href="https://rexyan.github.io/2019/05/26/K8s Pod 控制器/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>K8s Pod 控制器 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2019/05/26/K8s Pod 控制器/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          K8s Pod 控制器
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-05-26 21:35:57" itemprop="dateCreated datePublished" datetime="2019-05-26T21:35:57+00:00">2019-05-26</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Kubernetes/" itemprop="url" rel="index"><span itemprop="name">Kubernetes</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>之前我们共使用两种方式创建 Pod。一种是 kubectl run，另一种为 kubectl create + 配置文件。当我们将以 kubectl create 创建的 Pod 删除之后，Pod 是不会重新被创建的，也就是说此类 Pod 是没有被控制器管理的，删除之后就没有了。而使用 kubectl run 创建的 Pod 是被控制器管理的，删除之后还会重新启动，达到你定义的状态。ReplicationController 是K8s之前的唯一一个控制器，因为其太过庞大，所以目前不怎么使用。从而出现的 ReplicaSet 等控制器成为主流。</p>
+<h3 id="ReplicaSet"><a href="#ReplicaSet" class="headerlink" title="ReplicaSet"></a>ReplicaSet</h3><h4 id="查看定义"><a href="#查看定义" class="headerlink" title="查看定义"></a>查看定义</h4><p>Kubernetes 并不建议我们直接使用 ReplicaSet 控制器。而是建议我们使用 Deployment 控制器。Deployment 通过控制 ReplicaSet 来控制 Pod，是对 ReplicaSet 的进一步封装，拥有更强大的功能。<br>查看 ReplicaSet 的字段</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl explain rs</span><br></pre></td></tr></table></figure>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190526194724.png" alt></p>
+<p>ReplicaSet 的 spec 中有三个核心的部分组成，分别为副本数（replicas），标签选择器（selector），Pod 模版（template）。template 中 spec 的定义和我们之前定义的 Pod 方式一致，都有什么 containers，nodeName，nodeSelector等等。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl explain rs.spec</span><br></pre></td></tr></table></figure>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190526194304.png" alt></p>
+<h4 id="创建资源"><a href="#创建资源" class="headerlink" title="创建资源"></a>创建资源</h4><p>定义一个 ReplicaSet，标签选择规则为 matchLabels（所有标签都必须满足）。注意，这里创建的 Pod 的标签要和 ReplicaSet标签选择器中的一致，这样才能将创建出来的 Pod 和选择器进行关联。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> </span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">myapp</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">2</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">     <span class="attr">app:</span> <span class="string">myapp</span></span><br><span class="line">     <span class="attr">release:</span> <span class="string">test</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">name:</span> <span class="string">myapp-pod</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">myapp</span></span><br><span class="line">        <span class="attr">release:</span> <span class="string">test</span></span><br><span class="line">        <span class="attr">env:</span> <span class="string">local</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">myapp-container</span></span><br><span class="line">        <span class="attr">image:</span> <span class="string">ikubernetes/myapp:v1</span></span><br><span class="line">        <span class="attr">ports:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">http</span></span><br><span class="line">          <span class="attr">containerPort:</span> <span class="number">80</span></span><br></pre></td></tr></table></figure>
+<p>创建 Pod<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create -f rs-demo.yaml</span><br></pre></td></tr></table></figure></p>
+<p>查看 ReplicaSet。可以看到期待的两个，当前为两个，处于 READY 装状态的为两个。<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get rs</span><br></pre></td></tr></table></figure></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get rs </span></span><br><span class="line">NAME    DESIRED   CURRENT   READY   AGE</span><br><span class="line">myapp   <span class="number">2</span>         <span class="number">2</span>         <span class="number">2</span>       <span class="number">45</span>s</span><br></pre></td></tr></table></figure>
+<p>查看 Pod 列表(注意，Pod 的 name 是以控制器的名称加上随机字符串组成，而不是自己的定义的 myapp-pod)</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get pods</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get pods </span></span><br><span class="line">NAME          READY   STATUS    RESTARTS   AGE</span><br><span class="line">myapp-hl4wg   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">36</span>s</span><br><span class="line">myapp-xrb9n   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">36</span>s</span><br></pre></td></tr></table></figure>
+<p>查看 Pod 详细信息</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl describe pods + pod 名称</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl describe pods myapp-hl4wg</span></span><br><span class="line">Name:               myapp-hl4wg</span><br><span class="line">Namespace:          default</span><br><span class="line">Priority:           <span class="number">0</span></span><br><span class="line">PriorityClassName:  &lt;none&gt;</span><br><span class="line">Node:               k8s003/<span class="number">172.20</span><span class="number">.245</span><span class="number">.193</span></span><br><span class="line">Start Time:         Sun, <span class="number">26</span> May <span class="number">2019</span> <span class="number">20</span>:<span class="number">03</span>:<span class="number">39</span> +<span class="number">0800</span></span><br><span class="line">Labels:             app=myapp</span><br><span class="line">                    env=local</span><br><span class="line">                    release=test</span><br><span class="line">Annotations:        &lt;none&gt;</span><br><span class="line">Status:             Running</span><br><span class="line">IP:                 <span class="number">10.24</span><span class="number">.2</span><span class="number">.2</span></span><br><span class="line">Controlled By:      ReplicaSet/myapp</span><br><span class="line">Containers:</span><br><span class="line">  myapp-container:</span><br><span class="line">    Container ID:   docker://b3df7d29352b61057535ebe7a48ae27d47105029d17c42298a9938a89c0efd5e</span><br><span class="line">    Image:          ikubernetes/myapp:v1</span><br><span class="line">    Image ID:       docker-pullable://docker.io/ikubernetes/myapp@sha256:<span class="number">9</span>c3dc30b5219788b2b8a4b065f548b922a34479577befb54b03330999d30d513</span><br><span class="line">    Port:           <span class="number">80</span>/TCP</span><br><span class="line">    Host Port:      <span class="number">0</span>/TCP</span><br><span class="line">    State:          Running</span><br><span class="line">      Started:      Sun, <span class="number">26</span> May <span class="number">2019</span> <span class="number">20</span>:<span class="number">03</span>:<span class="number">42</span> +<span class="number">0800</span></span><br><span class="line">    Ready:          <span class="literal">True</span></span><br><span class="line">    Restart Count:  <span class="number">0</span></span><br><span class="line">    Environment:    &lt;none&gt;</span><br><span class="line">    Mounts:</span><br><span class="line">      /var/run/secrets/kubernetes.io/serviceaccount <span class="keyword">from</span> default-token-wpmp4 (ro)</span><br><span class="line">Conditions:</span><br><span class="line">  Type              Status</span><br><span class="line">  Initialized       <span class="literal">True</span> </span><br><span class="line">  Ready             <span class="literal">True</span> </span><br><span class="line">  ContainersReady   <span class="literal">True</span> </span><br><span class="line">  PodScheduled      <span class="literal">True</span> </span><br><span class="line">Volumes:</span><br><span class="line">  default-token-wpmp4:</span><br><span class="line">    Type:        Secret (a volume populated by a Secret)</span><br><span class="line">    SecretName:  default-token-wpmp4</span><br><span class="line">    Optional:    false</span><br><span class="line">QoS Class:       BestEffort</span><br><span class="line">Node-Selectors:  &lt;none&gt;</span><br><span class="line">Tolerations:     node.kubernetes.io/<span class="keyword">not</span>-ready:NoExecute <span class="keyword">for</span> <span class="number">300</span>s</span><br><span class="line">                 node.kubernetes.io/unreachable:NoExecute <span class="keyword">for</span> <span class="number">300</span>s</span><br><span class="line">Events:</span><br><span class="line">  Type    Reason     Age   From               Message</span><br><span class="line">  ----    ------     ----  ----               -------</span><br><span class="line">  Normal  Scheduled  <span class="number">98</span>s   default-scheduler  Successfully assigned default/myapp-hl4wg to k8s003</span><br><span class="line">  Normal  Pulling    <span class="number">97</span>s   kubelet, k8s003    Pulling image <span class="string">"ikubernetes/myapp:v1"</span></span><br><span class="line">  Normal  Pulled     <span class="number">95</span>s   kubelet, k8s003    Successfully pulled image <span class="string">"ikubernetes/myapp:v1"</span></span><br><span class="line">  Normal  Created    <span class="number">95</span>s   kubelet, k8s003    Created container myapp-container</span><br><span class="line">  Normal  Started    <span class="number">95</span>s   kubelet, k8s003    Started container myapp-container</span><br></pre></td></tr></table></figure>
+<p>查看 pods 的标签</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get pods --show-labels</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get  pods --show-labels</span></span><br><span class="line">NAME          READY   STATUS    RESTARTS   AGE     LABELS</span><br><span class="line">myapp-hl4wg   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">2</span>m35s   app=myapp,env=local,release=test</span><br><span class="line">myapp-xrb9n   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">2</span>m35s   app=myapp,env=local,release=test</span><br></pre></td></tr></table></figure>
+<h4 id="修改标签"><a href="#修改标签" class="headerlink" title="修改标签"></a>修改标签</h4><p>删除名称为 myapp-hl4wg 的 Pod，会看到一个新的 Pod 会被创建出来，因为我们期待的数量为 2 个。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get pods --show-labels</span></span><br><span class="line">NAME          READY   STATUS    RESTARTS   AGE   LABELS</span><br><span class="line">myapp-hl4wg   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">31</span>m   app=myapp,env=local,release=test</span><br><span class="line">myapp-xrb9n   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">31</span>m   app=myapp,env=local,release=test</span><br><span class="line"></span><br><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl delete pods myapp-hl4wg</span></span><br><span class="line">pod <span class="string">"myapp-hl4wg"</span> deleted</span><br><span class="line"></span><br><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get pods --show-labels</span></span><br><span class="line">NAME          READY   STATUS    RESTARTS   AGE   LABELS</span><br><span class="line">myapp-d6q5r   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">4</span>s    app=myapp,env=local,release=test</span><br><span class="line">myapp-xrb9n   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">32</span>m   app=myapp,env=local,release=test</span><br></pre></td></tr></table></figure>
+<p>修改其中一个 Pod 的标签，将其 app=myapp 改为 app=app。会看到会新建一个 Pod 起来，被修改 Pod 现在就不属于任何控制器了。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl label pods myapp-d6q5r app=app --overwrite</span></span><br><span class="line">pod/myapp-d6q5r labeled</span><br><span class="line"></span><br><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get pods --show-labels</span></span><br><span class="line">NAME          READY   STATUS    RESTARTS   AGE     LABELS</span><br><span class="line">myapp-d6q5r   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">3</span>m36s   app=app,env=local,release=test</span><br><span class="line">myapp-kb94h   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">3</span>s      app=myapp,env=local,release=test</span><br><span class="line">myapp-xrb9n   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">35</span>m     app=myapp,env=local,release=test</span><br><span class="line"></span><br><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get rs -o wide </span></span><br><span class="line">NAME    DESIRED   CURRENT   READY   AGE   CONTAINERS        IMAGES                 SELECTOR</span><br><span class="line">myapp   <span class="number">2</span>         <span class="number">2</span>         <span class="number">2</span>       <span class="number">36</span>m   myapp-container   ikubernetes/myapp:v1   app=myapp,release=test</span><br></pre></td></tr></table></figure>
+<h4 id="动态扩容"><a href="#动态扩容" class="headerlink" title="动态扩容"></a>动态扩容</h4><p>动态修改 ReplicaSet。myapp 为 ReplicaSet 的名称，并且副本为改成 5 个。改完后就会立即生效。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl edit rs myapp</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get pods --show-labels</span></span><br><span class="line">NAME          READY   STATUS    RESTARTS   AGE     LABELS</span><br><span class="line">myapp<span class="number">-68</span>p22   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">4</span>s      app=myapp,env=local,release=test</span><br><span class="line">myapp-b9x4x   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">4</span>s      app=myapp,env=local,release=test</span><br><span class="line">myapp-bphsr   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">4</span>s      app=myapp,env=local,release=test</span><br><span class="line">myapp-d6q5r   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">9</span>m34s   app=app,env=local,release=test</span><br><span class="line">myapp-kb94h   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">6</span>m1s    app=myapp,env=local,release=test</span><br><span class="line">myapp-xrb9n   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">41</span>m     app=myapp,env=local,release=test</span><br><span class="line"></span><br><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get rs -o wide </span></span><br><span class="line">NAME    DESIRED   CURRENT   READY   AGE   CONTAINERS        IMAGES                 SELECTOR</span><br><span class="line">myapp   <span class="number">5</span>         <span class="number">5</span>         <span class="number">5</span>       <span class="number">41</span>m   myapp-container   ikubernetes/myapp:v1   app=myapp,release=test</span><br></pre></td></tr></table></figure>
+<p>或者使用 scale 命令进行修改</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment">#  kubectl scale --replicas=2 rs myapp</span></span><br><span class="line">replicaset.extensions/myapp scaled</span><br><span class="line"> </span><br><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get rs -o wide </span></span><br><span class="line">NAME    DESIRED   CURRENT   READY   AGE   CONTAINERS        IMAGES                 SELECTOR</span><br><span class="line">myapp   <span class="number">2</span>         <span class="number">2</span>         <span class="number">2</span>       <span class="number">46</span>m   myapp-container   ikubernetes/myapp:v1   app=myapp,release=test</span><br><span class="line"></span><br><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get pods --show-labels</span></span><br><span class="line">NAME          READY   STATUS    RESTARTS   AGE   LABELS</span><br><span class="line">myapp-d6q5r   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">14</span>m   app=app,env=local,release=test</span><br><span class="line">myapp-kb94h   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">10</span>m   app=myapp,env=local,release=test</span><br><span class="line">myapp-xrb9n   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">46</span>m   app=myapp,env=local,release=test</span><br></pre></td></tr></table></figure>
+<h4 id="滚动升级"><a href="#滚动升级" class="headerlink" title="滚动升级"></a>滚动升级</h4><p>使用 edit 编辑镜像版本之后，Pod 是不会自动更新的，我们需要将 Pod 删除，然后让其自动重新构建，这样构建出来的才是新版镜像版本的 Pod。这里有两种方式，让其服务过度到新镜像版本的服务，第一种为一个一个的删除 Pod，让其重新一个一个的构建。另一种为构建一个新的 ReplicaSet，测试没问题后，在将新的 ReplicaSet 挂载到 Service 上去，并将以前老的 ReplicaSet 在 service 上摘除。Deployment 就是采用的第二种思想，Deployment 可以管理多个 ReplicaSet，但是可用的只有一个，这样也可以进行回滚。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl edit rs myapp</span><br></pre></td></tr></table></figure>
+<p>将其中镜像版本从 v1 改为 v2 ，查看 rs 信息，发现镜像版本已经变成了v2，但是访问结果去还是 v1，这时需要重建 Pod 才能生效。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get rs -o wide </span></span><br><span class="line">NAME    DESIRED   CURRENT   READY   AGE   CONTAINERS        IMAGES                 SELECTOR</span><br><span class="line">myapp   <span class="number">2</span>         <span class="number">2</span>         <span class="number">2</span>       <span class="number">58</span>m   myapp-container   ikubernetes/myapp:v2   app=myapp,release=test</span><br></pre></td></tr></table></figure>
+<p>或者选择之前的命令 set image 进行镜像升级。</p>
+<h3 id="Deployment"><a href="#Deployment" class="headerlink" title="Deployment"></a>Deployment</h3><p>Deployment 是目前用来管理无状态应用的做好的控制器。deployment 简称为 deploy。 deploy.spec.strategy 表示更新策略，deploy.spec.strategy.type 支持两种更新，分别为 Recreate （重新创建） 和 RollingUpdate（滚动更新）默认是 RollingUpdate。当 deploy.spec.strategy.type 是 RollingUpdate 时，还可以配置 deploy.spec.strategy.type.RollingUpdate 字段，这个字段用来控制更新力度，共有两种值，分别为 maxSurge（更新过程中，超出目标副本数的数量，可为数字或者百分比） 和 maxUnavailable （最多有几个不可用）。我们可以控制这里的更新力度来实现不同的发布，例如金丝雀发布，蓝绿发布等。deploy.spec.revisionHistoryLimit 表示滚动更新中最多保存过去几个历史版本，这些历史版本可用于回滚。deployment 通过控制 ReplicaSet 来控制 Pod。</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/%E4%B8%8B%E8%BD%BD.jpeg" alt></p>
+<h4 id="创建资源-1"><a href="#创建资源-1" class="headerlink" title="创建资源"></a>创建资源</h4><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">myapp-deploy</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">2</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">myapp</span></span><br><span class="line">      <span class="attr">release:</span> <span class="string">canary</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">myapp</span></span><br><span class="line">        <span class="attr">release:</span> <span class="string">canary</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">myapp</span></span><br><span class="line">        <span class="attr">image:</span> <span class="string">ikubernetes/myapp:v1</span></span><br><span class="line">        <span class="attr">ports:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">http</span></span><br><span class="line">          <span class="attr">containerPort:</span> <span class="number">80</span></span><br></pre></td></tr></table></figure>
+<p>创建 deploy, apply 属于声明式创建，既可以创建，也可以用于更新。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl apply -f deploy-demo.yaml </span></span><br><span class="line">deployment.apps/myapp-deploy created</span><br></pre></td></tr></table></figure>
+<p>查看 deploy 会发现刚刚的已经创建好了</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get deploy </span></span><br><span class="line">NAME           READY   UP-TO-DATE   AVAILABLE   AGE</span><br><span class="line">myapp-deploy   <span class="number">2</span>/<span class="number">2</span>     <span class="number">2</span></span><br></pre></td></tr></table></figure>
+<p>查看 ReplicaSet 也会看到对应的两个，因为 deployment 是依赖 ReplicaSet 的，基于 ReplicaSet 之上。后面的 67b6dfcd8 模版的 hash值，而不是随机的字符串。<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get rs</span></span><br><span class="line">NAME                     DESIRED   CURRENT   READY   AGE</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8   <span class="number">2</span>         <span class="number">2</span>         <span class="number">2</span>       <span class="number">6</span>m33s</span><br></pre></td></tr></table></figure></p>
+<p>查看 Pod, Pod 的名称是 myapp-deploy-67b6dfcd8-xxxx，格式为 deployment 的名字 + ReplicaSet hash + 随机数。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get pods </span></span><br><span class="line">NAME                           READY   STATUS    RESTARTS   AGE</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-flnxl   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">11</span>m</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-r6stl   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">11</span>m</span><br></pre></td></tr></table></figure>
+<h4 id="修改副本数"><a href="#修改副本数" class="headerlink" title="修改副本数"></a>修改副本数</h4><p>修改 yaml 脚本</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">myapp-deploy</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">3</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">myapp</span></span><br><span class="line">      <span class="attr">release:</span> <span class="string">canary</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">myapp</span></span><br><span class="line">        <span class="attr">release:</span> <span class="string">canary</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">myapp</span></span><br><span class="line">        <span class="attr">image:</span> <span class="string">ikubernetes/myapp:v1</span></span><br><span class="line">        <span class="attr">ports:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">http</span></span><br><span class="line">          <span class="attr">containerPort:</span> <span class="number">80</span></span><br></pre></td></tr></table></figure>
+<p>之后查看 Pod 的信息，发现名称部分 myapp-deploy-67b6dfcd8 依然没有变化，<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl apply -f deploy-demo.yaml </span></span><br><span class="line">deployment.apps/myapp-deploy configured</span><br></pre></td></tr></table></figure></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get pods </span></span><br><span class="line">NAME                           READY   STATUS    RESTARTS   AGE</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-flnxl   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">15</span>m</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-nm9bs   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">7</span>s</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-r6stl   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">15</span>m</span><br></pre></td></tr></table></figure>
+<p>查看 deploy 的详细信息</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl  describe deploy myapp-deploy</span></span><br><span class="line">Name:                   myapp-deploy</span><br><span class="line">Namespace:              default</span><br><span class="line">CreationTimestamp:      Tue, <span class="number">28</span> May <span class="number">2019</span> <span class="number">22</span>:<span class="number">22</span>:<span class="number">57</span> +<span class="number">0800</span></span><br><span class="line">Labels:                 &lt;none&gt;</span><br><span class="line">Annotations:            deployment.kubernetes.io/revision: <span class="number">1</span></span><br><span class="line">                        kubectl.kubernetes.io/last-applied-configuration:</span><br><span class="line">                          &#123;<span class="string">"apiVersion"</span>:<span class="string">"apps/v1"</span>,<span class="string">"kind"</span>:<span class="string">"Deployment"</span>,<span class="string">"metadata"</span>:&#123;<span class="string">"annotations"</span>:&#123;&#125;,<span class="string">"name"</span>:<span class="string">"myapp-deploy"</span>,<span class="string">"namespace"</span>:<span class="string">"default"</span>&#125;,<span class="string">"spec"</span>:&#123;<span class="string">"replicas"</span>:<span class="number">3.</span>..</span><br><span class="line">Selector:               app=myapp,release=canary</span><br><span class="line">Replicas:               <span class="number">3</span> desired | <span class="number">3</span> updated | <span class="number">3</span> total | <span class="number">3</span> available | <span class="number">0</span> unavailable</span><br><span class="line">StrategyType:           RollingUpdate</span><br><span class="line">MinReadySeconds:        <span class="number">0</span></span><br><span class="line">RollingUpdateStrategy:  <span class="number">25</span>% max unavailable, <span class="number">25</span>% max surge</span><br><span class="line">Pod Template:</span><br><span class="line">  Labels:  app=myapp</span><br><span class="line">           release=canary</span><br><span class="line">  Containers:</span><br><span class="line">   myapp:</span><br><span class="line">    Image:        ikubernetes/myapp:v1</span><br><span class="line">    Port:         <span class="number">80</span>/TCP</span><br><span class="line">    Host Port:    <span class="number">0</span>/TCP</span><br><span class="line">    Environment:  &lt;none&gt;</span><br><span class="line">    Mounts:       &lt;none&gt;</span><br><span class="line">  Volumes:        &lt;none&gt;</span><br><span class="line">Conditions:</span><br><span class="line">  Type           Status  Reason</span><br><span class="line">  ----           ------  ------</span><br><span class="line">  Progressing    <span class="literal">True</span>    NewReplicaSetAvailable</span><br><span class="line">  Available      <span class="literal">True</span>    MinimumReplicasAvailable</span><br><span class="line">OldReplicaSets:  &lt;none&gt;</span><br><span class="line">NewReplicaSet:   myapp-deploy<span class="number">-67</span>b6dfcd8 (<span class="number">3</span>/<span class="number">3</span> replicas created)</span><br><span class="line">Events:</span><br><span class="line">  Type    Reason             Age    From                   Message</span><br><span class="line">  ----    ------             ----   ----                   -------</span><br><span class="line">  Normal  ScalingReplicaSet  <span class="number">19</span>m    deployment-controller  Scaled up replica set myapp-deploy<span class="number">-67</span>b6dfcd8 to <span class="number">2</span></span><br><span class="line">  Normal  ScalingReplicaSet  <span class="number">4</span>m19s  deployment-controller  Scaled up replica set myapp-deploy<span class="number">-67</span>b6dfcd8 to <span class="number">3</span></span><br></pre></td></tr></table></figure>
+<p>apply 会自动将每一次版本的变化添加到  Annotations 当中。apply 的 StrategyType（更新方式）RollingUpdate（滚动更新）且最多可用和最多不可用分别为 RollingUpdateStrategy:  25% max unavailable, 25% max surge。</p>
+<h4 id="滚动更新"><a href="#滚动更新" class="headerlink" title="滚动更新"></a>滚动更新</h4><p>deploy 的 apply 方式更新，Pod 最大可以用和不可用的数量分别是 25%。我们可以使用 -w命令来查看整个更新的过程。</p>
+<p>终端1：编辑配置文件，将副本数量调整为5 (当前为3)</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># vim deploy-demo.yaml</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl apply -f deploy-demo.yaml</span></span><br></pre></td></tr></table></figure>
+<p>终端2：可以看到有创建了两个 Pod，以此来满足 5 个的数量。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 ~]<span class="comment"># kubectl get pods -w </span></span><br><span class="line">NAME                           READY   STATUS    RESTARTS   AGE</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-wsmxz   <span class="number">0</span>/<span class="number">1</span>     Pending             <span class="number">0</span>          <span class="number">0</span>s</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-wsmxz   <span class="number">0</span>/<span class="number">1</span>     Pending             <span class="number">0</span>          <span class="number">0</span>s</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-fxqvx   <span class="number">0</span>/<span class="number">1</span>     Pending             <span class="number">0</span>          <span class="number">0</span>s</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-fxqvx   <span class="number">0</span>/<span class="number">1</span>     Pending             <span class="number">0</span>          <span class="number">0</span>s</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-wsmxz   <span class="number">0</span>/<span class="number">1</span>     ContainerCreating   <span class="number">0</span>          <span class="number">0</span>s</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-fxqvx   <span class="number">0</span>/<span class="number">1</span>     ContainerCreating   <span class="number">0</span>          <span class="number">0</span>s</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-wsmxz   <span class="number">1</span>/<span class="number">1</span>     Running             <span class="number">0</span>          <span class="number">1</span>s</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-fxqvx   <span class="number">1</span>/<span class="number">1</span>     Running             <span class="number">0</span>          <span class="number">1</span>s</span><br></pre></td></tr></table></figure>
+<p>如果此时再次修改配置文件，将镜像从  image: ikubernetes/myapp:v1 升级为  image: ikubernetes/myapp:v2，则现象为, 这个就是整个滚动更新的过程，可以看到 Pod 的整个创建和结束的过程。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line">myapp-deploy<span class="number">-675558</span>bfc5-g4j5t   <span class="number">0</span>/<span class="number">1</span>     Pending             <span class="number">0</span>          <span class="number">0</span>s</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5-g4j5t   <span class="number">0</span>/<span class="number">1</span>     Pending             <span class="number">0</span>          <span class="number">0</span>s</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5-kkl22   <span class="number">0</span>/<span class="number">1</span>     Pending             <span class="number">0</span>          <span class="number">0</span>s</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5-kkl22   <span class="number">0</span>/<span class="number">1</span>     Pending             <span class="number">0</span>          <span class="number">0</span>s</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-mgh8z    <span class="number">1</span>/<span class="number">1</span>     Terminating         <span class="number">0</span>          <span class="number">2</span>m3s</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5-g4j5t   <span class="number">0</span>/<span class="number">1</span>     ContainerCreating   <span class="number">0</span>          <span class="number">0</span>s</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5-h8c2c   <span class="number">0</span>/<span class="number">1</span>     Pending             <span class="number">0</span>          <span class="number">0</span>s</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5-h8c2c   <span class="number">0</span>/<span class="number">1</span>     Pending             <span class="number">0</span>          <span class="number">0</span>s</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5-kkl22   <span class="number">0</span>/<span class="number">1</span>     ContainerCreating   <span class="number">0</span>          <span class="number">0</span>s</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5-h8c2c   <span class="number">0</span>/<span class="number">1</span>     ContainerCreating   <span class="number">0</span>          <span class="number">0</span>s</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-mgh8z    <span class="number">0</span>/<span class="number">1</span>     Terminating         <span class="number">0</span>          <span class="number">2</span>m3s</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5-g4j5t   <span class="number">1</span>/<span class="number">1</span>     Running             <span class="number">0</span>          <span class="number">2</span>s</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-f5fgw    <span class="number">1</span>/<span class="number">1</span>     Terminating         <span class="number">0</span>          <span class="number">2</span>m5s</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5<span class="number">-4</span>m4nb   <span class="number">0</span>/<span class="number">1</span>     Pending             <span class="number">0</span>          <span class="number">0</span>s</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5<span class="number">-4</span>m4nb   <span class="number">0</span>/<span class="number">1</span>     Pending             <span class="number">0</span>          <span class="number">0</span>s</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5<span class="number">-4</span>m4nb   <span class="number">0</span>/<span class="number">1</span>     ContainerCreating   <span class="number">0</span>          <span class="number">0</span>s</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5-kkl22   <span class="number">1</span>/<span class="number">1</span>     Running             <span class="number">0</span>          <span class="number">2</span>s</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-mzftf    <span class="number">1</span>/<span class="number">1</span>     Terminating         <span class="number">0</span>          <span class="number">2</span>m5s</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5-b2lj5   <span class="number">0</span>/<span class="number">1</span>     Pending             <span class="number">0</span>          <span class="number">0</span>s</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5-b2lj5   <span class="number">0</span>/<span class="number">1</span>     Pending             <span class="number">0</span>          <span class="number">0</span>s</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5-b2lj5   <span class="number">0</span>/<span class="number">1</span>     ContainerCreating   <span class="number">0</span>          <span class="number">0</span>s</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5-h8c2c   <span class="number">1</span>/<span class="number">1</span>     Running             <span class="number">0</span>          <span class="number">3</span>s</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5-b2lj5   <span class="number">1</span>/<span class="number">1</span>     Running             <span class="number">0</span>          <span class="number">1</span>s</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-f5fgw    <span class="number">0</span>/<span class="number">1</span>     Terminating         <span class="number">0</span>          <span class="number">2</span>m6s</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-bktzd    <span class="number">1</span>/<span class="number">1</span>     Terminating         <span class="number">0</span>          <span class="number">2</span>m6s</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-flnxl    <span class="number">1</span>/<span class="number">1</span>     Terminating         <span class="number">0</span>          <span class="number">46</span>m</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-mzftf    <span class="number">0</span>/<span class="number">1</span>     Terminating         <span class="number">0</span>          <span class="number">2</span>m6s</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5<span class="number">-4</span>m4nb   <span class="number">1</span>/<span class="number">1</span>     Running             <span class="number">0</span>          <span class="number">1</span>s</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-flnxl    <span class="number">0</span>/<span class="number">1</span>     Terminating         <span class="number">0</span>          <span class="number">46</span>m</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-bktzd    <span class="number">0</span>/<span class="number">1</span>     Terminating         <span class="number">0</span>          <span class="number">2</span>m7s</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-f5fgw    <span class="number">0</span>/<span class="number">1</span>     Terminating         <span class="number">0</span>          <span class="number">2</span>m10s</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-f5fgw    <span class="number">0</span>/<span class="number">1</span>     Terminating         <span class="number">0</span>          <span class="number">2</span>m10s</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-mgh8z    <span class="number">0</span>/<span class="number">1</span>     Terminating         <span class="number">0</span>          <span class="number">2</span>m10s</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-mgh8z    <span class="number">0</span>/<span class="number">1</span>     Terminating         <span class="number">0</span>          <span class="number">2</span>m10s</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-mzftf    <span class="number">0</span>/<span class="number">1</span>     Terminating         <span class="number">0</span>          <span class="number">2</span>m10s</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-mzftf    <span class="number">0</span>/<span class="number">1</span>     Terminating         <span class="number">0</span>          <span class="number">2</span>m10s</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-flnxl    <span class="number">0</span>/<span class="number">1</span>     Terminating         <span class="number">0</span>          <span class="number">46</span>m</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-flnxl    <span class="number">0</span>/<span class="number">1</span>     Terminating         <span class="number">0</span>          <span class="number">46</span>m</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-bktzd    <span class="number">0</span>/<span class="number">1</span>     Terminating         <span class="number">0</span>          <span class="number">2</span>m20s</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-bktzd    <span class="number">0</span>/<span class="number">1</span>     Terminating         <span class="number">0</span>          <span class="number">2</span>m20s</span><br></pre></td></tr></table></figure>
+<p>这时查看 rs 的信息，就会看到有两个 rs。不同点在于镜像的版本一个是v1，期待个数，当前可以个数等全部为0，另一个版本为 v2。v1 的存在是让我们可以回滚。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl  get rs -o wide </span></span><br><span class="line">NAME                      DESIRED   CURRENT   READY   AGE     CONTAINERS   IMAGES                 SELECTOR</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5   <span class="number">5</span>         <span class="number">5</span>         <span class="number">5</span>       <span class="number">2</span>m58s   myapp        ikubernetes/myapp:v2   app=myapp,pod-template-hash=<span class="number">675558</span>bfc5,release=canary</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8    <span class="number">0</span>         <span class="number">0</span>         <span class="number">0</span>       <span class="number">49</span>m     myapp        ikubernetes/myapp:v1   app=myapp,pod-template-hash=<span class="number">67</span>b6dfcd8,release=canary</span><br></pre></td></tr></table></figure>
+<h4 id="金丝雀发布"><a href="#金丝雀发布" class="headerlink" title="金丝雀发布"></a>金丝雀发布</h4><p>修改更新过程中最大更新数（max surge）为 1个， 最大可减少数（max unavailable）为 0 ，这就意味着，在目前已经有的 Pod 的基础上，最多可以存在 6 个Pod，最少那就是 5 个。这时我们要实现当其创建出地 6 个的时候，将其发布暂停（此时有1个新的，5个旧的）那一个新的服务其实就是创建出的金丝雀。确认金丝雀没问题之后，让刚刚暂停住的更新继续执行，完成发布。</p>
+<p><strong>1. 修改 yaml 文件</strong></p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">myapp-deploy</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">5</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">myapp</span></span><br><span class="line">      <span class="attr">release:</span> <span class="string">canary</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">myapp</span></span><br><span class="line">        <span class="attr">release:</span> <span class="string">canary</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">myapp</span></span><br><span class="line">        <span class="attr">image:</span> <span class="string">ikubernetes/myapp:v2</span></span><br><span class="line">        <span class="attr">ports:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">http</span></span><br><span class="line">          <span class="attr">containerPort:</span> <span class="number">80</span></span><br><span class="line">  <span class="attr">strategy:</span></span><br><span class="line">    <span class="attr">type:</span> <span class="string">RollingUpdate</span></span><br><span class="line">    <span class="attr">rollingUpdate:</span></span><br><span class="line">      <span class="attr">maxSurge:</span> <span class="number">1</span></span><br><span class="line">      <span class="attr">maxUnavailable:</span> <span class="number">0</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl apply -f deploy-demo.yaml</span></span><br></pre></td></tr></table></figure>
+<p><strong>2. 查看详细信息, 发现已经修改了。</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl describe deploy myapp-deploy</span></span><br><span class="line">......</span><br><span class="line">StrategyType:           RollingUpdate</span><br><span class="line">MinReadySeconds:        <span class="number">0</span></span><br><span class="line">RollingUpdateStrategy:  <span class="number">0</span> max unavailable, <span class="number">1</span> max surge</span><br><span class="line">......</span><br></pre></td></tr></table></figure>
+<p><strong>3. 修改镜像版本为 v3，并让其执行更新之后暂停。</strong><br><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">myapp-deploy</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">5</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">myapp</span></span><br><span class="line">      <span class="attr">release:</span> <span class="string">canary</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">myapp</span></span><br><span class="line">        <span class="attr">release:</span> <span class="string">canary</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">myapp</span></span><br><span class="line">        <span class="attr">image:</span> <span class="string">ikubernetes/myapp:v3</span></span><br><span class="line">        <span class="attr">ports:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">http</span></span><br><span class="line">          <span class="attr">containerPort:</span> <span class="number">80</span></span><br><span class="line">  <span class="attr">strategy:</span></span><br><span class="line">    <span class="attr">type:</span> <span class="string">RollingUpdate</span></span><br><span class="line">    <span class="attr">rollingUpdate:</span></span><br><span class="line">      <span class="attr">maxSurge:</span> <span class="number">1</span></span><br><span class="line">      <span class="attr">maxUnavailable:</span> <span class="number">0</span></span><br></pre></td></tr></table></figure></p>
+<p>执行更新，并且更新后暂定<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl apply -f deploy-demo.yaml &amp;&amp; kubectl rollout pause deploy myapp-deploy</span></span><br><span class="line">deployment.apps/myapp-deploy configured</span><br><span class="line">deployment.extensions/myapp-deploy paused</span><br></pre></td></tr></table></figure></p>
+<p>可以看到最后一个 Pod 是新建出来的，并没有继续往下滚动更新执行删除，而是被暂停了。<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get pods </span></span><br><span class="line">NAME                            READY   STATUS    RESTARTS   AGE</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5<span class="number">-4</span>m4nb   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">64</span>m</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5-b2lj5   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">64</span>m</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5-g4j5t   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">64</span>m</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5-h8c2c   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">64</span>m</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5-kkl22   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">64</span>m</span><br><span class="line">myapp-deploy<span class="number">-7</span>f577979c8-v2ljw   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">24</span>s</span><br></pre></td></tr></table></figure></p>
+<p>这时可以确认 v3 版本的程序有没有问题（验证金丝雀），如果没有问题之后就可以继续执行更新过程。我们也可以查看更新过程。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl rollout status deploy myapp-deploy </span></span><br><span class="line">Waiting <span class="keyword">for</span> deployment <span class="string">"myapp-deploy"</span> rollout to finish: <span class="number">1</span> out of <span class="number">5</span> new replicas have been updated...</span><br></pre></td></tr></table></figure>
+<p>上面查看状态，显示的意思是，等待部署 myapp-deploy 5 个副本，已经完成了一个。</p>
+<p><strong>4. 继续执行更新</strong></p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl rollout resume deploy myapp-deploy </span></span><br><span class="line">deployment.extensions/myapp-deploy resumed</span><br></pre></td></tr></table></figure>
+<p>再次查看更新状态，发现提示已经更新完成了。<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl rollout status deploy myapp-deploy </span></span><br><span class="line">deployment <span class="string">"myapp-deploy"</span> successfully rolled out</span><br></pre></td></tr></table></figure></p>
+<p>查看 Pod，以前的老版本 Pod 都被删除了。<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get pods </span></span><br><span class="line">NAME                            READY   STATUS    RESTARTS   AGE</span><br><span class="line">myapp-deploy<span class="number">-7</span>f577979c8-fbsvm   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">26</span>s</span><br><span class="line">myapp-deploy<span class="number">-7</span>f577979c8-mq26d   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">30</span>s</span><br><span class="line">myapp-deploy<span class="number">-7</span>f577979c8-r68x5   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">27</span>s</span><br><span class="line">myapp-deploy<span class="number">-7</span>f577979c8-v2ljw   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">8</span>m19s</span><br><span class="line">myapp-deploy<span class="number">-7</span>f577979c8-wpktg   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">28</span>s</span><br></pre></td></tr></table></figure></p>
+<p>查看 rs 的信息，发现 rs 已经有了三个，最新的为 v3 版本的镜像。<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get rs -o wide </span></span><br><span class="line">NAME                      DESIRED   CURRENT   READY   AGE     CONTAINERS   IMAGES                 SELECTOR</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5   <span class="number">0</span>         <span class="number">0</span>         <span class="number">0</span>       <span class="number">72</span>m     myapp        ikubernetes/myapp:v2   app=myapp,pod-template-hash=<span class="number">675558</span>bfc5,release=canary</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8    <span class="number">0</span>         <span class="number">0</span>         <span class="number">0</span>       <span class="number">118</span>m    myapp        ikubernetes/myapp:v1   app=myapp,pod-template-hash=<span class="number">67</span>b6dfcd8,release=canary</span><br><span class="line">myapp-deploy<span class="number">-7</span>f577979c8   <span class="number">5</span>         <span class="number">5</span>         <span class="number">5</span>       <span class="number">8</span>m42s   myapp        ikubernetes/myapp:v3   app=myapp,pod-template-hash=<span class="number">7</span>f577979c8,release=canary</span><br></pre></td></tr></table></figure></p>
+<p>至此，就完成了一个金丝雀发布。</p>
+<h4 id="回滚操作"><a href="#回滚操作" class="headerlink" title="回滚操作"></a>回滚操作</h4><p>查看当前可以回滚的版本</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 ~]<span class="comment"># kubectl rollout history deploy myapp-deploy </span></span><br><span class="line">deployment.extensions/myapp-deploy </span><br><span class="line">REVISION  CHANGE-CAUSE</span><br><span class="line"><span class="number">1</span>         &lt;none&gt;</span><br><span class="line"><span class="number">2</span>         &lt;none&gt;</span><br><span class="line"><span class="number">3</span>         &lt;none&gt;</span><br></pre></td></tr></table></figure>
+<p>当前处于最新的第三个版本，我们可以使用 –to-revision 指定回退到的版本，例如回退到第一版本</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 ~]<span class="comment"># kubectl rollout undo deploy myapp-deploy --to-revision=1</span></span><br><span class="line">deployment.extensions/myapp-deploy rolled back</span><br></pre></td></tr></table></figure>
+<p>再次查看 rollout history 会发现第一个版本已经没有了，对应的是第四个版本（其实这里的第四版本就是第一个版本）</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 ~]<span class="comment"># kubectl rollout history deploy myapp-deploy </span></span><br><span class="line">deployment.extensions/myapp-deploy </span><br><span class="line">REVISION  CHANGE-CAUSE</span><br><span class="line"><span class="number">2</span>         &lt;none&gt;</span><br><span class="line"><span class="number">3</span>         &lt;none&gt;</span><br><span class="line"><span class="number">4</span>         &lt;none&gt;</span><br></pre></td></tr></table></figure>
+<p>查看 rs的详细信息，也会发现当前版本已经回到了第一版</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 ~]<span class="comment"># kubectl  get rs -o wide </span></span><br><span class="line">NAME                      DESIRED   CURRENT   READY   AGE   CONTAINERS   IMAGES                 SELECTOR</span><br><span class="line">myapp-deploy<span class="number">-675558</span>bfc5   <span class="number">0</span>         <span class="number">0</span>         <span class="number">0</span>       <span class="number">22</span>h   myapp        ikubernetes/myapp:v2   app=myapp,pod-template-hash=<span class="number">675558</span>bfc5,release=canary</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8    <span class="number">5</span>         <span class="number">5</span>         <span class="number">5</span>       <span class="number">22</span>h   myapp        ikubernetes/myapp:v1   app=myapp,pod-template-hash=<span class="number">67</span>b6dfcd8,release=canary</span><br><span class="line">myapp-deploy<span class="number">-7</span>f577979c8   <span class="number">0</span>         <span class="number">0</span>         <span class="number">0</span>       <span class="number">20</span>h   myapp        ikubernetes/myapp:v3   app=myapp,pod-template-hash=<span class="number">7</span>f577979c8,release=canary</span><br><span class="line">[root@k8s001 ~]<span class="comment"># </span></span><br><span class="line">[root@k8s001 ~]<span class="comment">#</span></span><br></pre></td></tr></table></figure>
+<h3 id="DaemonSet"><a href="#DaemonSet" class="headerlink" title="DaemonSet"></a>DaemonSet</h3><p>在集群中的每一个节点或者满足条件的节点之上，有且仅运行一个 Pod 副本。DaemonSet 和 Deployment 一样，所控制的 Pod 也是无状态的，且两者应用一直在后台运行（就算是任务完成 Pod 也不能退出）。简称 ds</p>
+<h4 id="创建资源-2"><a href="#创建资源-2" class="headerlink" title="创建资源"></a>创建资源</h4><p>创建资源，DaemonSet 在每一个 node 上只运行一个副本，所有不能指定 replicas， 其余的定义方式和 deploy 差不多，env 是定义环境变量，这里定义是因为镜像使用所需。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">DaemonSet</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">myapp-ds</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">filebeat</span></span><br><span class="line">      <span class="attr">release:</span> <span class="string">stable</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">filebeat</span></span><br><span class="line">        <span class="attr">release:</span> <span class="string">stable</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">filebeat</span></span><br><span class="line">        <span class="attr">image:</span> <span class="string">ikubernetes/filebeat:5.6.5-alpine</span></span><br><span class="line">        <span class="attr">env:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">REDIS_HOST</span></span><br><span class="line">          <span class="attr">value:</span> <span class="string">redis.default.svc.cluster.local</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">REDIS_LOG_LEVEL</span></span><br><span class="line">          <span class="attr">value:</span> <span class="string">info</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl create -f ds-demo.yaml </span></span><br><span class="line">daemonset.apps/myapp-ds created</span><br></pre></td></tr></table></figure>
+<p>创建资源之后就可以看到在两个节点之上分别运行了一个 Pod<br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl get pods -o wide </span></span><br><span class="line">NAME                           READY   STATUS    RESTARTS   AGE   IP            NODE     NOMINATED NODE   READINESS GATES</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8<span class="number">-42</span>x9q   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">45</span>m   <span class="number">10.244</span><span class="number">.2</span><span class="number">.11</span>   k8s003   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8<span class="number">-9</span>vjwh   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">44</span>m   <span class="number">10.244</span><span class="number">.1</span><span class="number">.17</span>   k8s002   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-b45pt   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">44</span>m   <span class="number">10.244</span><span class="number">.2</span><span class="number">.13</span>   k8s003   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-c2v69   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">45</span>m   <span class="number">10.244</span><span class="number">.1</span><span class="number">.16</span>   k8s002   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">myapp-deploy<span class="number">-67</span>b6dfcd8-cr5hj   <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">44</span>m   <span class="number">10.244</span><span class="number">.2</span><span class="number">.12</span>   k8s003   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">myapp-ds-kf892                 <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">14</span>s   <span class="number">10.244</span><span class="number">.2</span><span class="number">.14</span>   k8s003   &lt;none&gt;           &lt;none&gt;</span><br><span class="line">myapp-ds-zb82c                 <span class="number">1</span>/<span class="number">1</span>     Running   <span class="number">0</span>          <span class="number">14</span>s   <span class="number">10.244</span><span class="number">.1</span><span class="number">.18</span>   k8s002   &lt;none&gt;           &lt;none&gt;</span><br></pre></td></tr></table></figure></p>
+<h4 id="更新方式"><a href="#更新方式" class="headerlink" title="更新方式"></a>更新方式</h4><p> 查看 ds 的更新策略可以发现，ds 支持 RollingUpdate（滚动更新） 和 OnDelete（删除后更新） 两种更新，默认为 OnDelete</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">[root@k8s001 rexyan]<span class="comment"># kubectl explain ds.spec.updateStrategy</span></span><br><span class="line">KIND:     DaemonSet</span><br><span class="line">VERSION:  extensions/v1beta1</span><br><span class="line"></span><br><span class="line">RESOURCE: updateStrategy &lt;Object&gt;</span><br><span class="line"></span><br><span class="line">DESCRIPTION:</span><br><span class="line">     An update strategy to replace existing DaemonSet pods <span class="keyword">with</span> new pods.</span><br><span class="line"></span><br><span class="line">FIELDS:</span><br><span class="line">   rollingUpdate	&lt;Object&gt;</span><br><span class="line">     Rolling update config params. Present only <span class="keyword">if</span> type = <span class="string">"RollingUpdate"</span>.</span><br><span class="line"></span><br><span class="line">   type	&lt;string&gt;</span><br><span class="line">     Type of daemon set update. Can be <span class="string">"RollingUpdate"</span> <span class="keyword">or</span> <span class="string">"OnDelete"</span>. Default <span class="keyword">is</span></span><br><span class="line">     OnDelete.</span><br></pre></td></tr></table></figure>
+<p>当 type 是 RollingUpdate 的时候，ds.spec.updateStrategy.rollingUpdate 下只能定义 maxUnavailable 字段。即只能定义最大可减少数（max unavailable）也就是只能删除后才能更新（这也符合 DaemonSet 在 Node 上只能有一个的原则）。</p>
+<h3 id="Job"><a href="#Job" class="headerlink" title="Job"></a>Job</h3><p>按照用户的定义，完成指定任务，任务正常完成后 Pod 就会正常退出，若任务没有完成 Pod 就退出，则 Pod 会被重新创建。</p>
+<h3 id="CronJob"><a href="#CronJob" class="headerlink" title="CronJob"></a>CronJob</h3><p>周期性运行</p>
+<h3 id="StatefulSet"><a href="#StatefulSet" class="headerlink" title="StatefulSet"></a>StatefulSet</h3><p>有状态应用控制器</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"><i class="fa fa-tag"></i> Kubernetes</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/05/19/K8s 应用存活和容器启动结束钩子/" rel="prev" title="K8s 应用存活和容器启动结束钩子">
+      <i class="fa fa-chevron-left"></i> K8s 应用存活和容器启动结束钩子
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/05/30/K8s Service/" rel="next" title="K8s  Service">
+      K8s  Service <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#ReplicaSet"><span class="nav-number">1.</span> <span class="nav-text">ReplicaSet</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#查看定义"><span class="nav-number">1.1.</span> <span class="nav-text">查看定义</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#创建资源"><span class="nav-number">1.2.</span> <span class="nav-text">创建资源</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#修改标签"><span class="nav-number">1.3.</span> <span class="nav-text">修改标签</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#动态扩容"><span class="nav-number">1.4.</span> <span class="nav-text">动态扩容</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#滚动升级"><span class="nav-number">1.5.</span> <span class="nav-text">滚动升级</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Deployment"><span class="nav-number">2.</span> <span class="nav-text">Deployment</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#创建资源-1"><span class="nav-number">2.1.</span> <span class="nav-text">创建资源</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#修改副本数"><span class="nav-number">2.2.</span> <span class="nav-text">修改副本数</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#滚动更新"><span class="nav-number">2.3.</span> <span class="nav-text">滚动更新</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#金丝雀发布"><span class="nav-number">2.4.</span> <span class="nav-text">金丝雀发布</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#回滚操作"><span class="nav-number">2.5.</span> <span class="nav-text">回滚操作</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#DaemonSet"><span class="nav-number">3.</span> <span class="nav-text">DaemonSet</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#创建资源-2"><span class="nav-number">3.1.</span> <span class="nav-text">创建资源</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#更新方式"><span class="nav-number">3.2.</span> <span class="nav-text">更新方式</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Job"><span class="nav-number">4.</span> <span class="nav-text">Job</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#CronJob"><span class="nav-number">5.</span> <span class="nav-text">CronJob</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#StatefulSet"><span class="nav-number">6.</span> <span class="nav-text">StatefulSet</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

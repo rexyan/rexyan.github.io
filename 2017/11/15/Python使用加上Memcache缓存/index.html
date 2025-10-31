@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="场景网站数据太多，速度太慢？某处逻辑反复的调用一个函数。这样的开销是没有必要的。如果我们能将函数的结果保存到内存中，或者某个能快速反应的DB中，那么我们网站的响应速度会得到大大的提高。适用情景：  某函数参数常不变，但是里面有大量的逻辑需要处理，如果每次运行都需要运行的话，那么将花费大量的时间，那么我们可以采取缓存的方式，将函数的返回值进行缓存，下来执行到此处的时候直接返回即可。 函数的参数是变化">
+<meta name="keywords" content="优化,技术,Memcache">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Python加上Memcache缓存">
+<meta property="og:url" content="https://rexyan.github.io/2017/11/15/Python使用加上Memcache缓存/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="场景网站数据太多，速度太慢？某处逻辑反复的调用一个函数。这样的开销是没有必要的。如果我们能将函数的结果保存到内存中，或者某个能快速反应的DB中，那么我们网站的响应速度会得到大大的提高。适用情景：  某函数参数常不变，但是里面有大量的逻辑需要处理，如果每次运行都需要运行的话，那么将花费大量的时间，那么我们可以采取缓存的方式，将函数的返回值进行缓存，下来执行到此处的时候直接返回即可。 函数的参数是变化">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.400Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Python加上Memcache缓存">
+<meta name="twitter:description" content="场景网站数据太多，速度太慢？某处逻辑反复的调用一个函数。这样的开销是没有必要的。如果我们能将函数的结果保存到内存中，或者某个能快速反应的DB中，那么我们网站的响应速度会得到大大的提高。适用情景：  某函数参数常不变，但是里面有大量的逻辑需要处理，如果每次运行都需要运行的话，那么将花费大量的时间，那么我们可以采取缓存的方式，将函数的返回值进行缓存，下来执行到此处的时候直接返回即可。 函数的参数是变化">
+
+<link rel="canonical" href="https://rexyan.github.io/2017/11/15/Python使用加上Memcache缓存/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Python加上Memcache缓存 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2017/11/15/Python使用加上Memcache缓存/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Python加上Memcache缓存
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2017-11-15 18:52:57" itemprop="dateCreated datePublished" datetime="2017-11-15T18:52:57+00:00">2017-11-15</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Python/" itemprop="url" rel="index"><span itemprop="name">Python</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="场景"><a href="#场景" class="headerlink" title="场景"></a>场景</h3><p>网站数据太多，速度太慢？某处逻辑反复的调用一个函数。这样的开销是没有必要的。如果我们能将函数的结果保存到内存中，或者某个能快速反应的DB中，那么我们网站的响应速度会得到大大的提高。适用情景：</p>
+<ol>
+<li>某函数参数常不变，但是里面有大量的逻辑需要处理，如果每次运行都需要运行的话，那么将花费大量的时间，那么我们可以采取缓存的方式，将函数的返回值进行缓存，下来执行到此处的时候直接返回即可。</li>
+<li>函数的参数是变化的，但并不是每次都在变。这时我们也可以采取此方式进行优化。</li>
+</ol>
+<h3 id="代码"><a href="#代码" class="headerlink" title="代码"></a>代码</h3><p>缓存源码示例：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br></pre></td><td class="code"><pre><span class="line"># encoding=utf8</span><br><span class="line">import hashlib</span><br><span class="line">import os</span><br><span class="line">import time</span><br><span class="line">from common.log_utils import getLogger</span><br><span class="line">log = getLogger(&apos;mem_cache.py&apos;)</span><br><span class="line"></span><br><span class="line">__all__ = [&apos;get&apos;, &apos;set&apos;, &apos;memorize&apos;, &apos;memcache_client&apos;]</span><br><span class="line"></span><br><span class="line">import memcache</span><br><span class="line">import settings</span><br><span class="line">memcache_client = memcache.Client(</span><br><span class="line">    [&apos;%s:%s&apos; % (settings.MEMCACHE_SERVER, str(settings.MEMCACHE_PORT))])</span><br><span class="line"></span><br><span class="line">OBJ_DICT = &#123;&#125;</span><br><span class="line">OBJ_DICT2 = &#123;&#125;</span><br><span class="line">OBJ_EXPIRE_DICT = &#123;&#125;</span><br><span class="line">OBJ_EXPIRE_DICT2 = &#123;&#125;</span><br><span class="line">DEFAULT_EXPIRE_SECONDS = 300</span><br><span class="line">DEFAULT_VERSION_EXPIRE_SECONDS = 60 * 60 * 24</span><br><span class="line">MEMORY_CLEANER_PERIOD = 600</span><br><span class="line">OBJ_VERSION_DICT = &#123;&#125;</span><br><span class="line"></span><br><span class="line">def set(key, value, time=settings.MEMCACHE_EXPIRE_TIME):</span><br><span class="line">    &quot;&quot;&quot;time为过期时间，以秒为单位&quot;&quot;&quot;</span><br><span class="line">    return memcache_client.set(str(key), value, time)</span><br><span class="line"></span><br><span class="line">def get(key):</span><br><span class="line">    return memcache_client.get(str(key))</span><br><span class="line"></span><br><span class="line">def set_remote_obj_version(key, version):</span><br><span class="line">    return memcache_client.set(str(key), version, DEFAULT_VERSION_EXPIRE_SECONDS)</span><br><span class="line"></span><br><span class="line">def get_remote_obj_version(key):</span><br><span class="line">    return memcache_client.get(str(key)) or 0</span><br><span class="line"></span><br><span class="line">def set_local_obj_version(key, version):</span><br><span class="line">    OBJ_VERSION_DICT[key] = version</span><br><span class="line"></span><br><span class="line">def get_local_obj_version(key):</span><br><span class="line">    return OBJ_VERSION_DICT.get(key) or 0</span><br><span class="line"></span><br><span class="line">def version_expired(key):</span><br><span class="line">    local_version = get_local_obj_version(key)</span><br><span class="line">    remote_version = get_remote_obj_version(key)</span><br><span class="line">    return local_version != remote_version</span><br><span class="line"></span><br><span class="line">def delete_all():</span><br><span class="line">    delete_list = []</span><br><span class="line">    for key, value in OBJ_DICT.iteritems():</span><br><span class="line">        delete_list.append(key)</span><br><span class="line">    memcache_client.delete_multi(delete_list)</span><br><span class="line"></span><br><span class="line">def start_memory_cleaner(count_down=MEMORY_CLEANER_PERIOD):</span><br><span class="line">    while True:</span><br><span class="line">        time.sleep(count_down)</span><br><span class="line">        keys_to_remove = []</span><br><span class="line">        for key, value in OBJ_EXPIRE_DICT.iteritems():</span><br><span class="line">            if OBJ_EXPIRE_DICT[key] &lt; int(round(time.time())):</span><br><span class="line">                keys_to_remove.append(key)</span><br><span class="line">        for key in keys_to_remove:</span><br><span class="line">            try:</span><br><span class="line">                del OBJ_DICT[key]</span><br><span class="line">                del OBJ_EXPIRE_DICT[key]</span><br><span class="line">                del OBJ_VERSION_DICT[key]</span><br><span class="line">            except KeyError:</span><br><span class="line">                pass</span><br><span class="line">        for key, value in OBJ_EXPIRE_DICT2.iteritems():</span><br><span class="line">            if OBJ_EXPIRE_DICT2[key] &lt; int(round(time.time())):</span><br><span class="line">                keys_to_remove.append(key)</span><br><span class="line">        for key in keys_to_remove:</span><br><span class="line">            try:</span><br><span class="line">                del OBJ_DICT[key]</span><br><span class="line">                del OBJ_EXPIRE_DICT2[key]</span><br><span class="line">                del OBJ_VERSION_DICT[key]</span><br><span class="line">            except KeyError:</span><br><span class="line">                pass</span><br><span class="line">        log.debug(&apos;%s keys deleted, %s keys remain&apos; %</span><br><span class="line">                  (len(keys_to_remove), len(OBJ_DICT)),)</span><br><span class="line"></span><br><span class="line">memory_cleaner_thread_started = False</span><br><span class="line"></span><br><span class="line">def start_memory_cleaner_thread():</span><br><span class="line">    global memory_cleaner_thread_started</span><br><span class="line">    import threading</span><br><span class="line">    if not memory_cleaner_thread_started:</span><br><span class="line">        threading.Thread(target=start_memory_cleaner, args=(),</span><br><span class="line">                         name=&apos;memory_cleaner_thread&apos;).start()</span><br><span class="line">        memory_cleaner_thread_started = True</span><br><span class="line"></span><br><span class="line">def memorize(function):</span><br><span class="line">    &quot;&quot;&quot;内存缓存, 用于不定参数的函数</span><br><span class="line">    Usage:</span><br><span class="line">        def xxx(key1,key2,refresh=False)</span><br><span class="line">            return instance</span><br><span class="line">        def xxx(key1,key2,key2,x1=xx,x2=yyy)</span><br><span class="line">            return instance</span><br><span class="line">    &quot;&quot;&quot;</span><br><span class="line">    def helper(*args, **kwargs):</span><br><span class="line">        refresh = False</span><br><span class="line">        expire = None</span><br><span class="line">        if &apos;refresh&apos; in kwargs:</span><br><span class="line">            refresh = kwargs[&apos;refresh&apos;]</span><br><span class="line">        if &apos;expire&apos; in kwargs:</span><br><span class="line">            expire = kwargs[&apos;expire&apos;]</span><br><span class="line"></span><br><span class="line">        # make cache key</span><br><span class="line">        args_str = []</span><br><span class="line">        for arg in args:</span><br><span class="line">            if isinstance(arg, unicode):</span><br><span class="line">                args_str.append(arg.encode(&apos;utf-8&apos;))</span><br><span class="line">            else:</span><br><span class="line">                args_str.append(str(arg))</span><br><span class="line">        key = function.__name__ + hashlib.md5(&apos;#&apos;.join(args_str)).hexdigest()</span><br><span class="line">        # end make cache key</span><br><span class="line"></span><br><span class="line">        remote_version = get_remote_obj_version(key)</span><br><span class="line">        ret_obj = None</span><br><span class="line">        if refresh:</span><br><span class="line">            # 1.</span><br><span class="line">            remote_version += 1</span><br><span class="line">            set_remote_obj_version(key, remote_version)</span><br><span class="line">            # #当主动刷新时，直接调用；且主动更新本地缓存（可以不做，只是其他程序调用时进入#3段，重复调用一次再更新本地缓存）</span><br><span class="line">            # ret_obj = function(*args, **kwargs)</span><br><span class="line">            # OBJ_DICT[key] = ret_obj</span><br><span class="line">            # set_local_obj_version(key, remote_version)</span><br><span class="line">        else:</span><br><span class="line">            if remote_version == 0:</span><br><span class="line">                # 2</span><br><span class="line">                ret_obj = function(*args, **kwargs)</span><br><span class="line">                OBJ_DICT[key] = ret_obj</span><br><span class="line">                set_remote_obj_version(key, 1)</span><br><span class="line">                set_local_obj_version(key, 1)</span><br><span class="line">            else:</span><br><span class="line">                local_version = get_local_obj_version(key)</span><br><span class="line">                if local_version != remote_version:</span><br><span class="line">                    # 3</span><br><span class="line">                    ret_obj = function(*args, **kwargs)</span><br><span class="line">                    OBJ_DICT[key] = ret_obj</span><br><span class="line">                    set_local_obj_version(key, remote_version)</span><br><span class="line">                else:</span><br><span class="line">                    # 4</span><br><span class="line">                    if key in OBJ_DICT:</span><br><span class="line">                        # 5</span><br><span class="line">                        ret_obj = OBJ_DICT[key]</span><br><span class="line">                    else:</span><br><span class="line">                        ret_obj = function(*args, **kwargs)</span><br><span class="line">                        OBJ_DICT[key] = ret_obj</span><br><span class="line">        return ret_obj</span><br><span class="line">    return helper</span><br><span class="line"></span><br><span class="line">@memorize</span><br><span class="line">def test(x):</span><br><span class="line">    x = os.path.join(&quot;D:/dev/project/BI/saic/csvdata&quot;, x)</span><br><span class="line">    return file(x).read()</span><br><span class="line"></span><br><span class="line">@memorize</span><br><span class="line">def test2(x, ab, refresh=False):</span><br><span class="line">    x = os.path.join(&quot;D:/dev/project/BI/saic/csvdata&quot;, x)</span><br><span class="line">    return file(x).read()</span><br><span class="line"></span><br><span class="line">if __name__ == &apos;__main__&apos;:</span><br><span class="line">    x = &apos;utils.py&apos;</span><br><span class="line">    txt = test2(x, &apos;ss&apos;, refresh=True)</span><br><span class="line">    txt = test2(x, &apos;ss&apos;)</span><br></pre></td></tr></table></figure></p>
+<h3 id="使用"><a href="#使用" class="headerlink" title="使用"></a>使用</h3><p>以Python装饰起为例，使用时直接在函数上加上装饰器即可使用。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">@memorize</span><br><span class="line">def get_current_df(raw_data_excel, key):</span><br><span class="line">    current_df = pd.read_hdf(raw_data_excel, key=key)</span><br><span class="line">    return current_df</span><br></pre></td></tr></table></figure></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/优化/" rel="tag"><i class="fa fa-tag"></i> 优化</a>
+              <a href="/tags/技术/" rel="tag"><i class="fa fa-tag"></i> 技术</a>
+              <a href="/tags/Memcache/" rel="tag"><i class="fa fa-tag"></i> Memcache</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2017/11/15/jsp/" rel="prev" title="JSP">
+      <i class="fa fa-chevron-left"></i> JSP
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2017/11/16/el/" rel="next" title="EL">
+      EL <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#场景"><span class="nav-number">1.</span> <span class="nav-text">场景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#代码"><span class="nav-number">2.</span> <span class="nav-text">代码</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#使用"><span class="nav-number">3.</span> <span class="nav-text">使用</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

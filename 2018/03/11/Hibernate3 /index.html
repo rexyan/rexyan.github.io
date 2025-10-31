@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="一对多建表原则：在多的一方创建外键指向一的一方的主键 在Java中采用对象关系来描述：一对多的关系描述的是一个A对应多个B类类型的情况，需要在A类以Set集合的方式引入B类型的对象，在B类中定义A类类型的属性a；1234567class A&amp;#123;	Set&amp;lt;B&amp;gt; bs; //B的集合&amp;#125;class B&amp;#123;	A a;&amp;#125; 根据SQL创建实体SQL1234567">
+<meta name="keywords" content="技术,Hibernate">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Hibernate3">
+<meta property="og:url" content="https://rexyan.github.io/2018/03/11/Hibernate3 /index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="一对多建表原则：在多的一方创建外键指向一的一方的主键 在Java中采用对象关系来描述：一对多的关系描述的是一个A对应多个B类类型的情况，需要在A类以Set集合的方式引入B类型的对象，在B类中定义A类类型的属性a；1234567class A&amp;#123;	Set&amp;lt;B&amp;gt; bs; //B的集合&amp;#125;class B&amp;#123;	A a;&amp;#125; 根据SQL创建实体SQL1234567">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.394Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Hibernate3">
+<meta name="twitter:description" content="一对多建表原则：在多的一方创建外键指向一的一方的主键 在Java中采用对象关系来描述：一对多的关系描述的是一个A对应多个B类类型的情况，需要在A类以Set集合的方式引入B类型的对象，在B类中定义A类类型的属性a；1234567class A&amp;#123;	Set&amp;lt;B&amp;gt; bs; //B的集合&amp;#125;class B&amp;#123;	A a;&amp;#125; 根据SQL创建实体SQL1234567">
+
+<link rel="canonical" href="https://rexyan.github.io/2018/03/11/Hibernate3 /">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Hibernate3 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2018/03/11/Hibernate3 /">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Hibernate3
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2018-03-11 13:14:57" itemprop="dateCreated datePublished" datetime="2018-03-11T13:14:57+00:00">2018-03-11</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Java/" itemprop="url" rel="index"><span itemprop="name">Java</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="一对多"><a href="#一对多" class="headerlink" title="一对多"></a>一对多</h3><p>建表原则：在多的一方创建外键指向一的一方的主键</p>
+<p>在Java中采用对象关系来描述：一对多的关系描述的是一个A对应多个B类类型的情况，需要在A类以Set集合的方式引入B类型的对象，在B类中定义A类类型的属性a；<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">class A&#123;</span><br><span class="line">	Set&lt;B&gt; bs; //B的集合</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">class B&#123;</span><br><span class="line">	A a;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<h4 id="根据SQL创建实体"><a href="#根据SQL创建实体" class="headerlink" title="根据SQL创建实体"></a>根据SQL创建实体</h4><h5 id="SQL"><a href="#SQL" class="headerlink" title="SQL"></a>SQL</h5><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">CREATE TABLE `cst_customer` (</span><br><span class="line">  `cust_id` bigint(32) NOT NULL AUTO_INCREMENT COMMENT &apos;客户编号(主键)&apos;,</span><br><span class="line">  `cust_name` varchar(32) NOT NULL COMMENT &apos;客户名称(公司名称)&apos;,</span><br><span class="line">  `cust_user_id` bigint(32) DEFAULT NULL COMMENT &apos;负责人id&apos;,</span><br><span class="line">  `cust_create_id` bigint(32) DEFAULT NULL COMMENT &apos;创建人id&apos;,</span><br><span class="line">  `cust_source` varchar(32) DEFAULT NULL COMMENT &apos;客户信息来源&apos;,</span><br><span class="line">  `cust_industry` varchar(32) DEFAULT NULL COMMENT &apos;客户所属行业&apos;,</span><br><span class="line">  `cust_level` varchar(32) DEFAULT NULL COMMENT &apos;客户级别&apos;,</span><br><span class="line">  `cust_linkman` varchar(64) DEFAULT NULL COMMENT &apos;联系人&apos;,</span><br><span class="line">  `cust_phone` varchar(64) DEFAULT NULL COMMENT &apos;固定电话&apos;,</span><br><span class="line">  `cust_mobile` varchar(16) DEFAULT NULL COMMENT &apos;移动电话&apos;,</span><br><span class="line">  PRIMARY KEY (`cust_id`)</span><br><span class="line">) ENGINE=InnoDB AUTO_INCREMENT=94 DEFAULT CHARSET=utf8;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">CREATE TABLE `cst_linkman` (</span><br><span class="line">  `lkm_id` bigint(32) NOT NULL AUTO_INCREMENT COMMENT &apos;联系人编号(主键)&apos;,</span><br><span class="line">  `lkm_name` varchar(16) DEFAULT NULL COMMENT &apos;联系人姓名&apos;,</span><br><span class="line">  `lkm_cust_id` bigint(32) NOT NULL COMMENT &apos;客户id&apos;,</span><br><span class="line">  `lkm_gender` char(1) DEFAULT NULL COMMENT &apos;联系人性别&apos;,</span><br><span class="line">  `lkm_phone` varchar(16) DEFAULT NULL COMMENT &apos;联系人办公电话&apos;,</span><br><span class="line">  `lkm_mobile` varchar(16) DEFAULT NULL COMMENT &apos;联系人手机&apos;,</span><br><span class="line">  `lkm_email` varchar(64) DEFAULT NULL COMMENT &apos;联系人邮箱&apos;,</span><br><span class="line">  `lkm_qq` varchar(16) DEFAULT NULL COMMENT &apos;联系人qq&apos;,</span><br><span class="line">  `lkm_position` varchar(16) DEFAULT NULL COMMENT &apos;联系人职位&apos;,</span><br><span class="line">  `lkm_memo` varchar(512) DEFAULT NULL COMMENT &apos;联系人备注&apos;,</span><br><span class="line">  PRIMARY KEY (`lkm_id`),</span><br><span class="line">  KEY `FK_cst_linkman_lkm_cust_id` (`lkm_cust_id`),</span><br><span class="line">  CONSTRAINT `FK_cst_linkman_lkm_cust_id` FOREIGN KEY (`lkm_cust_id`) REFERENCES `cst_customer` (`cust_id`) ON DELETE NO ACTION ON UPDATE NO ACTION</span><br><span class="line">) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8;</span><br></pre></td></tr></table></figure>
+<h5 id="客户表实体"><a href="#客户表实体" class="headerlink" title="客户表实体"></a>客户表实体</h5><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br></pre></td><td class="code"><pre><span class="line">// 客户表（customer）</span><br><span class="line">package me.yanrs.domain;</span><br><span class="line"></span><br><span class="line">import java.util.HashSet;</span><br><span class="line">import java.util.Set;</span><br><span class="line"></span><br><span class="line">public class Customer &#123;	</span><br><span class="line">	private long cust_id;</span><br><span class="line">	private String cust_name;</span><br><span class="line">	private Long cust_user_id;</span><br><span class="line">	private Long cust_create_id;</span><br><span class="line">	private String cust_source;</span><br><span class="line">	private String cust_industry;</span><br><span class="line">	private String cust_level;</span><br><span class="line">	private Set&lt;Linkman&gt; linkmans = new HashSet&lt;Linkman&gt;();</span><br><span class="line">	private String cust_phone;</span><br><span class="line">	private String cust_mobile;</span><br><span class="line">	public long getCust_id() &#123;</span><br><span class="line">		return cust_id;</span><br><span class="line">	&#125;</span><br><span class="line">	public void setCust_id(long cust_id) &#123;</span><br><span class="line">		this.cust_id = cust_id;</span><br><span class="line">	&#125;</span><br><span class="line">	public String getCust_name() &#123;</span><br><span class="line">		return cust_name;</span><br><span class="line">	&#125;</span><br><span class="line">	public void setCust_name(String cust_name) &#123;</span><br><span class="line">		this.cust_name = cust_name;</span><br><span class="line">	&#125;</span><br><span class="line">	public Long getCust_user_id() &#123;</span><br><span class="line">		return cust_user_id;</span><br><span class="line">	&#125;</span><br><span class="line">	public void setCust_user_id(Long cust_user_id) &#123;</span><br><span class="line">		this.cust_user_id = cust_user_id;</span><br><span class="line">	&#125;</span><br><span class="line">	public Long getCust_create_id() &#123;</span><br><span class="line">		return cust_create_id;</span><br><span class="line">	&#125;</span><br><span class="line">	public void setCust_create_id(Long cust_create_id) &#123;</span><br><span class="line">		this.cust_create_id = cust_create_id;</span><br><span class="line">	&#125;</span><br><span class="line">	public String getCust_source() &#123;</span><br><span class="line">		return cust_source;</span><br><span class="line">	&#125;</span><br><span class="line">	public void setCust_source(String cust_source) &#123;</span><br><span class="line">		this.cust_source = cust_source;</span><br><span class="line">	&#125;</span><br><span class="line">	public String getCust_industry() &#123;</span><br><span class="line">		return cust_industry;</span><br><span class="line">	&#125;</span><br><span class="line">	public void setCust_industry(String cust_industry) &#123;</span><br><span class="line">		this.cust_industry = cust_industry;</span><br><span class="line">	&#125;</span><br><span class="line">	public String getCust_level() &#123;</span><br><span class="line">		return cust_level;</span><br><span class="line">	&#125;</span><br><span class="line">	public void setCust_level(String cust_level) &#123;</span><br><span class="line">		this.cust_level = cust_level;</span><br><span class="line">	&#125;</span><br><span class="line">	public Set&lt;Linkman&gt; getLinkmans() &#123;</span><br><span class="line">		return linkmans;</span><br><span class="line">	&#125;</span><br><span class="line">	public void setLinkmans(Set&lt;Linkman&gt; linkmans) &#123;</span><br><span class="line">		this.linkmans = linkmans;</span><br><span class="line">	&#125;</span><br><span class="line">	public String getCust_phone() &#123;</span><br><span class="line">		return cust_phone;</span><br><span class="line">	&#125;</span><br><span class="line">	public void setCust_phone(String cust_phone) &#123;</span><br><span class="line">		this.cust_phone = cust_phone;</span><br><span class="line">	&#125;</span><br><span class="line">	public String getCust_mobile() &#123;</span><br><span class="line">		return cust_mobile;</span><br><span class="line">	&#125;</span><br><span class="line">	public void setCust_mobile(String cust_mobile) &#123;</span><br><span class="line">		this.cust_mobile = cust_mobile;</span><br><span class="line">	&#125;	</span><br><span class="line">	</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h5 id="联系人表实体"><a href="#联系人表实体" class="headerlink" title="联系人表实体"></a>联系人表实体</h5><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br></pre></td><td class="code"><pre><span class="line">// 联系人表（linkman）</span><br><span class="line">package me.yanrs.domain;</span><br><span class="line"></span><br><span class="line">public class Linkman &#123;</span><br><span class="line">		</span><br><span class="line">	private Long lkm_id;</span><br><span class="line">	private String lkm_name;</span><br><span class="line">	private Customer customer;</span><br><span class="line">	private byte lkm_gender;</span><br><span class="line">	private String lkm_phone;</span><br><span class="line">	private String lkm_mobile;</span><br><span class="line">	private String lkm_email;</span><br><span class="line">	private String lkm_qq;</span><br><span class="line">	private String lkm_position;</span><br><span class="line">	private String lkm_memo;</span><br><span class="line">	public Long getLkm_id() &#123;</span><br><span class="line">		return lkm_id;</span><br><span class="line">	&#125;</span><br><span class="line">	public void setLkm_id(Long lkm_id) &#123;</span><br><span class="line">		this.lkm_id = lkm_id;</span><br><span class="line">	&#125;</span><br><span class="line">	public String getLkm_name() &#123;</span><br><span class="line">		return lkm_name;</span><br><span class="line">	&#125;</span><br><span class="line">	public void setLkm_name(String lkm_name) &#123;</span><br><span class="line">		this.lkm_name = lkm_name;</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	public Customer getCustomer() &#123;</span><br><span class="line">		return customer;</span><br><span class="line">	&#125;</span><br><span class="line">	public void setCustomer(Customer customer) &#123;</span><br><span class="line">		this.customer = customer;</span><br><span class="line">	&#125;</span><br><span class="line">	public byte getLkm_gender() &#123;</span><br><span class="line">		return lkm_gender;</span><br><span class="line">	&#125;</span><br><span class="line">	public void setLkm_gender(byte lkm_gender) &#123;</span><br><span class="line">		this.lkm_gender = lkm_gender;</span><br><span class="line">	&#125;</span><br><span class="line">	public String getLkm_phone() &#123;</span><br><span class="line">		return lkm_phone;</span><br><span class="line">	&#125;</span><br><span class="line">	public void setLkm_phone(String lkm_phone) &#123;</span><br><span class="line">		this.lkm_phone = lkm_phone;</span><br><span class="line">	&#125;</span><br><span class="line">	public String getLkm_mobile() &#123;</span><br><span class="line">		return lkm_mobile;</span><br><span class="line">	&#125;</span><br><span class="line">	public void setLkm_mobile(String lkm_mobile) &#123;</span><br><span class="line">		this.lkm_mobile = lkm_mobile;</span><br><span class="line">	&#125;</span><br><span class="line">	public String getLkm_email() &#123;</span><br><span class="line">		return lkm_email;</span><br><span class="line">	&#125;</span><br><span class="line">	public void setLkm_email(String lkm_email) &#123;</span><br><span class="line">		this.lkm_email = lkm_email;</span><br><span class="line">	&#125;</span><br><span class="line">	public String getLkm_qq() &#123;</span><br><span class="line">		return lkm_qq;</span><br><span class="line">	&#125;</span><br><span class="line">	public void setLkm_qq(String lkm_qq) &#123;</span><br><span class="line">		this.lkm_qq = lkm_qq;</span><br><span class="line">	&#125;</span><br><span class="line">	public String getLkm_position() &#123;</span><br><span class="line">		return lkm_position;</span><br><span class="line">	&#125;</span><br><span class="line">	public void setLkm_position(String lkm_position) &#123;</span><br><span class="line">		this.lkm_position = lkm_position;</span><br><span class="line">	&#125;</span><br><span class="line">	public String getLkm_memo() &#123;</span><br><span class="line">		return lkm_memo;</span><br><span class="line">	&#125;</span><br><span class="line">	public void setLkm_memo(String lkm_memo) &#123;</span><br><span class="line">		this.lkm_memo = lkm_memo;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h4 id="配置关系映射"><a href="#配置关系映射" class="headerlink" title="配置关系映射"></a>配置关系映射</h4><h5 id="Customer-hbm-xml"><a href="#Customer-hbm-xml" class="headerlink" title="Customer.hbm.xml"></a>Customer.hbm.xml</h5><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;</span><br><span class="line">&lt;!DOCTYPE hibernate-mapping PUBLIC </span><br><span class="line">    &quot;-//Hibernate/Hibernate Mapping DTD 3.0//EN&quot;</span><br><span class="line">    &quot;http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd&quot;&gt;</span><br><span class="line">&lt;hibernate-mapping package=&quot;me.yanrs.domain&quot;&gt;</span><br><span class="line">	&lt;class name=&quot;me.yanrs.domain.Customer&quot; table=&quot;cst_customer&quot;&gt;</span><br><span class="line">		&lt;id name=&quot;cust_id&quot;&gt;</span><br><span class="line">			&lt;generator class=&quot;native&quot;&gt;&lt;/generator&gt;</span><br><span class="line">		&lt;/id&gt;</span><br><span class="line">		&lt;property name=&quot;cust_name&quot; column=&quot;cust_name&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_user_id&quot; column=&quot;cust_user_id&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_create_id&quot; column=&quot;cust_create_id&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_source&quot; column=&quot;cust_source&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_industry&quot; column=&quot;cust_industry&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_level&quot; column=&quot;cust_level&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_phone&quot; column=&quot;cust_phone&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_mobile&quot; column=&quot;cust_mobile&quot;&gt;&lt;/property&gt;</span><br><span class="line">		</span><br><span class="line">		&lt;!-- </span><br><span class="line">			set:</span><br><span class="line">				name:属性的名称</span><br><span class="line">			key:</span><br><span class="line">				columns:数据库中外键的名称</span><br><span class="line">			one-to-many:</span><br><span class="line">				class: 类的全路径</span><br><span class="line">		 --&gt;</span><br><span class="line">		&lt;set name=&quot;linkmans&quot;&gt;</span><br><span class="line">			&lt;key column=&quot;cust_linkman&quot;&gt;&lt;/key&gt;</span><br><span class="line">			&lt;one-to-many class=&quot;me.yanrs.domain.Linkman&quot;/&gt;</span><br><span class="line">		&lt;/set&gt;</span><br><span class="line">		</span><br><span class="line">	&lt;/class&gt;</span><br><span class="line">&lt;/hibernate-mapping&gt;</span><br></pre></td></tr></table></figure>
+<h5 id="Linkman-hbm-xml"><a href="#Linkman-hbm-xml" class="headerlink" title="Linkman.hbm.xml"></a>Linkman.hbm.xml</h5><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;</span><br><span class="line">&lt;!DOCTYPE hibernate-mapping PUBLIC </span><br><span class="line">    &quot;-//Hibernate/Hibernate Mapping DTD 3.0//EN&quot;</span><br><span class="line">    &quot;http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd&quot;&gt;</span><br><span class="line">&lt;hibernate-mapping package=&quot;me.yanrs.domain&quot;&gt;</span><br><span class="line">	&lt;class name=&quot;me.yanrs.domain.Linkman&quot; table=&quot;cst_linkman&quot;&gt;</span><br><span class="line">		&lt;id name=&quot;lkm_id&quot;&gt;</span><br><span class="line">			&lt;generator class=&quot;native&quot;&gt;&lt;/generator&gt;</span><br><span class="line">		&lt;/id&gt;</span><br><span class="line">		&lt;property name=&quot;lkm_name&quot; column=&quot;lkm_name&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;lkm_gender&quot; column=&quot;lkm_gender&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;lkm_phone&quot; column=&quot;lkm_phone&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;lkm_mobile&quot; column=&quot;lkm_mobile&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;lkm_email&quot; column=&quot;lkm_email&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;lkm_qq&quot; column=&quot;lkm_qq&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;lkm_position&quot; column=&quot;lkm_position&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;lkm_memo&quot; column=&quot;lkm_memo&quot;&gt;&lt;/property&gt;</span><br><span class="line">		</span><br><span class="line">		&lt;!-- </span><br><span class="line">			many-to-one:</span><br><span class="line">				name: 属性的名称</span><br><span class="line">				class: 类的全路径</span><br><span class="line">				column:数据库中的名称</span><br><span class="line">		 --&gt;</span><br><span class="line">		&lt;many-to-one name=&quot;customer&quot; class=&quot;me.yanrs.domain.Customer&quot; column=&quot;lkm_cust_id&quot;&gt;&lt;/many-to-one&gt;</span><br><span class="line">		</span><br><span class="line">	&lt;/class&gt;</span><br><span class="line">&lt;/hibernate-mapping&gt;</span><br></pre></td></tr></table></figure>
+<h4 id="hibernate-cfg-xml"><a href="#hibernate-cfg-xml" class="headerlink" title="hibernate.cfg.xml"></a>hibernate.cfg.xml</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;</span><br><span class="line">&lt;!DOCTYPE hibernate-configuration PUBLIC</span><br><span class="line">	&quot;-//Hibernate/Hibernate Configuration DTD 3.0//EN&quot;</span><br><span class="line">	&quot;http://www.hibernate.org/dtd/hibernate-configuration-3.0.dtd&quot;&gt;</span><br><span class="line">&lt;hibernate-configuration&gt;</span><br><span class="line">	&lt;session-factory&gt;</span><br><span class="line">		&lt;property name=&quot;hibernate.connection.driver_class&quot;&gt;com.mysql.jdbc.Driver&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;hibernate.connection.url&quot;&gt;jdbc:mysql:///test1&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;hibernate.connection.username&quot;&gt;root&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;hibernate.connection.password&quot;&gt;root&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;hibernate.dialect&quot;&gt;org.hibernate.dialect.MySQLDialect&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;hibernate.show_sql&quot;&gt;true&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;hibernate.format_sql&quot;&gt;true&lt;/property&gt;</span><br><span class="line">		</span><br><span class="line">		&lt;!-- create可以自动根据实体创建数据库，update不创建 --&gt;</span><br><span class="line">		&lt;property name=&quot;hibernate.hbm2ddl.auto&quot;&gt;update&lt;/property&gt;</span><br><span class="line">		</span><br><span class="line">		&lt;property name=&quot;hibernate.current_session_context_class&quot;&gt;thread&lt;/property&gt;  </span><br><span class="line">		</span><br><span class="line">		&lt;!-- 将实体对象的hibernate的xml文件放到此处，不然会提示  Unknown entity--&gt;</span><br><span class="line">		&lt;mapping resource=&quot;me/yanrs/domain/User.hbm.xml&quot; /&gt;</span><br><span class="line">		&lt;mapping resource=&quot;me/yanrs/domain/Customer.hbm.xml&quot; /&gt;</span><br><span class="line">		&lt;mapping resource=&quot;me/yanrs/domain/Linkman.hbm.xml&quot; /&gt;</span><br><span class="line">	&lt;/session-factory&gt;</span><br><span class="line">&lt;/hibernate-configuration&gt;</span><br></pre></td></tr></table></figure>
+<h4 id="小试牛刀"><a href="#小试牛刀" class="headerlink" title="小试牛刀"></a>小试牛刀</h4><p>双向关联新增操作<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line">package me.yanrs.service;</span><br><span class="line"></span><br><span class="line">import org.hibernate.Session;</span><br><span class="line">import org.hibernate.Transaction;</span><br><span class="line"></span><br><span class="line">import me.yanrs.domain.Customer;</span><br><span class="line">import me.yanrs.domain.Linkman;</span><br><span class="line">import me.yanrs.utils.HibernateUtils;</span><br><span class="line"></span><br><span class="line">public class one_to_many &#123;</span><br><span class="line">	public static void main(String[] args) &#123;</span><br><span class="line">		one2many_base();</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	private static void one2many_base() &#123;</span><br><span class="line">		Session session = HibernateUtils.getCurrentSession();</span><br><span class="line">		//开启事务</span><br><span class="line">		Transaction beginTransaction = session.beginTransaction();</span><br><span class="line">		</span><br><span class="line">		//创建一条客户的数据</span><br><span class="line">		Customer customer = new Customer();</span><br><span class="line">		customer.setCust_name(&quot;c1&quot;);</span><br><span class="line">		</span><br><span class="line">		//创建两条联系人的数据</span><br><span class="line">		Linkman linkman1 = new Linkman();</span><br><span class="line">		linkman1.setLkm_name(&quot;l1&quot;);</span><br><span class="line">		</span><br><span class="line">		Linkman linkman2 = new Linkman();</span><br><span class="line">		linkman2.setLkm_name(&quot;l2&quot;);</span><br><span class="line">		</span><br><span class="line">		//一对多两者相互映射</span><br><span class="line">		customer.getLinkmans().add(linkman1);</span><br><span class="line">		customer.getLinkmans().add(linkman2);</span><br><span class="line">		linkman1.setCustomer(customer);</span><br><span class="line">		linkman2.setCustomer(customer);</span><br><span class="line">		</span><br><span class="line">		session.save(customer);</span><br><span class="line">		session.save(linkman1);</span><br><span class="line">		session.save(linkman2);</span><br><span class="line">		//最后别忘了commit</span><br><span class="line">		beginTransaction.commit();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>运行上面代码就能在数据库中看见新增的一个客户和两个联系人<br>以上的操作是双向的，即客户关联了联系人，联系人关联了客户。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">//客户关联了联系人</span><br><span class="line">customer.getLinkmans().add(linkman1);</span><br><span class="line">customer.getLinkmans().add(linkman2);</span><br><span class="line"></span><br><span class="line">//联系人关联了客户</span><br><span class="line">linkman1.setCustomer(customer);</span><br><span class="line">linkman2.setCustomer(customer);</span><br></pre></td></tr></table></figure></p>
+<p>以上操作在保存的时候还保存了双方，那如果只保存一方会怎么样呢？也就是说建立了双向维护的关系，但是我们只保存联系人或者客户。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line">package me.yanrs.service;</span><br><span class="line"></span><br><span class="line">import org.hibernate.Session;</span><br><span class="line">import org.hibernate.Transaction;</span><br><span class="line"></span><br><span class="line">import me.yanrs.domain.Customer;</span><br><span class="line">import me.yanrs.domain.Linkman;</span><br><span class="line">import me.yanrs.utils.HibernateUtils;</span><br><span class="line"></span><br><span class="line">public class one_to_many &#123;</span><br><span class="line">	public static void main(String[] args) &#123;</span><br><span class="line">		// one2many_base();</span><br><span class="line">		one2many_no_cascade();</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	private static void one2many_no_cascade() &#123;</span><br><span class="line">		Session session = HibernateUtils.getCurrentSession();</span><br><span class="line">		//开启事务</span><br><span class="line">		Transaction beginTransaction = session.beginTransaction();</span><br><span class="line">		</span><br><span class="line">		// 创建一条客户的数据</span><br><span class="line">		Customer customer = new Customer();</span><br><span class="line">		customer.setCust_name(&quot;c11&quot;);</span><br><span class="line">		</span><br><span class="line">		//创建一条联系人的数据</span><br><span class="line">		Linkman linkman1 = new Linkman();</span><br><span class="line">		linkman1.setLkm_name(&quot;l11&quot;);</span><br><span class="line">		</span><br><span class="line">		//建立关系</span><br><span class="line">		customer.getLinkmans().add(linkman1);</span><br><span class="line">		linkman1.setCustomer(customer);</span><br><span class="line">		</span><br><span class="line">		//这里只保存客户，不保存联系人</span><br><span class="line">		session.save(customer);</span><br><span class="line">		</span><br><span class="line">		//最后别忘了commit</span><br><span class="line">		beginTransaction.commit();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>运行上面代码，会出现一下错误（错误为瞬时对象异常，持久态对象关联了一个瞬时对象的异常。）<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Exception in thread &quot;main&quot; org.hibernate.TransientObjectException: object references an unsaved transient instance - save the transient instance before flushing: me.yanrs.domain.Linkman</span><br></pre></td></tr></table></figure></p>
+<p>无论从哪一方保存都会出现这个异常，要解决这样的问题，即实现只保存一方，那么我们就需要级联操作</p>
+<h4 id="级联关系"><a href="#级联关系" class="headerlink" title="级联关系"></a>级联关系</h4><p>当主控方执行保存，更新或者删除操作时，其关联对象（被控方）也执行相同的操作。在映射文件通过cascade属性的设置来控制来设置是否关联对象采用级联操作。</p>
+<h6 id="级联新增"><a href="#级联新增" class="headerlink" title="级联新增"></a>级联新增</h6><p>级联是有方向性的，在进行级联操作之前，我们要确认主控方。例如我们要保存客户，所以客户就是主控方，那么就需要在客户的映射文件中进行配置cascade</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;</span><br><span class="line">&lt;!DOCTYPE hibernate-mapping PUBLIC </span><br><span class="line">    &quot;-//Hibernate/Hibernate Mapping DTD 3.0//EN&quot;</span><br><span class="line">    &quot;http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd&quot;&gt;</span><br><span class="line">&lt;hibernate-mapping package=&quot;me.yanrs.domain&quot;&gt;</span><br><span class="line">	&lt;class name=&quot;me.yanrs.domain.Customer&quot; table=&quot;cst_customer&quot;&gt;</span><br><span class="line">		&lt;id name=&quot;cust_id&quot;&gt;</span><br><span class="line">			&lt;generator class=&quot;native&quot;&gt;&lt;/generator&gt;</span><br><span class="line">		&lt;/id&gt;</span><br><span class="line">		&lt;property name=&quot;cust_name&quot; column=&quot;cust_name&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_user_id&quot; column=&quot;cust_user_id&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_create_id&quot; column=&quot;cust_create_id&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_source&quot; column=&quot;cust_source&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_industry&quot; column=&quot;cust_industry&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_level&quot; column=&quot;cust_level&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_phone&quot; column=&quot;cust_phone&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_mobile&quot; column=&quot;cust_mobile&quot;&gt;&lt;/property&gt;</span><br><span class="line">		</span><br><span class="line">		&lt;!-- </span><br><span class="line">			set:</span><br><span class="line">				name:属性的名称</span><br><span class="line">			key:</span><br><span class="line">				columns:数据库中外键的名称</span><br><span class="line">			one-to-many:</span><br><span class="line">				class: 类的全路径</span><br><span class="line">		 --&gt;</span><br><span class="line">		&lt;set name=&quot;linkmans&quot; cascade=&quot;save-update&quot;&gt;</span><br><span class="line">			&lt;key column=&quot;cust_linkman&quot;&gt;&lt;/key&gt;</span><br><span class="line">			&lt;one-to-many class=&quot;me.yanrs.domain.Linkman&quot;/&gt;</span><br><span class="line">		&lt;/set&gt;</span><br><span class="line">		</span><br><span class="line">	&lt;/class&gt;</span><br><span class="line">&lt;/hibernate-mapping&gt;</span><br></pre></td></tr></table></figure>
+<p>这样，以客户为主控方的单项的保存就能实现了<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line">package me.yanrs.service;</span><br><span class="line"></span><br><span class="line">import org.hibernate.Session;</span><br><span class="line">import org.hibernate.Transaction;</span><br><span class="line"></span><br><span class="line">import me.yanrs.domain.Customer;</span><br><span class="line">import me.yanrs.domain.Linkman;</span><br><span class="line">import me.yanrs.utils.HibernateUtils;</span><br><span class="line"></span><br><span class="line">public class one_to_many &#123;</span><br><span class="line">	public static void main(String[] args) &#123;</span><br><span class="line">		// one2many_base();</span><br><span class="line">		one2many_no_cascade();</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	private static void one2many_cascade() &#123;</span><br><span class="line">		Session session = HibernateUtils.getCurrentSession();</span><br><span class="line">		//开启事务</span><br><span class="line">		Transaction beginTransaction = session.beginTransaction();</span><br><span class="line">		</span><br><span class="line">		// 创建一条客户的数据</span><br><span class="line">		Customer customer = new Customer();</span><br><span class="line">		customer.setCust_name(&quot;c11&quot;);</span><br><span class="line">		</span><br><span class="line">		//创建一条联系人的数据</span><br><span class="line">		Linkman linkman1 = new Linkman();</span><br><span class="line">		linkman1.setLkm_name(&quot;l11&quot;);</span><br><span class="line">		</span><br><span class="line">		//建立关系</span><br><span class="line">		customer.getLinkmans().add(linkman1);</span><br><span class="line">		linkman1.setCustomer(customer);</span><br><span class="line">		</span><br><span class="line">		//这里只保存客户，不保存联系人</span><br><span class="line">		session.save(customer);</span><br><span class="line">		</span><br><span class="line">		//最后别忘了commit</span><br><span class="line">		beginTransaction.commit();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>如果我们要保存联系人，所以联系人就是主控方，那么就需要在联系人的映射文件中进行配置cascade<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;</span><br><span class="line">&lt;!DOCTYPE hibernate-mapping PUBLIC </span><br><span class="line">    &quot;-//Hibernate/Hibernate Mapping DTD 3.0//EN&quot;</span><br><span class="line">    &quot;http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd&quot;&gt;</span><br><span class="line">&lt;hibernate-mapping package=&quot;me.yanrs.domain&quot;&gt;</span><br><span class="line">	&lt;class name=&quot;me.yanrs.domain.Linkman&quot; table=&quot;cst_linkman&quot;&gt;</span><br><span class="line">		&lt;id name=&quot;lkm_id&quot;&gt;</span><br><span class="line">			&lt;generator class=&quot;native&quot;&gt;&lt;/generator&gt;</span><br><span class="line">		&lt;/id&gt;</span><br><span class="line">		&lt;property name=&quot;lkm_name&quot; column=&quot;lkm_name&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;lkm_gender&quot; column=&quot;lkm_gender&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;lkm_phone&quot; column=&quot;lkm_phone&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;lkm_mobile&quot; column=&quot;lkm_mobile&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;lkm_email&quot; column=&quot;lkm_email&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;lkm_qq&quot; column=&quot;lkm_qq&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;lkm_position&quot; column=&quot;lkm_position&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;lkm_memo&quot; column=&quot;lkm_memo&quot;&gt;&lt;/property&gt;</span><br><span class="line">		</span><br><span class="line">		&lt;!-- </span><br><span class="line">			many-to-one:</span><br><span class="line">				name: 属性的名称</span><br><span class="line">				class: 类的全路径</span><br><span class="line">				column:数据库中的名称</span><br><span class="line">		 --&gt;</span><br><span class="line">		&lt;many-to-one cascade=&quot;save-update&quot; name=&quot;customer&quot; class=&quot;me.yanrs.domain.Customer&quot; column=&quot;lkm_cust_id&quot;&gt;&lt;/many-to-one&gt;</span><br><span class="line">		</span><br><span class="line">	&lt;/class&gt;</span><br><span class="line">&lt;/hibernate-mapping&gt;</span><br></pre></td></tr></table></figure></p>
+<p>同理，以联系人为主控方的单项的保存就能实现了<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line">package me.yanrs.service;</span><br><span class="line"></span><br><span class="line">import org.hibernate.Session;</span><br><span class="line">import org.hibernate.Transaction;</span><br><span class="line"></span><br><span class="line">import me.yanrs.domain.Customer;</span><br><span class="line">import me.yanrs.domain.Linkman;</span><br><span class="line">import me.yanrs.utils.HibernateUtils;</span><br><span class="line"></span><br><span class="line">public class one_to_many &#123;</span><br><span class="line">	public static void main(String[] args) &#123;</span><br><span class="line">		// one2many_base();</span><br><span class="line">		one2many_no_cascade();</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	private static void one2many_cascade() &#123;</span><br><span class="line">		Session session = HibernateUtils.getCurrentSession();</span><br><span class="line">		//开启事务</span><br><span class="line">		Transaction beginTransaction = session.beginTransaction();</span><br><span class="line">		</span><br><span class="line">		// 创建一条客户的数据</span><br><span class="line">		Customer customer = new Customer();</span><br><span class="line">		customer.setCust_name(&quot;c111&quot;);</span><br><span class="line">		</span><br><span class="line">		//创建一条联系人的数据</span><br><span class="line">		Linkman linkman1 = new Linkman();</span><br><span class="line">		linkman1.setLkm_name(&quot;l111&quot;);</span><br><span class="line">		</span><br><span class="line">		//建立关系</span><br><span class="line">		customer.getLinkmans().add(linkman1);</span><br><span class="line">		linkman1.setCustomer(customer);</span><br><span class="line">		</span><br><span class="line">		//这里只保存客户，不保存联系人</span><br><span class="line">		session.save(linkman1);</span><br><span class="line">		</span><br><span class="line">		//最后别忘了commit</span><br><span class="line">		beginTransaction.commit();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<h6 id="普通删除"><a href="#普通删除" class="headerlink" title="普通删除"></a>普通删除</h6><p>删除customer中id为94的数据<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br></pre></td></tr></table></figure></p>
+<h6 id="级联删除"><a href="#级联删除" class="headerlink" title="级联删除"></a>级联删除</h6><p>级联删除也是有方向性的，删除客户的同时级联删除联系人，也可以删除联系人的同时级联删除客户（这种情况很少）</p>
+<ol>
+<li>删除客户的时候同时删除客户的联系人。<br>删除的主控方为客户，所以在Customer.hbm.xml设置cascade=”delete”<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;</span><br><span class="line">&lt;!DOCTYPE hibernate-mapping PUBLIC </span><br><span class="line">    &quot;-//Hibernate/Hibernate Mapping DTD 3.0//EN&quot;</span><br><span class="line">    &quot;http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd&quot;&gt;</span><br><span class="line">&lt;hibernate-mapping package=&quot;me.yanrs.domain&quot;&gt;</span><br><span class="line">	&lt;class name=&quot;me.yanrs.domain.Customer&quot; table=&quot;cst_customer&quot;&gt;</span><br><span class="line">		&lt;id name=&quot;cust_id&quot;&gt;</span><br><span class="line">			&lt;generator class=&quot;native&quot;&gt;&lt;/generator&gt;</span><br><span class="line">		&lt;/id&gt;</span><br><span class="line">		&lt;property name=&quot;cust_name&quot; column=&quot;cust_name&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_user_id&quot; column=&quot;cust_user_id&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_create_id&quot; column=&quot;cust_create_id&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_source&quot; column=&quot;cust_source&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_industry&quot; column=&quot;cust_industry&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_level&quot; column=&quot;cust_level&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_phone&quot; column=&quot;cust_phone&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_mobile&quot; column=&quot;cust_mobile&quot;&gt;&lt;/property&gt;</span><br><span class="line">		</span><br><span class="line">		&lt;!-- </span><br><span class="line">			set:</span><br><span class="line">				name:属性的名称</span><br><span class="line">			key:</span><br><span class="line">				columns:数据库中外键的名称</span><br><span class="line">			one-to-many:</span><br><span class="line">				class: 类的全路径</span><br><span class="line">		 --&gt;</span><br><span class="line">		&lt;set cascade=&quot;delete&quot; name=&quot;linkmans&quot;&gt;</span><br><span class="line">			&lt;key column=&quot;cust_linkman&quot;&gt;&lt;/key&gt;</span><br><span class="line">			&lt;one-to-many class=&quot;me.yanrs.domain.Linkman&quot;/&gt;</span><br><span class="line">		&lt;/set&gt;</span><br><span class="line">		</span><br><span class="line">	&lt;/class&gt;</span><br><span class="line">&lt;/hibernate-mapping&gt;</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>删除代码<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">package me.yanrs.service;</span><br><span class="line"></span><br><span class="line">import java.awt.print.Printable;</span><br><span class="line"></span><br><span class="line">import org.hibernate.Session;</span><br><span class="line">import org.hibernate.Transaction;</span><br><span class="line"></span><br><span class="line">import me.yanrs.domain.Customer;</span><br><span class="line">import me.yanrs.domain.Linkman;</span><br><span class="line">import me.yanrs.utils.HibernateUtils;</span><br><span class="line"></span><br><span class="line">public class one_to_many &#123;</span><br><span class="line">	public static void main(String[] args) &#123;</span><br><span class="line">		// one2many_base();</span><br><span class="line">		// one2many_no_cascade();</span><br><span class="line">		one2many_delete_customer_no_cascade();</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	private static void one2many_delete_customer_cascade() &#123;</span><br><span class="line">		Session session = HibernateUtils.getCurrentSession();</span><br><span class="line">		//开启事务</span><br><span class="line">		Transaction beginTransaction = session.beginTransaction();</span><br><span class="line">		//查询ID为94的customer</span><br><span class="line">		Customer customer = session.get(Customer.class, 94l);</span><br><span class="line">		System.out.println(customer);</span><br><span class="line">		//删除</span><br><span class="line">		session.delete(customer);</span><br><span class="line">		//不要忘记提交</span><br><span class="line">		beginTransaction.commit();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>这样就能实现删除customer中id为94的customer，且删除linkman中有关联的数据。</p>
+<ol start="2">
+<li>删除联系人的时候删除客户<br>删除的主控方为联系人，所以在Linkman.hbm.xml设置cascade=”delete”<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;</span><br><span class="line">&lt;!DOCTYPE hibernate-mapping PUBLIC </span><br><span class="line">    &quot;-//Hibernate/Hibernate Mapping DTD 3.0//EN&quot;</span><br><span class="line">    &quot;http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd&quot;&gt;</span><br><span class="line">&lt;hibernate-mapping package=&quot;me.yanrs.domain&quot;&gt;</span><br><span class="line">	&lt;class name=&quot;me.yanrs.domain.Linkman&quot; table=&quot;cst_linkman&quot;&gt;</span><br><span class="line">		&lt;id name=&quot;lkm_id&quot;&gt;</span><br><span class="line">			&lt;generator class=&quot;native&quot;&gt;&lt;/generator&gt;</span><br><span class="line">		&lt;/id&gt;</span><br><span class="line">		&lt;property name=&quot;lkm_name&quot; column=&quot;lkm_name&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;lkm_gender&quot; column=&quot;lkm_gender&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;lkm_phone&quot; column=&quot;lkm_phone&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;lkm_mobile&quot; column=&quot;lkm_mobile&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;lkm_email&quot; column=&quot;lkm_email&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;lkm_qq&quot; column=&quot;lkm_qq&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;lkm_position&quot; column=&quot;lkm_position&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;lkm_memo&quot; column=&quot;lkm_memo&quot;&gt;&lt;/property&gt;</span><br><span class="line">		</span><br><span class="line">		&lt;!-- </span><br><span class="line">			many-to-one:</span><br><span class="line">				name: 属性的名称</span><br><span class="line">				class: 类的全路径</span><br><span class="line">				column:数据库中的名称</span><br><span class="line">		 --&gt;</span><br><span class="line">		&lt;many-to-one cascade=&quot;delete&quot; name=&quot;customer&quot; class=&quot;me.yanrs.domain.Customer&quot; column=&quot;lkm_cust_id&quot;&gt;&lt;/many-to-one&gt;</span><br><span class="line">		</span><br><span class="line">	&lt;/class&gt;</span><br><span class="line">&lt;/hibernate-mapping&gt;</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>删除代码<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">package me.yanrs.service;</span><br><span class="line"></span><br><span class="line">import java.awt.print.Printable;</span><br><span class="line"></span><br><span class="line">import org.hibernate.Session;</span><br><span class="line">import org.hibernate.Transaction;</span><br><span class="line"></span><br><span class="line">import me.yanrs.domain.Customer;</span><br><span class="line">import me.yanrs.domain.Linkman;</span><br><span class="line">import me.yanrs.utils.HibernateUtils;</span><br><span class="line"></span><br><span class="line">public class one_to_many &#123;</span><br><span class="line">	public static void main(String[] args) &#123;</span><br><span class="line">		// one2many_base();</span><br><span class="line">		// one2many_no_cascade();</span><br><span class="line">		one2many_delete_customer_no_cascade();</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	private static void one2many_delete_customer_no_cascade() &#123;</span><br><span class="line">		Session session = HibernateUtils.getCurrentSession();</span><br><span class="line">		//开启事务</span><br><span class="line">		Transaction beginTransaction = session.beginTransaction();</span><br><span class="line">		//查询ID为94的customer</span><br><span class="line">		Linkman linkman = session.get(Linkman.class, 5l);</span><br><span class="line">		System.out.println(linkman);</span><br><span class="line">		//删除</span><br><span class="line">		session.delete(linkman);</span><br><span class="line">		//不要忘记提交</span><br><span class="line">		beginTransaction.commit();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>这样就能实现删除linkman中id为5的linkman，且删除customer中有关联的数据。</p>
+<h5 id="inverse"><a href="#inverse" class="headerlink" title="inverse"></a>inverse</h5><p>通常我们在使用Hibernate的时候，如果是一对多的情况，一的一方都会放弃外键的维护权。inverse的默认值是false，代表不放弃外键的维护，配置值为true，代表放弃了外键的维护权。<br>在上面的例子中，我们让customer放弃维护外键<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;</span><br><span class="line">&lt;!DOCTYPE hibernate-mapping PUBLIC </span><br><span class="line">    &quot;-//Hibernate/Hibernate Mapping DTD 3.0//EN&quot;</span><br><span class="line">    &quot;http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd&quot;&gt;</span><br><span class="line">&lt;hibernate-mapping package=&quot;me.yanrs.domain&quot;&gt;</span><br><span class="line">	&lt;class name=&quot;me.yanrs.domain.Customer&quot; table=&quot;cst_customer&quot;&gt;</span><br><span class="line">		&lt;id name=&quot;cust_id&quot;&gt;</span><br><span class="line">			&lt;generator class=&quot;native&quot;&gt;&lt;/generator&gt;</span><br><span class="line">		&lt;/id&gt;</span><br><span class="line">		&lt;property name=&quot;cust_name&quot; column=&quot;cust_name&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_user_id&quot; column=&quot;cust_user_id&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_create_id&quot; column=&quot;cust_create_id&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_source&quot; column=&quot;cust_source&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_industry&quot; column=&quot;cust_industry&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_level&quot; column=&quot;cust_level&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_phone&quot; column=&quot;cust_phone&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;cust_mobile&quot; column=&quot;cust_mobile&quot;&gt;&lt;/property&gt;</span><br><span class="line">		</span><br><span class="line">		&lt;!-- </span><br><span class="line">			set:</span><br><span class="line">				name:属性的名称</span><br><span class="line">			key:</span><br><span class="line">				columns:数据库中外键的名称</span><br><span class="line">			one-to-many:</span><br><span class="line">				class: 类的全路径</span><br><span class="line">		 --&gt;</span><br><span class="line">		&lt;set inverse=&quot;true&quot; name=&quot;linkmans&quot;&gt;</span><br><span class="line">			&lt;key column=&quot;cust_linkman&quot;&gt;&lt;/key&gt;</span><br><span class="line">			&lt;one-to-many class=&quot;me.yanrs.domain.Linkman&quot;/&gt;</span><br><span class="line">		&lt;/set&gt;</span><br><span class="line">		</span><br><span class="line">	&lt;/class&gt;</span><br><span class="line">&lt;/hibernate-mapping&gt;</span><br></pre></td></tr></table></figure></p>
+<h5 id="区分cascade和inverse"><a href="#区分cascade和inverse" class="headerlink" title="区分cascade和inverse"></a>区分cascade和inverse</h5><p>cascade强调的是操作一个对象的时候，是否操作其关联对象<br>inverse强调的是外键的维护权</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/技术/" rel="tag"><i class="fa fa-tag"></i> 技术</a>
+              <a href="/tags/Hibernate/" rel="tag"><i class="fa fa-tag"></i> Hibernate</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2018/03/11/Hibernate4/" rel="prev" title="Hibernate4">
+      <i class="fa fa-chevron-left"></i> Hibernate4
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2018/03/11/Hibernate5/" rel="next" title="Hibernate5">
+      Hibernate5 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#一对多"><span class="nav-number">1.</span> <span class="nav-text">一对多</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#根据SQL创建实体"><span class="nav-number">1.1.</span> <span class="nav-text">根据SQL创建实体</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#SQL"><span class="nav-number">1.1.1.</span> <span class="nav-text">SQL</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#客户表实体"><span class="nav-number">1.1.2.</span> <span class="nav-text">客户表实体</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#联系人表实体"><span class="nav-number">1.1.3.</span> <span class="nav-text">联系人表实体</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#配置关系映射"><span class="nav-number">1.2.</span> <span class="nav-text">配置关系映射</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#Customer-hbm-xml"><span class="nav-number">1.2.1.</span> <span class="nav-text">Customer.hbm.xml</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#Linkman-hbm-xml"><span class="nav-number">1.2.2.</span> <span class="nav-text">Linkman.hbm.xml</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#hibernate-cfg-xml"><span class="nav-number">1.3.</span> <span class="nav-text">hibernate.cfg.xml</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#小试牛刀"><span class="nav-number">1.4.</span> <span class="nav-text">小试牛刀</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#级联关系"><span class="nav-number">1.5.</span> <span class="nav-text">级联关系</span></a><ol class="nav-child"><li class="nav-item nav-level-6"><a class="nav-link" href="#级联新增"><span class="nav-number">1.5.0.1.</span> <span class="nav-text">级联新增</span></a></li><li class="nav-item nav-level-6"><a class="nav-link" href="#普通删除"><span class="nav-number">1.5.0.2.</span> <span class="nav-text">普通删除</span></a></li><li class="nav-item nav-level-6"><a class="nav-link" href="#级联删除"><span class="nav-number">1.5.0.3.</span> <span class="nav-text">级联删除</span></a></li></ol></li><li class="nav-item nav-level-5"><a class="nav-link" href="#inverse"><span class="nav-number">1.5.1.</span> <span class="nav-text">inverse</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#区分cascade和inverse"><span class="nav-number">1.5.2.</span> <span class="nav-text">区分cascade和inverse</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="基本用法Go 标准库中的 WaitGroup 提供了三个方法： 123func (wg *WaitGroup) Add(delta int)  // 用来设置 WaitGroup 的计数值func (wg *WaitGroup) Done()          // 用来将 WaitGroup 的计数值减 1，其实就是调用了 Add(-1)func (wg *WaitGroup) Wait()">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Go 并发编程-5.WaitGroup">
+<meta property="og:url" content="https://rexyan.github.io/2023/03/16/Go 并发编程-5.WaitGroup/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="基本用法Go 标准库中的 WaitGroup 提供了三个方法： 123func (wg *WaitGroup) Add(delta int)  // 用来设置 WaitGroup 的计数值func (wg *WaitGroup) Done()          // 用来将 WaitGroup 的计数值减 1，其实就是调用了 Add(-1)func (wg *WaitGroup) Wait()">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230316135450.png">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.393Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Go 并发编程-5.WaitGroup">
+<meta name="twitter:description" content="基本用法Go 标准库中的 WaitGroup 提供了三个方法： 123func (wg *WaitGroup) Add(delta int)  // 用来设置 WaitGroup 的计数值func (wg *WaitGroup) Done()          // 用来将 WaitGroup 的计数值减 1，其实就是调用了 Add(-1)func (wg *WaitGroup) Wait()">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230316135450.png">
+
+<link rel="canonical" href="https://rexyan.github.io/2023/03/16/Go 并发编程-5.WaitGroup/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Go 并发编程-5.WaitGroup | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2023/03/16/Go 并发编程-5.WaitGroup/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Go 并发编程-5.WaitGroup
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2023-03-16 13:55:57" itemprop="dateCreated datePublished" datetime="2023-03-16T13:55:57+00:00">2023-03-16</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Go/" itemprop="url" rel="index"><span itemprop="name">Go</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="基本用法"><a href="#基本用法" class="headerlink" title="基本用法"></a>基本用法</h3><p>Go 标准库中的 WaitGroup 提供了三个方法：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(wg *WaitGroup)</span> <span class="title">Add</span><span class="params">(delta <span class="keyword">int</span>)</span>  // 用来设置 <span class="title">WaitGroup</span> 的计数值</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(wg *WaitGroup)</span> <span class="title">Done</span><span class="params">()</span>          // 用来将 <span class="title">WaitGroup</span> 的计数值减 1，其实就是调用了 <span class="title">Add</span><span class="params">(-1)</span></span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(wg *WaitGroup)</span> <span class="title">Wait</span><span class="params">()</span>          // 调用这个方法的 <span class="title">goroutine</span> 会一直阻塞，直到 <span class="title">WaitGroup</span> 的计数值变为 0</span></span><br></pre></td></tr></table></figure>
+<p>下面是一个使用示例，WaitGroup的值设置为10，然后在 10 个协程中完成计数，然后执行 wg.Done()。最后  wg.Wait() 等待 goroutine 都完成任务。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// 线程安全的计数器</span></span><br><span class="line"><span class="keyword">type</span> Counter <span class="keyword">struct</span> &#123;</span><br><span class="line">    mu    sync.Mutex</span><br><span class="line">    count <span class="keyword">uint64</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 对计数值加一</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(c *Counter)</span> <span class="title">Incr</span><span class="params">()</span></span> &#123;</span><br><span class="line">    c.mu.Lock()</span><br><span class="line">    c.count++</span><br><span class="line">    c.mu.Unlock()</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 获取当前的计数值</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(c *Counter)</span> <span class="title">Count</span><span class="params">()</span> <span class="title">uint64</span></span> &#123;</span><br><span class="line">    c.mu.Lock()</span><br><span class="line">    <span class="keyword">defer</span> c.mu.Unlock()</span><br><span class="line">    <span class="keyword">return</span> c.count</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// sleep 1秒，然后计数值加1</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">worker</span><span class="params">(c *Counter, wg *sync.WaitGroup)</span></span> &#123;</span><br><span class="line">    <span class="keyword">defer</span> wg.Done()</span><br><span class="line">    time.Sleep(time.Second)</span><br><span class="line">    c.Incr()</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">    <span class="keyword">var</span> counter Counter</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">var</span> wg sync.WaitGroup</span><br><span class="line">    wg.Add(<span class="number">10</span>) <span class="comment">// WaitGroup的值设置为10</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">10</span>; i++ &#123; <span class="comment">// 启动10个goroutine执行加1任务</span></span><br><span class="line">        <span class="keyword">go</span> worker(&amp;counter, &amp;wg)</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 检查点，等待goroutine都完成任务</span></span><br><span class="line">    wg.Wait()</span><br><span class="line">    <span class="comment">// 输出当前计数器的值</span></span><br><span class="line">    fmt.Println(counter.Count())</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="实现原理"><a href="#实现原理" class="headerlink" title="实现原理"></a>实现原理</h3><h4 id="数据结构"><a href="#数据结构" class="headerlink" title="数据结构"></a>数据结构</h4><p>WaitGroup 的数据结构。包括了一个 noCopy 的辅助字段，一个 state1 记录 WaitGroup 状态的数组。</p>
+<ul>
+<li>noCopy 的辅助字段，主要就是辅助 vet 工具检查是否通过 copy 赋值这个 WaitGroup 实例。</li>
+<li>state1，一个具有复合意义的字段，包含 WaitGroup 的计数、阻塞在检查点的 waiter 数和信号量。</li>
+</ul>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">type</span> WaitGroup <span class="keyword">struct</span> &#123;</span><br><span class="line">    <span class="comment">// 避免复制使用的一个技巧，可以告诉vet工具违反了复制使用的规则</span></span><br><span class="line">    noCopy noCopy</span><br><span class="line">    <span class="comment">// 64bit(8bytes)的值分成两段，高32bit是计数值，低32bit是waiter的计数</span></span><br><span class="line">    <span class="comment">// 另外32bit是用作信号量的</span></span><br><span class="line">    <span class="comment">// 因为64bit值的原子操作需要64bit对齐，但是32bit编译器不支持，所以数组中的元素在不同的架构中不一样，具体处理看下面的方法</span></span><br><span class="line">    <span class="comment">// 总之，会找到对齐的那64bit作为state，其余的32bit做信号量</span></span><br><span class="line">    state1 [<span class="number">3</span>]<span class="keyword">uint32</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 得到state的地址和信号量的地址</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(wg *WaitGroup)</span> <span class="title">state</span><span class="params">()</span> <span class="params">(statep *<span class="keyword">uint64</span>, semap *<span class="keyword">uint32</span>)</span></span> &#123;</span><br><span class="line">    <span class="keyword">if</span> <span class="keyword">uintptr</span>(unsafe.Pointer(&amp;wg.state1))%<span class="number">8</span> == <span class="number">0</span> &#123;</span><br><span class="line">        <span class="comment">// 如果地址是64bit对齐的，数组前两个元素做state，后一个元素做信号量</span></span><br><span class="line">        <span class="keyword">return</span> (*<span class="keyword">uint64</span>)(unsafe.Pointer(&amp;wg.state1)), &amp;wg.state1[<span class="number">2</span>]</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="comment">// 如果地址是32bit对齐的，数组后两个元素用来做state，它可以用来做64bit的原子操作，第一个元素32bit用来做信号量</span></span><br><span class="line">        <span class="keyword">return</span> (*<span class="keyword">uint64</span>)(unsafe.Pointer(&amp;wg.state1[<span class="number">1</span>])), &amp;wg.state1[<span class="number">0</span>]</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h4 id="内存对齐"><a href="#内存对齐" class="headerlink" title="内存对齐"></a>内存对齐</h4><blockquote>
+<p>这段代码主要是用来判断 <code>WaitGroup</code> 实例的状态变量 <code>state1</code> 是否为 8 字节对齐的。在 Go 中，如果一个变量的地址是 8 的倍数（即 8 字节对齐），则称之为“自然对齐”；否则，需要通过填充字节使其对齐。这是因为在某些处理器架构上，未对齐的访问会导致性能问题或者崩溃。</p>
+<p>在 <code>state()</code> 方法中，我们首先使用 <code>unsafe.Pointer</code> 把 <code>state1</code> 的地址转换成指针类型，再使用 <code>uintptr</code> 将指针转换成整数类型。然后，我们检查整数值是否为 8 的倍数。如果是，说明 <code>state1</code> 已经自然对齐了；否则，说明 <code>state1</code> 不是 8 字节对齐的，我们需要调整偏移量来让它对齐。</p>
+<p>对于已经自然对齐的情况，我们直接返回高 64 位和低 32 位的指针即可。对于未对齐的情况，我们将高 64 位的指针偏移 1，得到真正的起始位置；将低 32 位的指针指向空间的第一个字节（即 <code>state1[0]</code>）即可。</p>
+</blockquote>
+<blockquote>
+<p>当我们定义一个结构体时，编译器会根据结构体成员的大小和类型在内存中分配一段连续的空间。例如，假设我们定义了如下的一个结构体：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">&gt; Copy Codetype MyStruct struct &#123;</span><br><span class="line">&gt;     A int32</span><br><span class="line">&gt;     B bool</span><br><span class="line">&gt; &#125;</span><br><span class="line">&gt;</span><br></pre></td></tr></table></figure>
+</blockquote>
+<blockquote>
+<p>在 64 位的系统中，<code>int32</code> 类型的大小为 4 字节，而 <code>bool</code> 类型的大小为 1 字节。因此，编译器在内存中为这个结构体分配了 8 个字节的空间，其中前 4 个字节存储 <code>A</code>，后 1 个字节存储 <code>B</code>，还有 3 个字节没有被使用。</p>
+<p>在某些情况下，如果结构体的大小不是 8 的倍数（即结构体没有对齐到机器字长的边界），则需要进行填充字节，从而保证结构体在内存中对齐。例如，如果我们定义了如下的一个结构体：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">&gt; Copy Codetype MyStruct2 struct &#123;</span><br><span class="line">&gt;     A int32</span><br><span class="line">&gt;     B bool</span><br><span class="line">&gt;     C int16</span><br><span class="line">&gt; &#125;</span><br><span class="line">&gt;</span><br></pre></td></tr></table></figure>
+</blockquote>
+<blockquote>
+<p>在 64 位的系统中，<code>int32</code> 类型的大小为 4 字节，<code>bool</code> 类型的大小为 1 字节，而 <code>int16</code> 类型的大小为 2 字节。因此，编译器在内存中为这个结构体分配了 12 个字节的空间，其中前 4 个字节存储 <code>A</code>，接下来的 1 个字节存储 <code>B</code>，然后是两个字节的填充，最后 2 个字节存储 <code>C</code>。</p>
+<p>可以看到，由于 <code>MyStruct2</code> 的大小不是 8 的倍数，因此需要添加两个字节的填充。这样，在内存中，<code>MyStruct2</code> 在地址上就自然对齐了，从而避免了访问未对齐内存的性能问题或者错误。</p>
+<p>类似地，在 <code>sync.WaitGroup</code> 类型中，如果 <code>state1</code> 变量不是 8 字节对齐的，那么需要进行填充，从而保证指向计数器和信号量的指针能够正确访问</p>
+</blockquote>
+<blockquote>
+<p>为什么32bit系统的处理上，state1的元素排列和64bit的不同呢 </p>
+<p>64bit ： waiter,counter,sem </p>
+<p>32bit ： sem,waiter,counter </p>
+<p>首先要理解的是<strong>内存对齐</strong>，32 位机和 64 位机的差别在于每次读取的块大小不同，前者一次读取 4 字节的块，后者一次读取 8 字节的块。  <code>WaitGroup</code> 的大小是 12 字节，接下来我声明了一个 <code>var wg sync.WaitGroup</code>，假设此处 wg 的内存地址是 0xc420016240，此时这个地址是 64bit 对齐的，因此这里的重点是<strong>不论是 32 位机器还是 64 位机器，state1 的元素排列都是 <code>waiter,counter,sem</code></strong>。wg 的地址空间是 <code>0xc420016240~0xc42001624c</code>，因此如果此时是 64 位机的话还有4字节的空间可以分配给其他大小合适的变量。那此时 state1 的排列能不能是 <code>sem,waiter,counter</code> 呢？不能，因为 64 bit 值的原子操作必须 64 bit 对齐。 对于 32 位机器就会有一种<strong>特殊情况</strong>，那就是 wg 的内存地址起始被分配到了 0xc420016244，此时这个地址不是 64 bit 对齐的，因此这个时候排列变成了 <code>sem,waiter,counter</code>，这样的话，<code>waiter</code> 的起始地址变成了 0xc420016248，可以使用 64 bit 值的原子操作。</p>
+</blockquote>
+<blockquote>
+<p>如果内存地址不是64位对齐，则让seman填充第一个32位，这样子就可以使得后面的state以64位对齐（因为state存储的两个值要同步修改）。</p>
+</blockquote>
+<h4 id="Add，Done"><a href="#Add，Done" class="headerlink" title="Add，Done"></a>Add，Done</h4><p>Add 方法主要操作的是 state 的计数部分。你可以为计数值增加一个 delta 值，内部通过原子操作把这个值加到计数值上。需要注意的是，这个 delta 也可以是个负数，相当于为计数值减去一个值，Done 方法内部其实就是通过 Add(-1) 实现的</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(wg *WaitGroup)</span> <span class="title">Add</span><span class="params">(delta <span class="keyword">int</span>)</span></span> &#123;</span><br><span class="line">    statep, semap := wg.state()</span><br><span class="line">    <span class="comment">// 高32bit是计数值v，所以把delta左移32，增加到计数上</span></span><br><span class="line">    state := atomic.AddUint64(statep, <span class="keyword">uint64</span>(delta)&lt;&lt;<span class="number">32</span>)</span><br><span class="line">    v := <span class="keyword">int32</span>(state &gt;&gt; <span class="number">32</span>) <span class="comment">// 当前计数值</span></span><br><span class="line">    w := <span class="keyword">uint32</span>(state) <span class="comment">// waiter count</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> v &gt; <span class="number">0</span> || w == <span class="number">0</span> &#123;</span><br><span class="line">        <span class="keyword">return</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 如果计数值v为0并且waiter的数量w不为0，那么state的值就是waiter的数量</span></span><br><span class="line">    <span class="comment">// 将waiter的数量设置为0，因为计数值v也是0,所以它们俩的组合*statep直接设置为0即可。此时需要并唤醒所有的waiter</span></span><br><span class="line">    *statep = <span class="number">0</span></span><br><span class="line">    <span class="keyword">for</span> ; w != <span class="number">0</span>; w-- &#123;</span><br><span class="line">        runtime_Semrelease(semap, <span class="literal">false</span>, <span class="number">0</span>)</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">// Done方法实际就是计数器减1</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(wg *WaitGroup)</span> <span class="title">Done</span><span class="params">()</span></span> &#123;</span><br><span class="line">    wg.Add(<span class="number">-1</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h4 id="Wait"><a href="#Wait" class="headerlink" title="Wait"></a>Wait</h4><p>Wait 方法的实现逻辑是：不断检查 state 的值。如果其中的计数值变为了 0，那么说明所有的任务已完成，调用者不必再等待，直接返回。如果计数值大于 0，说明此时还有任务没完成，那么调用者就变成了等待者，需要加入 waiter 队列，并且阻塞住自己。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(wg *WaitGroup)</span> <span class="title">Wait</span><span class="params">()</span></span> &#123;</span><br><span class="line">    statep, semap := wg.state()</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">for</span> &#123;</span><br><span class="line">        state := atomic.LoadUint64(statep)</span><br><span class="line">        v := <span class="keyword">int32</span>(state &gt;&gt; <span class="number">32</span>) <span class="comment">// 当前计数值</span></span><br><span class="line">        w := <span class="keyword">uint32</span>(state) <span class="comment">// waiter的数量</span></span><br><span class="line">        <span class="keyword">if</span> v == <span class="number">0</span> &#123;</span><br><span class="line">            <span class="comment">// 如果计数值为0, 调用这个方法的goroutine不必再等待，继续执行它后面的逻辑即可</span></span><br><span class="line">            <span class="keyword">return</span></span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 否则把waiter数量加1。期间可能有并发调用Wait的情况，所以最外层使用了一个for循环</span></span><br><span class="line">        <span class="keyword">if</span> atomic.CompareAndSwapUint64(statep, state, state+<span class="number">1</span>) &#123;</span><br><span class="line">            <span class="comment">// 阻塞休眠等待</span></span><br><span class="line">            runtime_Semacquire(semap)</span><br><span class="line">            <span class="comment">// 被唤醒，不再阻塞，返回</span></span><br><span class="line">            <span class="keyword">return</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="常见错误"><a href="#常见错误" class="headerlink" title="常见错误"></a>常见错误</h3><ul>
+<li><p>计数器设置为负值：一般情况下，有两种方法会导致计数器设置为负数。第一种方法是：调用 Add 的时候传递一个负数。如果你能保证当前的计数器加上这个负数后还是大于等于 0 的话，也没有问题，否则就会导致 panic。第二个方法是：调用 Done 方法的次数过多，超过了 WaitGroup 的计数值。</p>
+</li>
+<li><p>不期望的 Add 时机：一定要遵循的原则，<strong>等所有的 Add 方法调用之后再调用 Wait</strong>。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">    <span class="keyword">var</span> wg sync.WaitGroup</span><br><span class="line">    <span class="keyword">go</span> dosomething(<span class="number">100</span>, &amp;wg) <span class="comment">// 启动第一个goroutine</span></span><br><span class="line">    <span class="keyword">go</span> dosomething(<span class="number">110</span>, &amp;wg) <span class="comment">// 启动第二个goroutine</span></span><br><span class="line">    <span class="keyword">go</span> dosomething(<span class="number">120</span>, &amp;wg) <span class="comment">// 启动第三个goroutine</span></span><br><span class="line">    <span class="keyword">go</span> dosomething(<span class="number">130</span>, &amp;wg) <span class="comment">// 启动第四个goroutine</span></span><br><span class="line"></span><br><span class="line">    wg.Wait() <span class="comment">// 主goroutine等待完成</span></span><br><span class="line">    fmt.Println(<span class="string">"Done"</span>)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">dosomething</span><span class="params">(millisecs time.Duration, wg *sync.WaitGroup)</span></span> &#123;</span><br><span class="line">    duration := millisecs * time.Millisecond</span><br><span class="line">    time.Sleep(duration) <span class="comment">// 故意sleep一段时间</span></span><br><span class="line"></span><br><span class="line">    wg.Add(<span class="number">1</span>)</span><br><span class="line">    fmt.Println(<span class="string">"后台执行, duration:"</span>, duration)</span><br><span class="line">    wg.Done()</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上述代码中，主 goorutine 调用 Wait 的时候，因为四个任务 goroutine 一开始都休眠，所以可能 WaitGroup 的 Add 方法还没有被调用，WaitGroup 的计数还是 0，所以它并没有等待四个子 goroutine 执行完毕才继续执行，而是立刻执行了下一步。导致这个错误的原因是，没有遵循先完成所有的 Add 之后才 Wait。</p>
+</li>
+<li><p>前一个 Wait 还没结束就重用 WaitGroup：只要 WaitGroup 的计数值恢复到零值的状态，那么它就可以被看作是新创建的 WaitGroup，被重复使用。但是，如果我们在 WaitGroup 的计数值还没有恢复到零值的时候就重用，就会导致程序 panic。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">    <span class="keyword">var</span> wg sync.WaitGroup</span><br><span class="line">    wg.Add(<span class="number">1</span>)</span><br><span class="line">    <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">        time.Sleep(time.Millisecond)</span><br><span class="line">        wg.Done() <span class="comment">// 计数器减1</span></span><br><span class="line">        wg.Add(<span class="number">1</span>) <span class="comment">// 计数值加1</span></span><br><span class="line">    &#125;()</span><br><span class="line">    wg.Wait() <span class="comment">// 主goroutine等待，有可能和 wg.Add(1) 并发执行, 就会导致程序 panic</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>WaitGroup 虽然可以重用，但是是有一个前提的，那就是必须等到上一轮的 Wait 完成之后，才能重用 WaitGroup 执行下一轮的 Add/Wait，如果你在 Wait 还没执行完的时候就调用下一轮 Add 方法，就有可能出现 panic。</p>
+</li>
+</ul>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230316135450.png" alt></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2023/03/15/Go 并发编程-4.RWMutex/" rel="prev" title="Go 并发编程-4.RWMutex">
+      <i class="fa fa-chevron-left"></i> Go 并发编程-4.RWMutex
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2023/03/17/Go 并发编程-6.Sync.Cond/" rel="next" title="Go 并发编程-6.Sync.Cond">
+      Go 并发编程-6.Sync.Cond <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#基本用法"><span class="nav-number">1.</span> <span class="nav-text">基本用法</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#实现原理"><span class="nav-number">2.</span> <span class="nav-text">实现原理</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#数据结构"><span class="nav-number">2.1.</span> <span class="nav-text">数据结构</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#内存对齐"><span class="nav-number">2.2.</span> <span class="nav-text">内存对齐</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Add，Done"><span class="nav-number">2.3.</span> <span class="nav-text">Add，Done</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Wait"><span class="nav-number">2.4.</span> <span class="nav-text">Wait</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#常见错误"><span class="nav-number">3.</span> <span class="nav-text">常见错误</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#总结"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

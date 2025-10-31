@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="基础查询主键查询 查询所有hits 默认返回 10条数据。  分页查询 查询具体字段查询结果默认按照 _score 倒序排列  自定义排序自定义排序后 _score 字段的值就会变成 null  聚合查询zi_ding_yi_name 是自定义的聚合查询名称，word_count 是聚合的字段。最后结果中，可以看到 word_count 值为 345 的 doc 有6个，34325 的有 4 个。">
+<meta name="keywords" content="Elasticsearch">
+<meta property="og:type" content="article">
+<meta property="og:title" content="ES 查询">
+<meta property="og:url" content="https://rexyan.github.io/2019/07/04/ES 查询/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="基础查询主键查询 查询所有hits 默认返回 10条数据。  分页查询 查询具体字段查询结果默认按照 _score 倒序排列  自定义排序自定义排序后 _score 字段的值就会变成 null  聚合查询zi_ding_yi_name 是自定义的聚合查询名称，word_count 是聚合的字段。最后结果中，可以看到 word_count 值为 345 的 doc 有6个，34325 的有 4 个。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704205228.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704212247.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704212530.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704212729.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704213023.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704213528.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704213912.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704214109.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704215120.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704215304.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704215719.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704220157.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704220343.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704220613.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704220827.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704223843.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190710211716.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190710212639.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190710213436.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190710213917.png">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.391Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="ES 查询">
+<meta name="twitter:description" content="基础查询主键查询 查询所有hits 默认返回 10条数据。  分页查询 查询具体字段查询结果默认按照 _score 倒序排列  自定义排序自定义排序后 _score 字段的值就会变成 null  聚合查询zi_ding_yi_name 是自定义的聚合查询名称，word_count 是聚合的字段。最后结果中，可以看到 word_count 值为 345 的 doc 有6个，34325 的有 4 个。">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704205228.png">
+
+<link rel="canonical" href="https://rexyan.github.io/2019/07/04/ES 查询/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>ES 查询 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2019/07/04/ES 查询/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          ES 查询
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-07-04 22:25:57" itemprop="dateCreated datePublished" datetime="2019-07-04T22:25:57+00:00">2019-07-04</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/数据库/" itemprop="url" rel="index"><span itemprop="name">数据库</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="基础查询"><a href="#基础查询" class="headerlink" title="基础查询"></a>基础查询</h3><h4 id="主键查询"><a href="#主键查询" class="headerlink" title="主键查询"></a>主键查询</h4><p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704205228.png" alt></p>
+<h4 id="查询所有"><a href="#查询所有" class="headerlink" title="查询所有"></a>查询所有</h4><p>hits 默认返回 10条数据。</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704212247.png" alt></p>
+<h4 id="分页查询"><a href="#分页查询" class="headerlink" title="分页查询"></a>分页查询</h4><p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704212530.png" alt></p>
+<h4 id="查询具体字段"><a href="#查询具体字段" class="headerlink" title="查询具体字段"></a>查询具体字段</h4><p>查询结果默认按照 _score 倒序排列</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704212729.png" alt></p>
+<h4 id="自定义排序"><a href="#自定义排序" class="headerlink" title="自定义排序"></a>自定义排序</h4><p>自定义排序后 _score 字段的值就会变成 null</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704213023.png" alt></p>
+<h4 id="聚合查询"><a href="#聚合查询" class="headerlink" title="聚合查询"></a>聚合查询</h4><p>zi_ding_yi_name 是自定义的聚合查询名称，word_count 是聚合的字段。最后结果中，可以看到 word_count 值为 345 的 doc 有6个，34325 的有 4 个。</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704213528.png" alt></p>
+<h4 id="多组聚合"><a href="#多组聚合" class="headerlink" title="多组聚合"></a>多组聚合</h4><p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704213912.png" alt></p>
+<h4 id="字段简单计算"><a href="#字段简单计算" class="headerlink" title="字段简单计算"></a>字段简单计算</h4><p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704214109.png" alt></p>
+<h3 id="高级查询"><a href="#高级查询" class="headerlink" title="高级查询"></a>高级查询</h3><p><strong>子条件查询</strong>： 特定字段查询所指特定值<br><strong>复合条件查询</strong>： 以一定的逻辑组合子条件查询</p>
+<h4 id="子条件查询"><a href="#子条件查询" class="headerlink" title="子条件查询"></a>子条件查询</h4><h5 id="Query-context"><a href="#Query-context" class="headerlink" title="Query context"></a>Query context</h5><p>在查询过程中,除了判断文档是否满足查询条件外, ES还会计算一个_score来标识匹配的程度,旨在判断目标文档<br>和查询条件匹配的有多好。</p>
+<h5 id="全文本查询"><a href="#全文本查询" class="headerlink" title="全文本查询"></a>全文本查询</h5><p>针对文本类数据，例如<strong>模糊匹配</strong></p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704215120.png" alt></p>
+<p><strong>完全匹配</strong>查询</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704215304.png" alt></p>
+<p><strong>多个字段模糊匹配</strong>查询</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704215719.png" alt></p>
+<p>我们还可以进行<strong>DSL 语法查询</strong>，例如查询字段值包含 java 或者 武功。</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704220157.png" alt></p>
+<p>在 DSL 查询中，我们也可以指定在哪些字段中进行查询。     </p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704220343.png" alt></p>
+<h5 id="字段级别查询"><a href="#字段级别查询" class="headerlink" title="字段级别查询"></a>字段级别查询</h5><p>针对结构化数据，如数字，日期等。例如，查询 word_count 为 252 的值。</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704220613.png" alt></p>
+<p>还可以进行<strong>范围查询</strong></p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704220827.png" alt></p>
+<h5 id="Filter-context"><a href="#Filter-context" class="headerlink" title="Filter context"></a>Filter context</h5><p>在查询过程中，只判断该文档是否满足条件，只有 yes 或者 no。</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190704223843.png" alt></p>
+<h3 id="复合条件查询"><a href="#复合条件查询" class="headerlink" title="复合条件查询"></a>复合条件查询</h3><h4 id="固定分数查询"><a href="#固定分数查询" class="headerlink" title="固定分数查询"></a>固定分数查询</h4><p>constant_score 代表固定分数查询，boost 代表分数的值。</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190710211716.png" alt></p>
+<h4 id="布尔查询"><a href="#布尔查询" class="headerlink" title="布尔查询"></a>布尔查询</h4><p>下图中，代表查询 author 包含詹小鱼或者 title 包含 java 的值。是一种或者的关系。</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190710212639.png" alt></p>
+<p>下图中的查询代表，查询 author 包含詹小鱼且 title 包含 java 的值。并且将查询结果进行过滤，过滤出 word_count 为 345 的数据。</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190710213436.png" alt></p>
+<p>还可以进行 must_not 查询，是一种非的关系。</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20190710213917.png" alt></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Elasticsearch/" rel="tag"><i class="fa fa-tag"></i> Elasticsearch</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/07/02/ES 常见操作/" rel="prev" title="ES 常见操作">
+      <i class="fa fa-chevron-left"></i> ES 常见操作
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/07/23/随笔/" rel="next" title="随笔">
+      随笔 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#基础查询"><span class="nav-number">1.</span> <span class="nav-text">基础查询</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#主键查询"><span class="nav-number">1.1.</span> <span class="nav-text">主键查询</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#查询所有"><span class="nav-number">1.2.</span> <span class="nav-text">查询所有</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#分页查询"><span class="nav-number">1.3.</span> <span class="nav-text">分页查询</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#查询具体字段"><span class="nav-number">1.4.</span> <span class="nav-text">查询具体字段</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#自定义排序"><span class="nav-number">1.5.</span> <span class="nav-text">自定义排序</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#聚合查询"><span class="nav-number">1.6.</span> <span class="nav-text">聚合查询</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#多组聚合"><span class="nav-number">1.7.</span> <span class="nav-text">多组聚合</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#字段简单计算"><span class="nav-number">1.8.</span> <span class="nav-text">字段简单计算</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#高级查询"><span class="nav-number">2.</span> <span class="nav-text">高级查询</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#子条件查询"><span class="nav-number">2.1.</span> <span class="nav-text">子条件查询</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#Query-context"><span class="nav-number">2.1.1.</span> <span class="nav-text">Query context</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#全文本查询"><span class="nav-number">2.1.2.</span> <span class="nav-text">全文本查询</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#字段级别查询"><span class="nav-number">2.1.3.</span> <span class="nav-text">字段级别查询</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#Filter-context"><span class="nav-number">2.1.4.</span> <span class="nav-text">Filter context</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#复合条件查询"><span class="nav-number">3.</span> <span class="nav-text">复合条件查询</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#固定分数查询"><span class="nav-number">3.1.</span> <span class="nav-text">固定分数查询</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#布尔查询"><span class="nav-number">3.2.</span> <span class="nav-text">布尔查询</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

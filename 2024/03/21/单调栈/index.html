@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="每日温度请根据每日 气温 列表，重新生成一个列表。对应位置的输出为：要想观测到更高的气温，至少需要等待的天数。如果气温在这之后都不会升高，请在该位置用 0 来代替。 例如，给定一个列表 temperatures = [73, 74, 75, 71, 69, 72, 76, 73]，你的输出应该是 [1, 1, 4, 2, 1, 1, 0, 0]。提示：气温 列表长度的范围是 [1, 30000]。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="单调栈">
+<meta property="og:url" content="https://rexyan.github.io/2024/03/21/单调栈/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="每日温度请根据每日 气温 列表，重新生成一个列表。对应位置的输出为：要想观测到更高的气温，至少需要等待的天数。如果气温在这之后都不会升高，请在该位置用 0 来代替。 例如，给定一个列表 temperatures = [73, 74, 75, 71, 69, 72, 76, 73]，你的输出应该是 [1, 1, 4, 2, 1, 1, 0, 0]。提示：气温 列表长度的范围是 [1, 30000]。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/IMG_4355.PNG">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/IMG_4356.HEIC">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/202403262216505.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/202403262219772.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/202403262235372.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/202403262239721.png">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.406Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="单调栈">
+<meta name="twitter:description" content="每日温度请根据每日 气温 列表，重新生成一个列表。对应位置的输出为：要想观测到更高的气温，至少需要等待的天数。如果气温在这之后都不会升高，请在该位置用 0 来代替。 例如，给定一个列表 temperatures = [73, 74, 75, 71, 69, 72, 76, 73]，你的输出应该是 [1, 1, 4, 2, 1, 1, 0, 0]。提示：气温 列表长度的范围是 [1, 30000]。">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/IMG_4355.PNG">
+
+<link rel="canonical" href="https://rexyan.github.io/2024/03/21/单调栈/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>单调栈 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2024/03/21/单调栈/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          单调栈
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2024-03-21 22:55:57" itemprop="dateCreated datePublished" datetime="2024-03-21T22:55:57+00:00">2024-03-21</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/博客/" itemprop="url" rel="index"><span itemprop="name">博客</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/算法/" itemprop="url" rel="index"><span itemprop="name">算法</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h4 id="每日温度"><a href="#每日温度" class="headerlink" title="每日温度"></a>每日温度</h4><p>请根据每日 气温 列表，重新生成一个列表。对应位置的输出为：要想观测到更高的气温，至少需要等待的天数。如果气温在这之后都不会升高，请在该位置用 0 来代替。</p>
+<p>例如，给定一个列表 temperatures = [73, 74, 75, 71, 69, 72, 76, 73]，你的输出应该是 [1, 1, 4, 2, 1, 1, 0, 0]。提示：气温 列表长度的范围是 [1, 30000]。每个气温的值的均为华氏度，都是在 [30, 100] 范围内的整数。</p>
+<p><strong>通常是一维数组，要寻找任一个元素的右边或者左边第一个比自己大或者小的元素的位置，此时我们就要想到可以用单调栈了</strong>。时间复杂度为O(n)</p>
+<p><strong>单调栈的本质是空间换时间</strong>，因为在遍历的过程中需要用一个栈来记录右边第一个比当前元素高的元素，优点是整个数组只需要遍历一次</p>
+<p><strong>更直白来说，就是用一个栈来记录我们遍历过的元素</strong>，因为我们遍历数组的时候，我们不知道之前都遍历了哪些元素，以至于遍历一个元素找不到是不是之前遍历过一个更小的，所以我们需要用一个容器（这里用单调栈）来记录我们遍历过的元素。</p>
+<p>在使用单调栈的时候首先要明确如下几点：</p>
+<ol>
+<li><p>单调栈里存放的元素是什么？</p>
+<ul>
+<li>单调栈里只需要存放元素的下标i就可以了，如果需要使用对应的元素，直接T[i]就可以获取。</li>
+</ul>
+</li>
+<li><p>单调栈里元素是递增呢？ 还是递减呢？</p>
+<ul>
+<li><strong>顺序的描述为 从栈头到栈底的顺序</strong>，如果是求右边第一个比自己大的元素，那么就是单调栈里元素就是递增。如果是求左边第一个比自己小的元素，那么就是单调栈里元素就是递减。</li>
+</ul>
+</li>
+</ol>
+<p>使用单调栈主要有三个判断条件。</p>
+<ul>
+<li>当前遍历的元素T[i]小于栈顶元素T[st.top()]的情况</li>
+<li>当前遍历的元素T[i]等于栈顶元素T[st.top()]的情况</li>
+<li>当前遍历的元素T[i]大于栈顶元素T[st.top()]的情况</li>
+</ul>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Solution</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">dailyTemperatures</span><span class="params">(self, temperatures: List[int])</span> -&gt; List[int]:</span></span><br><span class="line">        answer = [<span class="number">0</span>]*len(temperatures)</span><br><span class="line">        stack = [<span class="number">0</span>]</span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> range(<span class="number">1</span>,len(temperatures)):</span><br><span class="line">            <span class="comment"># 情况一和情况二</span></span><br><span class="line">            <span class="keyword">if</span> temperatures[i]&lt;=temperatures[stack[<span class="number">-1</span>]]:</span><br><span class="line">                stack.append(i)</span><br><span class="line">            <span class="comment"># 情况三</span></span><br><span class="line">            <span class="keyword">else</span>:</span><br><span class="line">                <span class="keyword">while</span> len(stack) != <span class="number">0</span> <span class="keyword">and</span> temperatures[i]&gt;temperatures[stack[<span class="number">-1</span>]]:</span><br><span class="line">                    answer[stack[<span class="number">-1</span>]]=i-stack[<span class="number">-1</span>]</span><br><span class="line">                    stack.pop()</span><br><span class="line">                stack.append(i)</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> answer</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>解题思路：</p>
+<ol>
+<li><strong>单调栈的定义</strong>：单调栈是一种特殊的栈，它在任何时候都保持栈内的元素是单调的（递增或递减）。在这个问题中，我们需要找到每个气温后面第一个更高的气温，因此我们需要一个递增的单调栈。</li>
+<li><strong>栈的维护</strong>：遍历气温数组，对于每个气温，我们根据其与栈顶气温的关系来决定是否将其压入栈中或者弹出栈顶元素。<ul>
+<li>如果当前气温大于栈顶气温，说明栈顶气温之后没有更高的气温，因此将栈顶气温的索引弹出，并更新结果数组中栈顶气温索引对应的值（等待天数）。</li>
+<li>如果当前气温小于或等于栈顶气温，将当前气温的索引压入栈中，因为可能存在更高的气温。</li>
+</ul>
+</li>
+<li><strong>边界处理</strong>：在遍历过程中，如果栈为空或者当前气温小于栈顶气温，直接将当前索引压入栈中。这是因为栈为空时，第一个元素没有更高的气温，而当前气温小于栈顶气温时，我们还不知道后面是否有更高的气温。</li>
+</ol>
+<p>关键点：</p>
+<ol>
+<li><strong>单调性</strong>：保持栈内的气温索引是递增的，这样才能确保栈顶元素的气温是当前已遍历过的气温中最小的，从而找到每个气温后面第一个更高的气温。</li>
+<li><strong>栈顶元素的处理</strong>：当遇到一个更高的气温时，栈顶元素及其下面的所有元素都找到了后续的第一个更高的气温，因此可以将它们从栈中弹出，并更新结果数组。</li>
+<li><strong>结果数组的初始化</strong>：结果数组应该初始化为0，因为如果某个元素的右边没有更高的气温，那么它对应的结果就是0。</li>
+<li><strong>时间复杂度</strong>：单调栈算法的时间复杂度为 O(n)，因为每个元素最多进栈和出栈一次，这比暴力解法的 O(n^2) 时间复杂度有显著提升。</li>
+<li><strong>空间复杂度</strong>：由于使用了额外的栈和结果数组，空间复杂度为 O(n)。</li>
+</ol>
+</blockquote>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/IMG_4355.PNG" alt></p>
+<h4 id="下一个更大元素-I"><a href="#下一个更大元素-I" class="headerlink" title="下一个更大元素 I"></a>下一个更大元素 I</h4><p>给你两个 没有重复元素 的数组 nums1 和 nums2 ，其中nums1 是 nums2 的子集。请你找出 nums1 中每个元素在 nums2 中的下一个比其大的值。nums1 中数字 x 的下一个更大元素是指 x 在 nums2 中对应位置的右边的第一个比 x 大的元素。如果不存在，对应位置输出 -1</p>
+<p>示例 1，输入: nums1 = [4,1,2], nums2 = [1,3,4,2]，输出: [-1,3,-1]</p>
+<ul>
+<li><strong>result数组初始化应该为-1</strong>，题目说如果不存在对应位置就输出 -1 ，所以result数组如果某位置没有被赋值，那么就应该是是-1。</li>
+<li>我们应该遍历 nums2，在遍历nums2的过程中，我们要判断nums2[i]是否在nums1中出现过，因为最后是要根据nums1元素的下标来更新result数组。因为元素没有重复，所以可以用map来做映射了。根据数值快速找到下标，还可以判断nums2[i]是否在nums1中出现过。</li>
+</ul>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Solution</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">nextGreaterElement</span><span class="params">(self, nums1: List[int], nums2: List[int])</span> -&gt; List[int]:</span></span><br><span class="line">        result = [<span class="number">-1</span>]*len(nums1)</span><br><span class="line">        stack = [<span class="number">0</span>]</span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> range(<span class="number">1</span>,len(nums2)):</span><br><span class="line">            <span class="comment"># 情况一情况二</span></span><br><span class="line">            <span class="keyword">if</span> nums2[i]&lt;=nums2[stack[<span class="number">-1</span>]]:</span><br><span class="line">                stack.append(i)</span><br><span class="line">            <span class="comment"># 情况三</span></span><br><span class="line">            <span class="keyword">else</span>:</span><br><span class="line">                <span class="keyword">while</span> len(stack)!=<span class="number">0</span> <span class="keyword">and</span> nums2[i]&gt;nums2[stack[<span class="number">-1</span>]]:</span><br><span class="line">                    <span class="comment"># in 是 Python 特有的写法，其他语言使用一个 map</span></span><br><span class="line">                    <span class="keyword">if</span> nums2[stack[<span class="number">-1</span>]] <span class="keyword">in</span> nums1:  </span><br><span class="line">                        index = nums1.index(nums2[stack[<span class="number">-1</span>]])</span><br><span class="line">                        result[index]=nums2[i]</span><br><span class="line">                    stack.pop()                 </span><br><span class="line">                stack.append(i)</span><br><span class="line">        <span class="keyword">return</span> result</span><br></pre></td></tr></table></figure>
+<p>可以和下面的 Python 版本对比下：<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Solution</span> </span>&#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">int</span>[] nextGreaterElement(<span class="keyword">int</span>[] nums1, <span class="keyword">int</span>[] nums2) &#123;</span><br><span class="line">        HashMap&lt;Integer, Integer&gt; map = <span class="keyword">new</span> HashMap&lt;&gt;();</span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; nums1.length; i++) &#123;</span><br><span class="line">            map.put(nums1[i], i);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">int</span>[] res = <span class="keyword">new</span> <span class="keyword">int</span>[nums1.length];</span><br><span class="line">        Stack&lt;Integer&gt; stack = <span class="keyword">new</span> Stack&lt;&gt;();</span><br><span class="line">        Arrays.fill(res, -<span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; nums2.length; i++) &#123;</span><br><span class="line">            <span class="keyword">while</span> (!stack.isEmpty() &amp;&amp; nums2[stack.peek()] &lt; nums2[i]) &#123;</span><br><span class="line">                <span class="keyword">int</span> pre = nums2[stack.pop()];</span><br><span class="line">                <span class="keyword">if</span> (map.containsKey(pre)) &#123;</span><br><span class="line">                    res[map.get(pre)] = nums2[i];</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">            stack.push(i);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> res;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<blockquote>
+<p>解题思路：</p>
+<ol>
+<li><strong>理解题目</strong>：给定两个数组 <code>nums1</code> 和 <code>nums2</code>，其中 <code>nums1</code> 是 <code>nums2</code> 的子集，要求找到 <code>nums1</code> 中每个元素在 <code>nums2</code> 中的下一个更大元素。如果不存在这样的元素，输出 <code>-1</code>。</li>
+<li><strong>使用哈希映射</strong>：由于 <code>nums1</code> 中的元素在 <code>nums2</code> 中的顺序可能会改变，我们首先需要建立一个映射，将 <code>nums1</code> 中的每个元素映射到 <code>nums2</code> 中的对应下标。这样我们就可以在后续的查找过程中快速定位。</li>
+<li><strong>单调栈的维护</strong>：使用一个单调递增栈来存储 <code>nums2</code> 中的元素的下标。栈中的元素应该保持递增顺序，这样我们可以在栈中找到比栈顶元素大的第一个元素。</li>
+<li><strong>遍历 <code>nums2</code></strong>：遍历 <code>nums2</code> 数组，对于每个元素，根据其与栈顶元素的关系进行操作：<ul>
+<li>如果当前元素大于栈顶元素，那么它就是栈顶元素在 <code>nums2</code> 中的下一个更大元素。更新结果数组，并弹出栈顶元素。</li>
+<li>如果当前元素小于或等于栈顶元素，将其下标压入栈中。</li>
+</ul>
+</li>
+<li><strong>处理结果数组</strong>：在遍历结束后，如果结果数组中的某些位置没有被更新，那么这些位置的值应该保持为 <code>-1</code>，因为它们在 <code>nums2</code> 中没有更大的元素。</li>
+</ol>
+<p>关键点：</p>
+<ol>
+<li><strong>哈希映射的建立</strong>：这是为了快速定位 <code>nums1</code> 中的元素在 <code>nums2</code> 中的位置，从而减少时间复杂度。</li>
+<li><strong>单调栈的性质</strong>：栈必须保持递增顺序，这样才能确保栈顶元素的下一个更大元素是正确的。</li>
+<li><strong>边界条件的处理</strong>：在处理 <code>nums2</code> 的边界元素时，需要特别注意，确保不会访问到栈中不存在的元素。</li>
+<li><strong>结果数组的初始化</strong>：结果数组应该初始化为 <code>-1</code>，以便在没有找到下一个更大元素时直接输出。</li>
+<li><strong>时间复杂度和空间复杂度</strong>：使用单调栈的方法可以将时间复杂度降低到 O(n)，其中 n 是 <code>nums2</code> 的长度。空间复杂度也是 O(n)，主要是因为我们需要额外的映射和结果数组。</li>
+</ol>
+</blockquote>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/IMG_4356.HEIC" alt></p>
+<h4 id="下一个更大元素II"><a href="#下一个更大元素II" class="headerlink" title="下一个更大元素II"></a>下一个更大元素II</h4><p>给定一个循环数组（最后一个元素的下一个元素是数组的第一个元素），输出每个元素的下一个更大元素。数字 x 的下一个更大的元素是按数组遍历顺序，这个数字之后的第一个比它更大的数，这意味着你应该循环地搜索它的下一个更大的数。如果不存在，则输出 -1。</p>
+<p>示例 1，输入: [1,2,1]，输出: [2,-1,2]，解释: 第一个 1 的下一个更大的数是 2；数字 2 找不到下一个更大的数；第二个 1 的下一个最大的数需要循环搜索，结果也是 2</p>
+<ul>
+<li>方法一，可以直接把两个数组拼接在一起，然后使用单调栈求下一个最大值。这么做的确比较直观，但扩充nums数组相当于多了一个O(n)的操作。</li>
+<li>方法二，可以不扩充nums，而是在遍历的过程中使用 <code>i % size</code> 模拟走两遍 nums</li>
+</ul>
+<p>java 版本</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Solution</span> </span>&#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">int</span>[] nextGreaterElements(<span class="keyword">int</span>[] nums) &#123;</span><br><span class="line">        <span class="comment">//边界判断</span></span><br><span class="line">        <span class="keyword">if</span>(nums == <span class="keyword">null</span> || nums.length &lt;= <span class="number">1</span>) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">new</span> <span class="keyword">int</span>[]&#123;-<span class="number">1</span>&#125;;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">int</span> size = nums.length;</span><br><span class="line">        <span class="keyword">int</span>[] result = <span class="keyword">new</span> <span class="keyword">int</span>[size];<span class="comment">//存放结果</span></span><br><span class="line">        Arrays.fill(result,-<span class="number">1</span>);<span class="comment">//默认全部初始化为-1</span></span><br><span class="line">        Stack&lt;Integer&gt; st= <span class="keyword">new</span> Stack&lt;&gt;();<span class="comment">//栈中存放的是nums中的元素下标</span></span><br><span class="line">        <span class="keyword">for</span>(<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; <span class="number">2</span>*size; i++) &#123;</span><br><span class="line">            <span class="keyword">while</span>(!st.empty() &amp;&amp; nums[i % size] &gt; nums[st.peek()]) &#123;</span><br><span class="line">                result[st.peek()] = nums[i % size];<span class="comment">//更新result</span></span><br><span class="line">                st.pop();<span class="comment">//弹出栈顶</span></span><br><span class="line">            &#125;</span><br><span class="line">            st.push(i % size);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> result;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>python 版本</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Solution</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">nextGreaterElements</span><span class="params">(self, nums: List[int])</span> -&gt; List[int]:</span></span><br><span class="line">        dp = [<span class="number">-1</span>] * len(nums)</span><br><span class="line">        stack = []</span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> range(len(nums)*<span class="number">2</span>):</span><br><span class="line">            <span class="keyword">while</span>(len(stack) != <span class="number">0</span> <span class="keyword">and</span> nums[i%len(nums)] &gt; nums[stack[<span class="number">-1</span>]]):</span><br><span class="line">                    dp[stack[<span class="number">-1</span>]] = nums[i%len(nums)]</span><br><span class="line">                    stack.pop()</span><br><span class="line">            stack.append(i%len(nums))</span><br><span class="line">        <span class="keyword">return</span> dp</span><br></pre></td></tr></table></figure>
+<h4 id="接雨水"><a href="#接雨水" class="headerlink" title="接雨水"></a>接雨水</h4><p>给定 n 个非负整数表示每个宽度为 1 的柱子的高度图，计算按此排列的柱子，下雨之后能接多少雨水。</p>
+<p>示例 1：</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/202403262216505.png" alt></p>
+<p>输入：height = [0,1,0,2,1,0,1,3,2,1,2,1]，输出：6，解释：上面是由数组 [0,1,0,2,1,0,1,3,2,1,2,1] 表示的高度图，在这种情况下，可以接 6 个单位的雨水（蓝色部分表示雨水）</p>
+<ul>
+<li><p>首先单调栈是按照行方向来计算雨水</p>
+</li>
+<li><p><strong>找每个柱子左右两边第一个大于该柱子高度的柱子</strong></p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/202403262219772.png" alt></p>
+</li>
+<li><p>从栈头（元素从栈头弹出）到栈底的顺序应该是从小到大的顺序。因为一旦发现添加的柱子高度大于栈头元素了，此时就出现凹槽了，栈头元素就是凹槽底部的柱子，栈头第二个元素就是凹槽左边的柱子，而添加的元素就是凹槽右边的柱子。</p>
+</li>
+</ul>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Solution</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">trap</span><span class="params">(self, height: List[int])</span> -&gt; int:</span></span><br><span class="line">        <span class="comment"># 单调栈</span></span><br><span class="line">        <span class="string">'''</span></span><br><span class="line"><span class="string">        单调栈是按照 行 的方向来计算雨水</span></span><br><span class="line"><span class="string">        从栈顶到栈底的顺序：从小到大</span></span><br><span class="line"><span class="string">        通过三个元素来接水：栈顶，栈顶的下一个元素，以及即将入栈的元素</span></span><br><span class="line"><span class="string">        雨水高度是 min(凹槽左边高度, 凹槽右边高度) - 凹槽底部高度</span></span><br><span class="line"><span class="string">        雨水的宽度是 凹槽右边的下标 - 凹槽左边的下标 - 1（因为只求中间宽度）</span></span><br><span class="line"><span class="string">        '''</span></span><br><span class="line">        <span class="comment"># stack储存index，用于计算对应的柱子高度</span></span><br><span class="line">        stack = [<span class="number">0</span>]</span><br><span class="line">        result = <span class="number">0</span></span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> range(<span class="number">1</span>, len(height)):</span><br><span class="line">            <span class="comment"># 情况一</span></span><br><span class="line">            <span class="keyword">if</span> height[i] &lt; height[stack[<span class="number">-1</span>]]:</span><br><span class="line">                stack.append(i)</span><br><span class="line"></span><br><span class="line">            <span class="comment"># 情况二</span></span><br><span class="line">            <span class="comment"># 当当前柱子高度和栈顶一致时，左边的一个是不可能存放雨水的，所以保留右侧新柱子</span></span><br><span class="line">            <span class="comment"># 需要使用最右边的柱子来计算宽度</span></span><br><span class="line">            <span class="keyword">elif</span> height[i] == height[stack[<span class="number">-1</span>]]:</span><br><span class="line">                stack.pop()</span><br><span class="line">                stack.append(i)</span><br><span class="line"></span><br><span class="line">            <span class="comment"># 情况三</span></span><br><span class="line">            <span class="keyword">else</span>:</span><br><span class="line">                <span class="comment"># 抛出所有较低的柱子</span></span><br><span class="line">                <span class="keyword">while</span> stack <span class="keyword">and</span> height[i] &gt; height[stack[<span class="number">-1</span>]]:</span><br><span class="line">                    <span class="comment"># 栈顶就是中间的柱子：储水槽，就是凹槽的地步</span></span><br><span class="line">                    mid_height = height[stack[<span class="number">-1</span>]]</span><br><span class="line">                    stack.pop()</span><br><span class="line">                    <span class="keyword">if</span> stack:</span><br><span class="line">                        right_height = height[i]</span><br><span class="line">                        left_height = height[stack[<span class="number">-1</span>]]</span><br><span class="line">                        <span class="comment"># 两侧的较矮一方的高度 - 凹槽底部高度</span></span><br><span class="line">                        h = min(right_height, left_height) - mid_height</span><br><span class="line">                        <span class="comment"># 凹槽右侧下标 - 凹槽左侧下标 - 1: 只求中间宽度</span></span><br><span class="line">                        w = i - stack[<span class="number">-1</span>] - <span class="number">1</span></span><br><span class="line">                        <span class="comment"># 体积：高乘宽</span></span><br><span class="line">                        result += h * w</span><br><span class="line">                stack.append(i)</span><br><span class="line">        <span class="keyword">return</span> result</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> typing <span class="keyword">import</span> List</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Solution</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">trap</span><span class="params">(self, height: List[int])</span> -&gt; int:</span></span><br><span class="line">        stack = [<span class="number">0</span>]</span><br><span class="line">        result = <span class="number">0</span></span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> range(<span class="number">1</span>, len(height)):</span><br><span class="line">            <span class="comment"># 情况一</span></span><br><span class="line">            <span class="keyword">if</span> height[i] &lt; height[stack[<span class="number">-1</span>]]:</span><br><span class="line">                stack.append(i)</span><br><span class="line">                print(<span class="string">f"当前i: <span class="subst">&#123;i&#125;</span>, 元素 <span class="subst">&#123;height[i]&#125;</span> 小于栈顶元素，元素入栈, 栈为: <span class="subst">&#123;stack&#125;</span>"</span>)</span><br><span class="line"></span><br><span class="line">            <span class="keyword">elif</span> height[i] == height[stack[<span class="number">-1</span>]]:</span><br><span class="line">                stack.pop()</span><br><span class="line">                stack.append(i)</span><br><span class="line">                print(<span class="string">f"当前i: <span class="subst">&#123;i&#125;</span>, 元素 <span class="subst">&#123;height[i]&#125;</span> 等于栈顶元素，stack 先出栈，元素后入栈, 栈为: <span class="subst">&#123;stack&#125;</span>"</span>)</span><br><span class="line"></span><br><span class="line">            <span class="keyword">else</span>:</span><br><span class="line">                <span class="keyword">while</span> stack <span class="keyword">and</span> height[i] &gt; height[stack[<span class="number">-1</span>]]:</span><br><span class="line">                    mid_height = height[stack[<span class="number">-1</span>]]</span><br><span class="line">                    stack.pop()</span><br><span class="line">                    print(<span class="string">f"当前i: <span class="subst">&#123;i&#125;</span>, 元素 <span class="subst">&#123;height[i]&#125;</span> 大于栈顶元素，stack 出栈，栈为: <span class="subst">&#123;stack&#125;</span>"</span>)</span><br><span class="line"></span><br><span class="line">                    <span class="keyword">if</span> stack:</span><br><span class="line">                        right_height = height[i]</span><br><span class="line">                        left_height = height[stack[<span class="number">-1</span>]]</span><br><span class="line">                        h = min(right_height, left_height) - mid_height</span><br><span class="line">                        w = i - stack[<span class="number">-1</span>] - <span class="number">1</span></span><br><span class="line">                        result += h * w</span><br><span class="line">                        print(<span class="string">f"出栈后栈不为空，左边柱子高为: <span class="subst">&#123;left_height&#125;</span>, 右边柱子高为: <span class="subst">&#123;right_height&#125;</span>，最小高为:<span class="subst">&#123;h&#125;</span>，宽为: <span class="subst">&#123;w&#125;</span>, 面积为: <span class="subst">&#123;w&#125;</span>, 总面积为: <span class="subst">&#123;result&#125;</span>"</span>)</span><br><span class="line">                    <span class="keyword">else</span>:</span><br><span class="line">                        print(<span class="string">"出栈后栈为空"</span>)</span><br><span class="line">                stack.append(i)</span><br><span class="line">                print(<span class="string">f"都处理完了，当前 i:<span class="subst">&#123;i&#125;</span> 入栈: <span class="subst">&#123;stack&#125;</span>"</span>)</span><br><span class="line">        <span class="keyword">return</span> result</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</span><br><span class="line">    s = Solution()</span><br><span class="line">    s.trap([<span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">2</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">3</span>, <span class="number">2</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">1</span>])</span><br><span class="line"></span><br><span class="line">   </span><br><span class="line"><span class="string">"""</span></span><br><span class="line"><span class="string">当前i: 1, 元素 1 大于栈顶元素，stack 出栈，栈为: []</span></span><br><span class="line"><span class="string">出栈后栈为空</span></span><br><span class="line"><span class="string">都处理完了，当前 i:1 入栈: [1]</span></span><br><span class="line"><span class="string">当前i: 2, 元素 0 小于栈顶元素，元素入栈, 栈为: [1, 2]</span></span><br><span class="line"><span class="string">当前i: 3, 元素 2 大于栈顶元素，stack 出栈，栈为: [1]</span></span><br><span class="line"><span class="string">出栈后栈不为空，左边柱子高为: 1, 右边柱子高为: 2，最小高为:1，宽为: 1, 面积为: 1, 总面积为: 1</span></span><br><span class="line"><span class="string">当前i: 3, 元素 2 大于栈顶元素，stack 出栈，栈为: []</span></span><br><span class="line"><span class="string">出栈后栈为空</span></span><br><span class="line"><span class="string">都处理完了，当前 i:3 入栈: [3]</span></span><br><span class="line"><span class="string">当前i: 4, 元素 1 小于栈顶元素，元素入栈, 栈为: [3, 4]</span></span><br><span class="line"><span class="string">当前i: 5, 元素 0 小于栈顶元素，元素入栈, 栈为: [3, 4, 5]</span></span><br><span class="line"><span class="string">当前i: 6, 元素 1 大于栈顶元素，stack 出栈，栈为: [3, 4]</span></span><br><span class="line"><span class="string">出栈后栈不为空，左边柱子高为: 1, 右边柱子高为: 1，最小高为:1，宽为: 1, 面积为: 1, 总面积为: 2</span></span><br><span class="line"><span class="string">都处理完了，当前 i:6 入栈: [3, 4, 6]</span></span><br><span class="line"><span class="string">当前i: 7, 元素 3 大于栈顶元素，stack 出栈，栈为: [3, 4]</span></span><br><span class="line"><span class="string">出栈后栈不为空，左边柱子高为: 1, 右边柱子高为: 3，最小高为:0，宽为: 2, 面积为: 2, 总面积为: 2</span></span><br><span class="line"><span class="string">当前i: 7, 元素 3 大于栈顶元素，stack 出栈，栈为: [3]</span></span><br><span class="line"><span class="string">出栈后栈不为空，左边柱子高为: 2, 右边柱子高为: 3，最小高为:1，宽为: 3, 面积为: 3, 总面积为: 5</span></span><br><span class="line"><span class="string">当前i: 7, 元素 3 大于栈顶元素，stack 出栈，栈为: []</span></span><br><span class="line"><span class="string">出栈后栈为空</span></span><br><span class="line"><span class="string">都处理完了，当前 i:7 入栈: [7]</span></span><br><span class="line"><span class="string">当前i: 8, 元素 2 小于栈顶元素，元素入栈, 栈为: [7, 8]</span></span><br><span class="line"><span class="string">当前i: 9, 元素 1 小于栈顶元素，元素入栈, 栈为: [7, 8, 9]</span></span><br><span class="line"><span class="string">当前i: 10, 元素 2 大于栈顶元素，stack 出栈，栈为: [7, 8]</span></span><br><span class="line"><span class="string">出栈后栈不为空，左边柱子高为: 2, 右边柱子高为: 2，最小高为:1，宽为: 1, 面积为: 1, 总面积为: 6</span></span><br><span class="line"><span class="string">都处理完了，当前 i:10 入栈: [7, 8, 10]</span></span><br><span class="line"><span class="string">当前i: 11, 元素 1 小于栈顶元素，元素入栈, 栈为: [7, 8, 10, 11]</span></span><br><span class="line"><span class="string">"""</span></span><br></pre></td></tr></table></figure>
+<h4 id="柱状图中最大的矩形"><a href="#柱状图中最大的矩形" class="headerlink" title="柱状图中最大的矩形"></a>柱状图中最大的矩形</h4><p>给定 n 个非负整数，用来表示柱状图中各个柱子的高度。每个柱子彼此相邻，且宽度为 1 。求在该柱状图中，能够勾勒出来的矩形的最大面积。</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/202403262235372.png" alt></p>
+<ul>
+<li><p>接雨水是找每个柱子左右两边第一个大于该柱子高度的柱子，而本题是找每个柱子左右两边第一个小于该柱子的柱子</p>
+</li>
+<li><p>接雨水的单调栈从栈头（元素从栈头弹出）到栈底的顺序应该是从小到大的顺序。那么因为本题是要找每个柱子左右两边第一个小于该柱子的柱子，所以从栈头（元素从栈头弹出）到栈底的顺序应该是从大到小的顺序。</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/202403262239721.png" alt></p>
+</li>
+<li><p><strong>栈顶和栈顶的下一个元素以及要入栈的三个元素组成了我们要求最大面积的高度和宽度</strong></p>
+</li>
+<li><p>我们需要在 height数组前后各加一个元素0。因为单调递减栈是当当前元素小于栈顶元素时才做逻辑，如果数组本身就是升序的，例如[2,4,6,8]，那么入栈之后 都是单调递减，即一直在入栈却没有出栈的逻辑。所以需要在原数组结尾加一个0，这样入栈就不是一直单调递减了。同样，如果数组是递减的，那么栈中的元素会一直单调递增，也无法计算出结果。</p>
+<blockquote>
+<p>在处理柱状图时，如果数组是完全递增或完全递减的，那么在计算过程中可能会遇到特殊情况，导致计算逻辑不完整。例如，如果数组是递增的，那么在处理过程中，栈中的元素会一直单调递减，而没有机会计算出最大矩形的面积。同样，如果数组是递减的，那么栈中的元素会一直单调递增，也无法计算出结果。</p>
+<p>通过在数组的前后各加上一个0，我们可以确保在处理数组的第一个和最后一个元素时，它们都能找到一个小于它们的柱子（即数组首尾的0）。这样，无论数组的初始状态如何，我们都可以保证单调栈的逻辑能够完整执行，从而计算出所有可能的最大矩形面积</p>
+</blockquote>
+</li>
+</ul>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 单调栈</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Solution</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">largestRectangleArea</span><span class="params">(self, heights: List[int])</span> -&gt; int:</span></span><br><span class="line">        <span class="comment"># Monotonic Stack</span></span><br><span class="line">        <span class="string">'''</span></span><br><span class="line"><span class="string">        找每个柱子左右侧的第一个高度值小于该柱子的柱子</span></span><br><span class="line"><span class="string">        单调栈：栈顶到栈底：从大到小（每插入一个新的小数值时，都要弹出先前的大数值）</span></span><br><span class="line"><span class="string">        栈顶，栈顶的下一个元素，即将入栈的元素：这三个元素组成了最大面积的高度和宽度</span></span><br><span class="line"><span class="string">        情况一：当前遍历的元素heights[i]大于栈顶元素的情况</span></span><br><span class="line"><span class="string">        情况二：当前遍历的元素heights[i]等于栈顶元素的情况</span></span><br><span class="line"><span class="string">        情况三：当前遍历的元素heights[i]小于栈顶元素的情况</span></span><br><span class="line"><span class="string">        '''</span></span><br><span class="line"></span><br><span class="line">        <span class="comment"># 输入数组首尾各补上一个0（与42.接雨水不同的是，本题原首尾的两个柱子可以作为核心柱进行最大面积尝试</span></span><br><span class="line">        heights.insert(<span class="number">0</span>, <span class="number">0</span>)</span><br><span class="line">        heights.append(<span class="number">0</span>)</span><br><span class="line">        stack = [<span class="number">0</span>]</span><br><span class="line">        result = <span class="number">0</span></span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> range(<span class="number">1</span>, len(heights)):</span><br><span class="line">            <span class="comment"># 情况一</span></span><br><span class="line">            <span class="comment"># 单调递减栈，当发现当前元素大于栈顶元素时则入栈（入栈后，栈里的元素才是单调递减）</span></span><br><span class="line">            <span class="keyword">if</span> heights[i] &gt; heights[stack[<span class="number">-1</span>]]:</span><br><span class="line">                stack.append(i)</span><br><span class="line">            <span class="comment"># 情况二</span></span><br><span class="line">            <span class="keyword">elif</span> heights[i] == heights[stack[<span class="number">-1</span>]]:</span><br><span class="line">                stack.pop()</span><br><span class="line">                stack.append(i)</span><br><span class="line">            <span class="comment"># 情况三</span></span><br><span class="line">            <span class="keyword">else</span>:</span><br><span class="line">                <span class="comment"># 抛出所有较高的柱子</span></span><br><span class="line">                <span class="comment"># 当栈不为空，且当前元素小于栈顶元素时。说明找到了栈顶元素左右两边的第一个小的元素。</span></span><br><span class="line">                <span class="keyword">while</span> stack <span class="keyword">and</span> heights[i] &lt; heights[stack[<span class="number">-1</span>]]:</span><br><span class="line">                    <span class="comment"># 栈顶就是中间的柱子，主心骨</span></span><br><span class="line">                    mid_index = stack[<span class="number">-1</span>]  <span class="comment"># 记录栈顶元素的下标</span></span><br><span class="line">                    stack.pop()</span><br><span class="line">                    <span class="keyword">if</span> stack:</span><br><span class="line">                        left_index = stack[<span class="number">-1</span>]  <span class="comment"># 栈顶元素左边矮的柱子的下标</span></span><br><span class="line">                        right_index = i  <span class="comment"># 栈顶元素右边矮的柱子的下标</span></span><br><span class="line">                        width = right_index - left_index - <span class="number">1</span>  <span class="comment"># 宽</span></span><br><span class="line">                        height = heights[mid_index]  <span class="comment"># 高</span></span><br><span class="line">                        result = max(result, width * height)</span><br><span class="line">                stack.append(i)</span><br><span class="line">        <span class="keyword">return</span> result</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 单调栈</span></span><br><span class="line"><span class="keyword">from</span> typing <span class="keyword">import</span> List</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Solution</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">largestRectangleArea</span><span class="params">(self, heights: List[int])</span> -&gt; int:</span></span><br><span class="line">        heights.insert(<span class="number">0</span>, <span class="number">0</span>)</span><br><span class="line">        heights.append(<span class="number">0</span>)</span><br><span class="line">        stack = [<span class="number">0</span>]</span><br><span class="line">        result = <span class="number">0</span></span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> range(<span class="number">1</span>, len(heights)):</span><br><span class="line">            <span class="keyword">if</span> heights[i] &gt; heights[stack[<span class="number">-1</span>]]:</span><br><span class="line">                print(<span class="string">f"当前 i: <span class="subst">&#123;i&#125;</span>, 元素: <span class="subst">&#123;heights[i]&#125;</span> 大于栈顶元素:<span class="subst">&#123;heights[stack[<span class="number">-1</span>]]&#125;</span>"</span>)</span><br><span class="line">                stack.append(i)</span><br><span class="line">                print(<span class="string">f"元素入栈，栈为: <span class="subst">&#123;stack&#125;</span>"</span>)</span><br><span class="line"></span><br><span class="line">            <span class="keyword">elif</span> heights[i] == heights[stack[<span class="number">-1</span>]]:</span><br><span class="line">                print(<span class="string">f"当前 i: <span class="subst">&#123;i&#125;</span>, 元素: <span class="subst">&#123;heights[i]&#125;</span> 等于栈顶元素<span class="subst">&#123;heights[stack[<span class="number">-1</span>]]&#125;</span>"</span>)</span><br><span class="line">                stack.pop()</span><br><span class="line">                stack.append(i)</span><br><span class="line">                print(<span class="string">f"元素先出栈后入栈，栈为: <span class="subst">&#123;stack&#125;</span>"</span>)</span><br><span class="line"></span><br><span class="line">            <span class="keyword">else</span>:</span><br><span class="line">                <span class="keyword">while</span> stack <span class="keyword">and</span> heights[i] &lt; heights[stack[<span class="number">-1</span>]]:</span><br><span class="line">                    print(<span class="string">f"当前 i: <span class="subst">&#123;i&#125;</span>, 元素: <span class="subst">&#123;heights[i]&#125;</span> 小于栈顶元素 <span class="subst">&#123;heights[stack[<span class="number">-1</span>]]&#125;</span>"</span>)</span><br><span class="line"></span><br><span class="line">                    <span class="comment"># 栈顶就是中间的柱子，主心骨</span></span><br><span class="line">                    mid_index = stack[<span class="number">-1</span>]  <span class="comment"># 记录栈顶元素的下标</span></span><br><span class="line">                    stack.pop()</span><br><span class="line">                    print(<span class="string">f"元素出栈，栈为: <span class="subst">&#123;stack&#125;</span>"</span>)</span><br><span class="line"></span><br><span class="line">                    <span class="keyword">if</span> stack:</span><br><span class="line">                        print(<span class="string">"元素出栈后栈不为空"</span>)</span><br><span class="line">                        left_index = stack[<span class="number">-1</span>]  <span class="comment"># 栈顶元素左边矮的柱子的下标</span></span><br><span class="line">                        right_index = i  <span class="comment"># 栈顶元素右边矮的柱子的下标</span></span><br><span class="line">                        width = right_index - left_index - <span class="number">1</span>  <span class="comment"># 宽</span></span><br><span class="line">                        height = heights[mid_index]  <span class="comment"># 高</span></span><br><span class="line">                        print(<span class="string">f"柱子右下标为: <span class="subst">&#123;right_index&#125;</span>, 左下标为: <span class="subst">&#123;left_index&#125;</span>, 宽为: <span class="subst">&#123;width&#125;</span>"</span>)</span><br><span class="line">                        print(<span class="string">f"当前柱子下标为: <span class="subst">&#123;mid_index&#125;</span>, 高为: <span class="subst">&#123;height&#125;</span>, 当前面积为: <span class="subst">&#123;width * height&#125;</span>"</span>)</span><br><span class="line">                        result = max(result, width * height)</span><br><span class="line">                        print(<span class="string">f"取最大面积后，最大面积为: <span class="subst">&#123;result&#125;</span>"</span>)</span><br><span class="line">                    <span class="keyword">else</span>:</span><br><span class="line">                        print(<span class="string">f"元素出栈后栈为空"</span>)</span><br><span class="line"></span><br><span class="line">                stack.append(i)</span><br><span class="line">        <span class="keyword">return</span> result</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</span><br><span class="line">    s = Solution()</span><br><span class="line">    s.largestRectangleArea([<span class="number">2</span>, <span class="number">1</span>, <span class="number">5</span>, <span class="number">6</span>, <span class="number">2</span>, <span class="number">3</span>])</span><br><span class="line"></span><br><span class="line">    </span><br><span class="line"><span class="string">"""</span></span><br><span class="line"><span class="string">当前 i: 1, 元素: 2 大于栈顶元素:0</span></span><br><span class="line"><span class="string">元素入栈，栈为: [0, 1]</span></span><br><span class="line"><span class="string">当前 i: 2, 元素: 1 小于栈顶元素 2</span></span><br><span class="line"><span class="string">元素出栈，栈为: [0]</span></span><br><span class="line"><span class="string">元素出栈后栈不为空</span></span><br><span class="line"><span class="string">柱子右下标为: 2, 左下标为: 0, 宽为: 1</span></span><br><span class="line"><span class="string">当前柱子下标为: 1, 高为: 2, 当前面积为: 2</span></span><br><span class="line"><span class="string">取最大面积后，最大面积为: 2</span></span><br><span class="line"><span class="string">当前 i: 3, 元素: 5 大于栈顶元素:1</span></span><br><span class="line"><span class="string">元素入栈，栈为: [0, 2, 3]</span></span><br><span class="line"><span class="string">当前 i: 4, 元素: 6 大于栈顶元素:5</span></span><br><span class="line"><span class="string">元素入栈，栈为: [0, 2, 3, 4]</span></span><br><span class="line"><span class="string">当前 i: 5, 元素: 2 小于栈顶元素 6</span></span><br><span class="line"><span class="string">元素出栈，栈为: [0, 2, 3]</span></span><br><span class="line"><span class="string">元素出栈后栈不为空</span></span><br><span class="line"><span class="string">柱子右下标为: 5, 左下标为: 3, 宽为: 1</span></span><br><span class="line"><span class="string">当前柱子下标为: 4, 高为: 6, 当前面积为: 6</span></span><br><span class="line"><span class="string">取最大面积后，最大面积为: 6</span></span><br><span class="line"><span class="string">当前 i: 5, 元素: 2 小于栈顶元素 5</span></span><br><span class="line"><span class="string">元素出栈，栈为: [0, 2]</span></span><br><span class="line"><span class="string">元素出栈后栈不为空</span></span><br><span class="line"><span class="string">柱子右下标为: 5, 左下标为: 2, 宽为: 2</span></span><br><span class="line"><span class="string">当前柱子下标为: 3, 高为: 5, 当前面积为: 10</span></span><br><span class="line"><span class="string">取最大面积后，最大面积为: 10</span></span><br><span class="line"><span class="string">当前 i: 6, 元素: 3 大于栈顶元素:2</span></span><br><span class="line"><span class="string">元素入栈，栈为: [0, 2, 5, 6]</span></span><br><span class="line"><span class="string">当前 i: 7, 元素: 0 小于栈顶元素 3</span></span><br><span class="line"><span class="string">元素出栈，栈为: [0, 2, 5]</span></span><br><span class="line"><span class="string">元素出栈后栈不为空</span></span><br><span class="line"><span class="string">柱子右下标为: 7, 左下标为: 5, 宽为: 1</span></span><br><span class="line"><span class="string">当前柱子下标为: 6, 高为: 3, 当前面积为: 3</span></span><br><span class="line"><span class="string">取最大面积后，最大面积为: 10</span></span><br><span class="line"><span class="string">当前 i: 7, 元素: 0 小于栈顶元素 2</span></span><br><span class="line"><span class="string">元素出栈，栈为: [0, 2]</span></span><br><span class="line"><span class="string">元素出栈后栈不为空</span></span><br><span class="line"><span class="string">柱子右下标为: 7, 左下标为: 2, 宽为: 4</span></span><br><span class="line"><span class="string">当前柱子下标为: 5, 高为: 2, 当前面积为: 8</span></span><br><span class="line"><span class="string">取最大面积后，最大面积为: 10</span></span><br><span class="line"><span class="string">当前 i: 7, 元素: 0 小于栈顶元素 1</span></span><br><span class="line"><span class="string">元素出栈，栈为: [0]</span></span><br><span class="line"><span class="string">元素出栈后栈不为空</span></span><br><span class="line"><span class="string">柱子右下标为: 7, 左下标为: 0, 宽为: 6</span></span><br><span class="line"><span class="string">当前柱子下标为: 2, 高为: 1, 当前面积为: 6</span></span><br><span class="line"><span class="string">取最大面积后，最大面积为: 10</span></span><br><span class="line"><span class="string">"""</span></span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2024/03/19/动态规划总结-编辑距离/" rel="prev" title="动态规划总结-编辑距离">
+      <i class="fa fa-chevron-left"></i> 动态规划总结-编辑距离
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2024/04/01/贪心算法/" rel="next" title="贪心算法">
+      贪心算法 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-4"><a class="nav-link" href="#每日温度"><span class="nav-number">1.</span> <span class="nav-text">每日温度</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#下一个更大元素-I"><span class="nav-number">2.</span> <span class="nav-text">下一个更大元素 I</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#下一个更大元素II"><span class="nav-number">3.</span> <span class="nav-text">下一个更大元素II</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#接雨水"><span class="nav-number">4.</span> <span class="nav-text">接雨水</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#柱状图中最大的矩形"><span class="nav-number">5.</span> <span class="nav-text">柱状图中最大的矩形</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

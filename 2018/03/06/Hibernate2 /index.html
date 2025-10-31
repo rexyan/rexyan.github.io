@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="持久化将内存中的数据永久的存储到关系型数据库中 持久化类（元数据，映射）一个Java类有了一个映射文件与数据库建立了关系，那么这个类就是持久化类 持久化类的编写规则 提供无参构造 类的属性需要私有，且提供共有的get和set方法 类的属性尽量使用包装类的类型 必须要有一个OID与表的主键对应 持久化类尽量不要使用final修饰  主键的分类 自然主键把具有业务含义的字段作为主键（例如将身份证号作为">
+<meta name="keywords" content="技术,Hibernate">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Hibernate2">
+<meta property="og:url" content="https://rexyan.github.io/2018/03/06/Hibernate2 /index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="持久化将内存中的数据永久的存储到关系型数据库中 持久化类（元数据，映射）一个Java类有了一个映射文件与数据库建立了关系，那么这个类就是持久化类 持久化类的编写规则 提供无参构造 类的属性需要私有，且提供共有的get和set方法 类的属性尽量使用包装类的类型 必须要有一个OID与表的主键对应 持久化类尽量不要使用final修饰  主键的分类 自然主键把具有业务含义的字段作为主键（例如将身份证号作为">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.394Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Hibernate2">
+<meta name="twitter:description" content="持久化将内存中的数据永久的存储到关系型数据库中 持久化类（元数据，映射）一个Java类有了一个映射文件与数据库建立了关系，那么这个类就是持久化类 持久化类的编写规则 提供无参构造 类的属性需要私有，且提供共有的get和set方法 类的属性尽量使用包装类的类型 必须要有一个OID与表的主键对应 持久化类尽量不要使用final修饰  主键的分类 自然主键把具有业务含义的字段作为主键（例如将身份证号作为">
+
+<link rel="canonical" href="https://rexyan.github.io/2018/03/06/Hibernate2 /">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Hibernate2 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2018/03/06/Hibernate2 /">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Hibernate2
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2018-03-06 13:14:57" itemprop="dateCreated datePublished" datetime="2018-03-06T13:14:57+00:00">2018-03-06</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Java/" itemprop="url" rel="index"><span itemprop="name">Java</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="持久化"><a href="#持久化" class="headerlink" title="持久化"></a>持久化</h3><p>将内存中的数据永久的存储到关系型数据库中</p>
+<h3 id="持久化类（元数据，映射）"><a href="#持久化类（元数据，映射）" class="headerlink" title="持久化类（元数据，映射）"></a>持久化类（元数据，映射）</h3><p>一个Java类有了一个映射文件与数据库建立了关系，那么这个类就是持久化类</p>
+<h3 id="持久化类的编写规则"><a href="#持久化类的编写规则" class="headerlink" title="持久化类的编写规则"></a>持久化类的编写规则</h3><ol>
+<li>提供无参构造</li>
+<li>类的属性需要私有，且提供共有的get和set方法</li>
+<li>类的属性尽量使用包装类的类型</li>
+<li>必须要有一个OID与表的主键对应</li>
+<li>持久化类尽量不要使用final修饰</li>
+</ol>
+<h3 id="主键的分类"><a href="#主键的分类" class="headerlink" title="主键的分类"></a>主键的分类</h3><ol>
+<li>自然主键<br>把具有业务含义的字段作为主键（例如将身份证号作为主键）</li>
+<li>代理主键<br>不具备业务含义的字段</li>
+</ol>
+<h3 id="主键生成策略"><a href="#主键生成策略" class="headerlink" title="主键生成策略"></a>主键生成策略</h3><ol>
+<li>适用于代理主键<br>increment：用于long，short或者int类型，有Hibernate自动以递增的方式生成唯一的标识符，每次增量为1<br>identity：采用数据库本身提供的主键生成标识符，条件是数据库支持自动增长数据类型<br>sequence：Hibernate根据底层数据库序列生成标识符，条件是数据库支持序列<br>native：自动从identity、sequence、hlio中挑选一种使用<br>uuid：采用128位的UUID算法来生成标识符</li>
+<li>适用于自然主键<br>assigned：由Java程序负责生成标识符，如果不指定id元素的generator<br>属性，则默认使用该主键生成策略</li>
+</ol>
+<h3 id="持久化对象的三种状态"><a href="#持久化对象的三种状态" class="headerlink" title="持久化对象的三种状态"></a>持久化对象的三种状态</h3><ol>
+<li>瞬时状态：不存在持久化标识OID，加入到了Session缓存中，且相关联的Session没有关闭，在数据库中有对应的记录。</li>
+<li>持久状态：存在是持久化标识OID，加入到了Session缓存中，并且相关联的Session没有关闭，在数据库中有对应的记录。</li>
+<li>脱管状态：存在持久化标识OID，并且仍然与数据库中的数据存在关联，只是失去了与当前session的关联。</li>
+</ol>
+<h3 id="持久化对象三种状态描述"><a href="#持久化对象三种状态描述" class="headerlink" title="持久化对象三种状态描述"></a>持久化对象三种状态描述</h3><ol>
+<li>当一个对象被执行 new 关键字后，该对象处于瞬时态；</li>
+<li>当瞬时态对象执行Session的Save() 或 saveOrUpdate() 方法后，该对象被放入Session的一级缓存，对象进入持久态；</li>
+<li>当持久态对象执行evict()、close()或clear()操作后，对象进入托管态；</li>
+<li>当执行Session的get()、load()、find()或iterate()等方法从数据库查询对象时，查询到的对象也处于持久态；</li>
+<li>当对数据库中的记录进行update()、saveOrUpdate()以及lock()等操作后，此时托管态的对象就过渡到持久态；</li>
+<li>由于瞬时态和托管态的对象不在session的管理范围，所以会在一段时间后被JVM回收；</li>
+</ol>
+<h3 id="持久化对象三种状态的切换"><a href="#持久化对象三种状态的切换" class="headerlink" title="持久化对象三种状态的切换"></a>持久化对象三种状态的切换</h3><ol>
+<li><p>瞬时态（由new关键字创建）转换到其他状态<br>瞬时态转换为持久态：执行Session的save()或saveOrUpdate()方法<br>瞬时态转换为托管态：为瞬时态对象设置持久化标识OID</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Customer customer = new Customer();  //瞬时态</span><br><span class="line">customer.setCust_id(1);  //托管态</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>持久态（通过Session中的get()、load()，或者Query查询从数据库中获得）转换到其他状态<br>持久态转换为瞬时态：执行Session的delete()方法<br>持久态转换为托管态：执行Session的evict()、close()、clear()方法。evict()用于清除一级缓存中的某一个对象，close()方法用于关闭Session，clear()方法用于清除一级缓存的所有对象。</p>
+</li>
+<li><p>托管态（无法直接获得，由其他状态对象转换而来）转换到其他状态<br>托管态转换为持久态：执行Session的update()、saveOrUpdate<br>()或lock()方法<br>托管态转换为瞬时态：将托管态对象的持久化标识OID设置为null</p>
+</li>
+</ol>
+<h3 id="持久态对象的特性"><a href="#持久态对象的特性" class="headerlink" title="持久态对象的特性"></a>持久态对象的特性</h3><p>持久态对象能自动更新数据库</p>
+<h3 id="Hibernate一级缓存"><a href="#Hibernate一级缓存" class="headerlink" title="Hibernate一级缓存"></a>Hibernate一级缓存</h3><p>Hibernate的缓存分为一级缓存和二级缓存，这两级缓存都位于持久化层。其中一层缓存为Hibernate内置缓存不能被卸载。一级缓存的作用就是减少对数据库的访问次数。<br>特点：<br>1)、当应用程序调用Session接口的save、update、saveOrUpdate方法时，如果Session缓存中没有相应的对象，Hibernate就会自动把从数据库查询到的相应对象信息加入到一级缓存中。<br>2)、当调用Session接口的load、get、以及Query接口的list、iterator方法时，会判断缓存中是否存在该对象，有则返回，不会查询数据库，如果没有，则取数据库中查询，并将其添加到一级缓存中。<br>3)、当调用Session的close方法时，Session将会被清空。</p>
+<h3 id="事务"><a href="#事务" class="headerlink" title="事务"></a>事务</h3><h4 id="事务的特性"><a href="#事务的特性" class="headerlink" title="事务的特性"></a>事务的特性</h4><ol>
+<li>原子性：（Atomic）要么全执行，要么全都不执行</li>
+<li>一致性：（Consistency）事务完成时，所有的数据都保持一致</li>
+<li>隔离性：（Isolation）一个事务不能被另一个事务干扰</li>
+<li>持久性：（Durability）事务一旦提交，对数据库中的数据的改变就是永久性的</li>
+</ol>
+<h4 id="事务的并发问题"><a href="#事务的并发问题" class="headerlink" title="事务的并发问题"></a>事务的并发问题</h4><ol>
+<li>脏读：一个事务取到另一个事务未提交的数据</li>
+<li>不可重复读：一个事务读到了另一个事务已经提交的update的数据，导致在同一个事务中的多次查询结果不一致</li>
+<li>虚读/幻读：一个事务读到了另一个事务已经提交的insert的数据，导致在同一个事务中的多次查询结果不一致</li>
+</ol>
+<h4 id="事务的隔离级别"><a href="#事务的隔离级别" class="headerlink" title="事务的隔离级别"></a>事务的隔离级别</h4><ol>
+<li>读未提交，一级</li>
+<li>已提交读，二级</li>
+<li>可重复读，四级</li>
+<li>序列化/串行化，八级<br>事务的隔离级别由数据库提供，并不是所有的数据库都支持四种隔离级别。在使用数据库的时候，隔离级别越高，高全性越高，性能越低。</li>
+</ol>
+<h4 id="Hibernate中的事务管理"><a href="#Hibernate中的事务管理" class="headerlink" title="Hibernate中的事务管理"></a>Hibernate中的事务管理</h4><p>在Hibernate中使用事务<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Transaction tx = session.beginTransaction(); //开启事务</span><br><span class="line">tx.commit();   //提交</span><br><span class="line">tx.rollback();  //回滚</span><br></pre></td></tr></table></figure></p>
+<p>在Hibernate中设置事务的隔离级别<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&lt;property name=&quot;hibernate.connection.isolation&quot;&gt;4&lt;/property&gt;</span><br></pre></td></tr></table></figure></p>
+<h3 id="Hibernate5中管理Session对象的三种方法"><a href="#Hibernate5中管理Session对象的三种方法" class="headerlink" title="Hibernate5中管理Session对象的三种方法"></a>Hibernate5中管理Session对象的三种方法</h3><ol>
+<li>Session对象的生命周期与本地线程绑定，thread<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&lt;property name=&quot;hibernate.current_session_content_class&quot;&gt;thread&lt;/property&gt;</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>Hibernate提供sessionFactory.getCurrentSession()创建一个session和ThreadLocal绑定</p>
+<ol start="2">
+<li>Session对象的生命周期与JTA事务绑定，jta</li>
+<li>Hibernate委托程序管理Session对象的生命周期，managed</li>
+</ol>
+<h3 id="Query"><a href="#Query" class="headerlink" title="Query"></a>Query</h3><p>HQL是Hibernate Query Language的缩写，语法很像SQL，但它完全面向对象。<br>使用步骤：</p>
+<ol>
+<li>获得Hibernate的Session对象。</li>
+<li>编写HQL</li>
+<li>调用session.createQuery创建查询对象</li>
+<li>如果HQL包含参数，则使用setXXX设置参数</li>
+<li>调用Query对象的list()或uniqueResult()方法执行查询<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">简单示例</span><br><span class="line"></span><br><span class="line">package me.yanrs.service;</span><br><span class="line">import java.util.List;</span><br><span class="line">import org.hibernate.Query;</span><br><span class="line">import org.hibernate.Session;</span><br><span class="line">import me.yanrs.domain.User;</span><br><span class="line">import me.yanrs.utils.HibernateUtils;</span><br><span class="line">public class HQL_Test &#123;</span><br><span class="line">	</span><br><span class="line">	public static void main(String[] args) &#123;</span><br><span class="line">		hql_test();</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	public static void hql_test() &#123;</span><br><span class="line">		Session session = HibernateUtils.openSession();</span><br><span class="line">		String hql = &quot;from User where id=:id and name=:name&quot;;</span><br><span class="line">		Query query = session.createQuery(hql);</span><br><span class="line">		</span><br><span class="line">		query.setInteger(&quot;id&quot;,1);          //条件查询</span><br><span class="line">		query.setString(&quot;name&quot;, &quot;test&quot;); </span><br><span class="line">		</span><br><span class="line">		query.setFirstResult(0);           //分页查询</span><br><span class="line">		query.setMaxResults(5);</span><br><span class="line">		</span><br><span class="line">		List&lt;User&gt; list = query.list();    //list获取数据</span><br><span class="line">		</span><br><span class="line">		String hql2 = &quot;from User&quot;;</span><br><span class="line">		Query query2 = session.createQuery(hql2);</span><br><span class="line">		</span><br><span class="line">		System.out.println(query2.uniqueResult());</span><br><span class="line">		System.out.println(list);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>常用方法：setXXX、iterator、uniqueResult、executeUpdate、setFirstResult、setMaxResult</p>
+<h3 id="Criteria"><a href="#Criteria" class="headerlink" title="Criteria"></a>Criteria</h3><p>又叫QBC（Query By Criteria）<br>使用步骤：</p>
+<ol>
+<li>获得Hibernate的Session对象</li>
+<li>通过Session获得Criteria对象</li>
+<li>使用Restrictions的静态方法创建Criteria条件对象</li>
+<li>使用Criteria对象中的add方法添加Criteria查询条件</li>
+<li>执行Criteria的list()或者uniqueResult()获取结果<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line">package me.yanrs.service;</span><br><span class="line">import java.util.List;</span><br><span class="line"></span><br><span class="line">import org.hibernate.Criteria;</span><br><span class="line">import org.hibernate.Query;</span><br><span class="line">import org.hibernate.Session;</span><br><span class="line">import org.hibernate.criterion.Restrictions;</span><br><span class="line"></span><br><span class="line">import me.yanrs.domain.User;</span><br><span class="line">import me.yanrs.utils.HibernateUtils;</span><br><span class="line">public class HQL_Test &#123;</span><br><span class="line">	</span><br><span class="line">	public static void main(String[] args) &#123;</span><br><span class="line">		//hql_test();</span><br><span class="line">		criteria_test();</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	public static void criteria_test() &#123;</span><br><span class="line">		Session session = HibernateUtils.openSession();</span><br><span class="line">		Criteria createCriteria = session.createCriteria(User.class);</span><br><span class="line">		</span><br><span class="line">		System.out.println(createCriteria.list());         //查询全部</span><br><span class="line">		</span><br><span class="line">		createCriteria.add(Restrictions.eq(&quot;name&quot;, &quot;test&quot;));</span><br><span class="line">		System.out.println(createCriteria.list());         //条件查询</span><br><span class="line">		</span><br><span class="line">		createCriteria.setFirstResult(0);                  //分页查询</span><br><span class="line">		createCriteria.setMaxResults(5);</span><br><span class="line">		System.out.println(createCriteria.list());        </span><br><span class="line"></span><br><span class="line">		System.out.println(createCriteria.uniqueResult());//获取查询的结果条数</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<h3 id="SQLQuery"><a href="#SQLQuery" class="headerlink" title="SQLQuery"></a>SQLQuery</h3><p>接收SQL语句进行查询<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line">简单示例</span><br><span class="line"></span><br><span class="line">package me.yanrs.service;</span><br><span class="line">import java.util.List;</span><br><span class="line"></span><br><span class="line">import org.hibernate.Criteria;</span><br><span class="line">import org.hibernate.Query;</span><br><span class="line">import org.hibernate.SQLQuery;</span><br><span class="line">import org.hibernate.Session;</span><br><span class="line">import org.hibernate.criterion.Restrictions;</span><br><span class="line"></span><br><span class="line">import me.yanrs.domain.User;</span><br><span class="line">import me.yanrs.utils.HibernateUtils;</span><br><span class="line">public class HQL_Test &#123;</span><br><span class="line">	</span><br><span class="line">	public static void main(String[] args) &#123;</span><br><span class="line">		//hql_test();</span><br><span class="line">		//criteria_test();</span><br><span class="line">		sqlquery_test();</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	public static void sqlquery_test() &#123;</span><br><span class="line">		//基本查询</span><br><span class="line">		String sql = &quot;select * from user&quot;;</span><br><span class="line">		Session session = HibernateUtils.openSession();</span><br><span class="line">		SQLQuery query = session.createSQLQuery(sql);</span><br><span class="line">		System.out.println(query.list());</span><br><span class="line">		</span><br><span class="line">		//封装到对象中</span><br><span class="line">		String sql1 = &quot;select * from user&quot;;</span><br><span class="line">		Session session1 = HibernateUtils.openSession();</span><br><span class="line">		SQLQuery query1 = session.createSQLQuery(sql1);</span><br><span class="line">		query1.addEntity(User.class);</span><br><span class="line">		System.out.println(query1.list());</span><br><span class="line">		</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/技术/" rel="tag"><i class="fa fa-tag"></i> 技术</a>
+              <a href="/tags/Hibernate/" rel="tag"><i class="fa fa-tag"></i> Hibernate</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2018/02/28/Mongoengine批量插入/" rel="prev" title="Mongoengine批量插入">
+      <i class="fa fa-chevron-left"></i> Mongoengine批量插入
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2018/03/06/Celery/" rel="next" title="Celery">
+      Celery <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#持久化"><span class="nav-number">1.</span> <span class="nav-text">持久化</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#持久化类（元数据，映射）"><span class="nav-number">2.</span> <span class="nav-text">持久化类（元数据，映射）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#持久化类的编写规则"><span class="nav-number">3.</span> <span class="nav-text">持久化类的编写规则</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#主键的分类"><span class="nav-number">4.</span> <span class="nav-text">主键的分类</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#主键生成策略"><span class="nav-number">5.</span> <span class="nav-text">主键生成策略</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#持久化对象的三种状态"><span class="nav-number">6.</span> <span class="nav-text">持久化对象的三种状态</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#持久化对象三种状态描述"><span class="nav-number">7.</span> <span class="nav-text">持久化对象三种状态描述</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#持久化对象三种状态的切换"><span class="nav-number">8.</span> <span class="nav-text">持久化对象三种状态的切换</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#持久态对象的特性"><span class="nav-number">9.</span> <span class="nav-text">持久态对象的特性</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Hibernate一级缓存"><span class="nav-number">10.</span> <span class="nav-text">Hibernate一级缓存</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#事务"><span class="nav-number">11.</span> <span class="nav-text">事务</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#事务的特性"><span class="nav-number">11.1.</span> <span class="nav-text">事务的特性</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#事务的并发问题"><span class="nav-number">11.2.</span> <span class="nav-text">事务的并发问题</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#事务的隔离级别"><span class="nav-number">11.3.</span> <span class="nav-text">事务的隔离级别</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Hibernate中的事务管理"><span class="nav-number">11.4.</span> <span class="nav-text">Hibernate中的事务管理</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Hibernate5中管理Session对象的三种方法"><span class="nav-number">12.</span> <span class="nav-text">Hibernate5中管理Session对象的三种方法</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Query"><span class="nav-number">13.</span> <span class="nav-text">Query</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Criteria"><span class="nav-number">14.</span> <span class="nav-text">Criteria</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#SQLQuery"><span class="nav-number">15.</span> <span class="nav-text">SQLQuery</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

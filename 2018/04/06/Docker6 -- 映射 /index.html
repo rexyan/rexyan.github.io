@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="Docker允许映射容器内应用的服务端口到本地的宿主主机，还能实现多个容器之间通过容器名来快速访问。 端口映射从外部访问容器当容器中运行一些网络应用，要让外部访问这些应用的时候，我们可以通过参数 -P 或者 -p来指定端口。使用大P参数时，Docker会随机映射一个49000-49900的端口到容器内部的端口。123456root@rexyan:/# docker run -d  -P train">
+<meta name="keywords" content="Docker,容器">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Docker6 映射">
+<meta property="og:url" content="https://rexyan.github.io/2018/04/06/Docker6 -- 映射 /index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="Docker允许映射容器内应用的服务端口到本地的宿主主机，还能实现多个容器之间通过容器名来快速访问。 端口映射从外部访问容器当容器中运行一些网络应用，要让外部访问这些应用的时候，我们可以通过参数 -P 或者 -p来指定端口。使用大P参数时，Docker会随机映射一个49000-49900的端口到容器内部的端口。123456root@rexyan:/# docker run -d  -P train">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.391Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Docker6 映射">
+<meta name="twitter:description" content="Docker允许映射容器内应用的服务端口到本地的宿主主机，还能实现多个容器之间通过容器名来快速访问。 端口映射从外部访问容器当容器中运行一些网络应用，要让外部访问这些应用的时候，我们可以通过参数 -P 或者 -p来指定端口。使用大P参数时，Docker会随机映射一个49000-49900的端口到容器内部的端口。123456root@rexyan:/# docker run -d  -P train">
+
+<link rel="canonical" href="https://rexyan.github.io/2018/04/06/Docker6 -- 映射 /">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Docker6 映射 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2018/04/06/Docker6 -- 映射 /">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Docker6 映射
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2018-04-06 11:33:57" itemprop="dateCreated datePublished" datetime="2018-04-06T11:33:57+00:00">2018-04-06</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Docker/" itemprop="url" rel="index"><span itemprop="name">Docker</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>Docker允许映射容器内应用的服务端口到本地的宿主主机，还能实现多个容器之间通过容器名来快速访问。</p>
+<h3 id="端口映射"><a href="#端口映射" class="headerlink" title="端口映射"></a>端口映射</h3><h4 id="从外部访问容器"><a href="#从外部访问容器" class="headerlink" title="从外部访问容器"></a>从外部访问容器</h4><p>当容器中运行一些网络应用，要让外部访问这些应用的时候，我们可以通过参数 -P 或者 -p来指定端口。使用大P参数时，Docker会随机映射一个49000-49900的端口到容器内部的端口。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/# docker run -d  -P training/webapp python app.py</span><br><span class="line">d03564d51bdeb439e3c9f140575ab53cd665e47c35efd567a8c20aefc14c2e6d</span><br><span class="line">root@rexyan:/# docker ps</span><br><span class="line">CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS                     NAMES</span><br><span class="line">d03564d51bde        training/webapp     &quot;python app.py&quot;     3 seconds ago       Up 2 seconds        0.0.0.0:32770-&gt;5000/tcp   clever_austin</span><br><span class="line">root@rexyan:/#</span><br></pre></td></tr></table></figure></p>
+<p>可以看见将本机的32770端口映射到了容器内的5000端口。我们可以浏览器访问本机IP+32770端口就能看见内容了</p>
+<p>可以使用docker logs来查看访问的信息<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/# docker logs d03564d51bde</span><br><span class="line"> * Running on http://0.0.0.0:5000/ (Press CTRL+C to quit)</span><br><span class="line"> * Running on http://0.0.0.0:5000/ (Press CTRL+C to quit)</span><br><span class="line">10.10.10.1 - - [06/Apr/2018 05:41:40] &quot;GET / HTTP/1.1&quot; 200 -</span><br><span class="line">10.10.10.1 - - [06/Apr/2018 05:41:41] &quot;GET /favicon.ico HTTP/1.1&quot; 404 -</span><br></pre></td></tr></table></figure></p>
+<p>除了使用-P随机生成一个本机端口与容器的应用进行端口映射外，我们还可以使用-p来指定端口<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/# docker run -d -p 16666:5000 training/webapp python app.py</span><br><span class="line">30e63bcaf4a3df3708eacd0fb114ce66ce2fb1ee2b103409e1286313e98dda03</span><br></pre></td></tr></table></figure></p>
+<p>将本机16666端口与容器5000进行映射。</p>
+<h4 id="映射所有接口地址"><a href="#映射所有接口地址" class="headerlink" title="映射所有接口地址"></a>映射所有接口地址</h4><p>使用-p默认会绑定本地所有接口上的所有地址，多次使用-p参数，可以绑定多个端口<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/# docker run -d -p 11111:5000 -p 11112:5000 training/webapp python app.py</span><br></pre></td></tr></table></figure></p>
+<h4 id="映射到指定地址的指定端口"><a href="#映射到指定地址的指定端口" class="headerlink" title="映射到指定地址的指定端口"></a>映射到指定地址的指定端口</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/# docker run -d -p 10.10.10.133:10203:5000 training/webapp python app.py</span><br></pre></td></tr></table></figure>
+<h4 id="映射到指定地址的任意端口"><a href="#映射到指定地址的任意端口" class="headerlink" title="映射到指定地址的任意端口"></a>映射到指定地址的任意端口</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/# docker run -d -p 10.10.10.133::5000 training/webapp python app.py</span><br></pre></td></tr></table></figure>
+<p>这里会默认分配一个端口出来，相当于-P<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/# docker ps </span><br><span class="line">CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS                          NAMES</span><br><span class="line">a1b25a3d9236        training/webapp     &quot;python app.py&quot;     2 seconds ago       Up 1 second         10.10.10.133:32769-&gt;5000/tcp   elegant_clarke</span><br></pre></td></tr></table></figure></p>
+<h4 id="查看端口映射配置"><a href="#查看端口映射配置" class="headerlink" title="查看端口映射配置"></a>查看端口映射配置</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/# docker port a1b25a3d9236</span><br><span class="line">5000/tcp -&gt; 10.10.10.133:32769</span><br></pre></td></tr></table></figure>
+<p>还可以使用docker inspect + id/名称来查看<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker inspect a1b25a3d9236</span><br></pre></td></tr></table></figure></p>
+<h3 id="容器互联"><a href="#容器互联" class="headerlink" title="容器互联"></a>容器互联</h3><p>容器互联是一种让多个容器中应用进行快速交互的方式，它会在源和接收容器之间创建连接关系，接收容器可以通过容器名快速访问到源容器。</p>
+<h4 id="自定义容器名称"><a href="#自定义容器名称" class="headerlink" title="自定义容器名称"></a>自定义容器名称</h4><p>创建容器的时候系统会自动创建名称，但是我们可以使用–name来指定自己的容器名称，这里注意容器名称是不能重复的。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/# docker run -d -p 12000:5000 --name web  training/webapp python app.py </span><br><span class="line">f59bdcfceb9c8913fa77eb90bba2ae54342fde166934097a6ff6279aaab89f28</span><br><span class="line">root@rexyan:/# docker ps </span><br><span class="line">CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS                     NAMES</span><br><span class="line">f59bdcfceb9c        training/webapp     &quot;python app.py&quot;     3 seconds ago       Up 2 seconds        0.0.0.0:12000-&gt;5000/tcp   web</span><br></pre></td></tr></table></figure></p>
+<p>在创建docker的时候，如果使用-rm 参数，这代表容器终止后会被删除。-rm 参数不能和-d一起使用。</p>
+<h4 id="容器互联-1"><a href="#容器互联-1" class="headerlink" title="容器互联"></a>容器互联</h4><p>新建一个容器<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/# docker run -d --name db training/postgres</span><br><span class="line">Unable to find image &apos;training/postgres:latest&apos; locally</span><br><span class="line">latest: Pulling from training/postgres</span><br><span class="line">a3ed95caeb02: Pull complete </span><br><span class="line">6e71c809542e: Pull complete </span><br><span class="line">2978d9af87ba: Pull complete </span><br><span class="line">e1bca35b062f: Pull complete </span><br><span class="line">500b6decf741: Pull complete </span><br><span class="line">74b14ef2151f: Pull complete </span><br><span class="line">7afd5ed3826e: Pull complete </span><br><span class="line">3c69bb244f5e: Pull complete </span><br><span class="line">d86f9ec5aedf: Pull complete </span><br><span class="line">010fabf20157: Pull complete </span><br><span class="line">Digest: sha256:a945dc6dcfbc8d009c3d972931608344b76c2870ce796da00a827bd50791907e</span><br><span class="line">Status: Downloaded newer image for training/postgres:latest</span><br><span class="line">d8d7bec173c29963f34d840547760c0a9629fc71950f2c5592fe7b8c3d8c014b</span><br></pre></td></tr></table></figure></p>
+<p>新建一个web容器，与刚刚新建的db容器进行互联，格式为–link name:alias name是与之连接的容器名称，alias是这个连接的别名。这样做的好处是我们无需使用-p或者-P暴露出容器db的地址，增加了安全性。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/# docker run  -d -P --name web --link db:db training/webapp python app.py</span><br></pre></td></tr></table></figure>
+<p>可以从两个方面看出这两个容器是否互联，我们可以进入到创建好的web容器中<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/# docker exec -it b295295fdd14 /bin/bash</span><br></pre></td></tr></table></figure></p>
+<p>查看hosts 文件<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">root@b295295fdd14:/opt/webapp# cat /etc/hosts </span><br><span class="line">127.0.0.1       localhost</span><br><span class="line">::1     localhost ip6-localhost ip6-loopback</span><br><span class="line">fe00::0 ip6-localnet</span><br><span class="line">ff00::0 ip6-mcastprefix</span><br><span class="line">ff02::1 ip6-allnodes</span><br><span class="line">ff02::2 ip6-allrouters</span><br><span class="line">172.17.0.3      db d8d7bec173c2</span><br><span class="line">172.17.0.2      b295295fdd14</span><br><span class="line">root@b295295fdd14:/opt/webapp# ping db</span><br><span class="line">PING db (172.17.0.3) 56(84) bytes of data.</span><br><span class="line">64 bytes from db (172.17.0.3): icmp_seq=1 ttl=64 time=0.239 ms</span><br><span class="line">64 bytes from db (172.17.0.3): icmp_seq=2 ttl=64 time=0.132 ms</span><br><span class="line">64 bytes from db (172.17.0.3): icmp_seq=3 ttl=64 time=0.131 ms</span><br></pre></td></tr></table></figure></p>
+<p>我们看见了172.17.0.2对应是是自己的容器id，172.17.0.3对应带了名称为db的容器，容器id为d8d7bec173c2。我们可以在当前web容器中ping db容器，直接使用ping db 可以ping通，说明两个的网络是互通的。</p>
+<p>第二种方式是使用env来查看web容器的环境变量，创建一个临时的web4容器，并关联db，查看env<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">root@rexyan:/# docker run --rm --name web4 --link db:db training/webapp env </span><br><span class="line">PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin</span><br><span class="line">HOSTNAME=fc701885a079</span><br><span class="line">DB_PORT=tcp://172.17.0.3:5432</span><br><span class="line">DB_PORT_5432_TCP=tcp://172.17.0.3:5432</span><br><span class="line">DB_PORT_5432_TCP_ADDR=172.17.0.3</span><br><span class="line">DB_PORT_5432_TCP_PORT=5432</span><br><span class="line">DB_PORT_5432_TCP_PROTO=tcp</span><br><span class="line">DB_NAME=/web4/db</span><br><span class="line">DB_ENV_PG_VERSION=9.3</span><br><span class="line">HOME=/root</span><br><span class="line">root@rexyan:/#</span><br></pre></td></tr></table></figure></p>
+<p>上面的内容中DB_开头的环境变量是提供web4容器与db容器连接使用的。</p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">docker run -d -P training/webapp python app.py     # 创建一个容器，并且关联一个本地随机端口</span><br><span class="line">docker logs d03564d51bde    # 查看id为d03564d51bde容器的log信息</span><br><span class="line">docker run -d -p 16666:5000 training/webapp python app.py   # 创建容器，指定本地端口16666和容器5000端口进行网络互联</span><br><span class="line">docker run -d -p 11111:5000 -p 11112:5000 training/webapp python app.py   # 创建容器，指定两个本地两个端口与容器进行网络互联</span><br><span class="line">docker run -d -p 10.10.10.133:10203:5000 training/webapp python app.py  # 创建容器，指定ip和端口与容器进行网络互联</span><br><span class="line">docker run -d -p 10.10.10.133::5000 training/webapp python app.py   # 创建容器，指定ip与容器进行网络互联，端口会随机分配一个，和-P一样</span><br><span class="line">docker port a1b25a3d9236    # 查看容器id为a1b25a3d9236的端口信息</span><br><span class="line">docker inspect a1b25a3d9236   # 查看容器id为a1b25a3d9236的详细信息</span><br><span class="line">docker run -d -p 12000:5000 --name web training/webapp python app.py # 创建一个name为web的容器，并将本地12000端口和容器5000进行关联</span><br><span class="line">docker run -d --name db training/postgres   # 创建一个name为db的容器</span><br><span class="line">docker run -d -P --name web --link db:db training/webapp python app.py   # 创建一个name为web的容器，并使用--link实现与db容器的互联</span><br><span class="line">docker exec -it b295295fdd14 /bin/bash   # 连接id为b295295fdd14的容器</span><br><span class="line">docker run --rm --name web4 --link db:db training/webapp env   # 创建一个临时web4容器，利用env查看容器的环境变量，可看见关联的容器db的一些地址信息</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Docker/" rel="tag"><i class="fa fa-tag"></i> Docker</a>
+              <a href="/tags/容器/" rel="tag"><i class="fa fa-tag"></i> 容器</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2018/04/05/Docker5 -- 数据 /" rel="prev" title="Docker5 数据">
+      <i class="fa fa-chevron-left"></i> Docker5 数据
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2018/04/09/git alias/" rel="next" title="git alias">
+      git alias <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#端口映射"><span class="nav-number">1.</span> <span class="nav-text">端口映射</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#从外部访问容器"><span class="nav-number">1.1.</span> <span class="nav-text">从外部访问容器</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#映射所有接口地址"><span class="nav-number">1.2.</span> <span class="nav-text">映射所有接口地址</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#映射到指定地址的指定端口"><span class="nav-number">1.3.</span> <span class="nav-text">映射到指定地址的指定端口</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#映射到指定地址的任意端口"><span class="nav-number">1.4.</span> <span class="nav-text">映射到指定地址的任意端口</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#查看端口映射配置"><span class="nav-number">1.5.</span> <span class="nav-text">查看端口映射配置</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#容器互联"><span class="nav-number">2.</span> <span class="nav-text">容器互联</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#自定义容器名称"><span class="nav-number">2.1.</span> <span class="nav-text">自定义容器名称</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#容器互联-1"><span class="nav-number">2.2.</span> <span class="nav-text">容器互联</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#总结"><span class="nav-number">3.</span> <span class="nav-text">总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

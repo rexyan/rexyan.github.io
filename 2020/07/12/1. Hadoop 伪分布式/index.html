@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="Hadoop 中的组件1.x 版本HDFS  负责大数据的存储，Common: HDFS和MR共有的常用的工具包模块，MapReduce:  负责计算，负责计算资源的申请的调度！   2.x 版本HDFS（框架）:负责大数据的存储YARN（框架）： 负责大数据的资源调度 MR(编程模型)： 使用 Hadoop制定的 编程要求，编写程序，完成大数据的计算！ 区别1.x 和2.x 的区别是将资源调度和">
+<meta name="keywords" content="Hadoop">
+<meta property="og:type" content="article">
+<meta property="og:title" content="1. Hadoop 伪分布式">
+<meta property="og:url" content="https://rexyan.github.io/2020/07/12/1. Hadoop 伪分布式/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="Hadoop 中的组件1.x 版本HDFS  负责大数据的存储，Common: HDFS和MR共有的常用的工具包模块，MapReduce:  负责计算，负责计算资源的申请的调度！   2.x 版本HDFS（框架）:负责大数据的存储YARN（框架）： 负责大数据的资源调度 MR(编程模型)： 使用 Hadoop制定的 编程要求，编写程序，完成大数据的计算！ 区别1.x 和2.x 的区别是将资源调度和">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjOWOo.8VuNj2AeyYjrx4B8Zh8K3CIbwoMwG.o4E0zvwz9d5Fy*c0owracPwJ.yW2hw!!/mnull&bo=jQeAAtYMQAQDCbo!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjJhML4KVLCbGHFRA4T69PozJvCPOWgJY0gPTxCpcSZmPwOkJmSC4q3h5179Yzif*xg!!/mnull&bo=OgzoAToM6AEDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjO.KHOapPd4QntIdO9WieGPiTz4Q.oOi9VrcJnDEpa1FhYW*LC1ycqQu4ZiB85ovdg!!/mnull&bo=zAreAMwK3gADCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjPVNjwZkWOe988s2BjmrCQpD1bzlnM1SO*EFUTT.V1Tu*MXfxDIC4unxe4wdruHDmg!!/mnull&bo=oAQhA6AEIQMDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjGvywXWsIpJApJ.En5.d46JGtemrbJCENyv6l9DwtCS3aytLqlCLuJZmwDFMjLCH0Q!!/mnull&bo=vgwSAb4MEgEDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjHigVlAJ3v.*Jbb0TlqijWXv6AbI1JxPb7uZTlAhjUHHd1lJnZi8sYU6KDaqDIJ1Zg!!/mnull&bo=XAWVAVwFlQEDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjBpZdKpVebpVNTEZ5hc4x65vxmAyaXRKSiUdP9*k9zYpROpRYMsLxWQsv*nbns*Tzw!!/mnull&bo=GAeAAtgJeAMDCRs!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjNVfvjl5Yg30PS6mv7kpR2Q8.Nkv5ze*gNfxFt50YbY*SfoOXigWaWZ8EYYDzxUfPQ!!/mnull&bo=KgoKAioKCgIDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjN*6a0qN7JarEshXe.Iv3nmG3TmDiXHvKJ9YxKvHFJbSUQ3yCJzMihDZCTjQwjtMhg!!/mnull&bo=dAvcAHQL3AADCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjAXw2f3g2EKZbhfEApCLSiDNRE.zMvqYIeNmjYuDP*GfwUsud5DAHTg67q6Z6oWshg!!/mnull&bo=RAzEAUQMxAEDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjNqBLTm4EAbFRlBXjZdt9s5EKjBMTAfgUiM5tX*KBDFj70qK1uCPXp5Bfr0vO2H1QQ!!/mnull&bo=5QmAAhQNTgMDCRY!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjKhEri1tqbDwYAFi3BseSEgc4ra*lGM2dVe.gNxWxqU42Nb1RSKcdn8aPjH2xDMpTQ!!/mnull&bo=1ArOANQKzgADCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.381Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="1. Hadoop 伪分布式">
+<meta name="twitter:description" content="Hadoop 中的组件1.x 版本HDFS  负责大数据的存储，Common: HDFS和MR共有的常用的工具包模块，MapReduce:  负责计算，负责计算资源的申请的调度！   2.x 版本HDFS（框架）:负责大数据的存储YARN（框架）： 负责大数据的资源调度 MR(编程模型)： 使用 Hadoop制定的 编程要求，编写程序，完成大数据的计算！ 区别1.x 和2.x 的区别是将资源调度和">
+<meta name="twitter:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjOWOo.8VuNj2AeyYjrx4B8Zh8K3CIbwoMwG.o4E0zvwz9d5Fy*c0owracPwJ.yW2hw!!/mnull&bo=jQeAAtYMQAQDCbo!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+
+<link rel="canonical" href="https://rexyan.github.io/2020/07/12/1. Hadoop 伪分布式/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>1. Hadoop 伪分布式 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2020/07/12/1. Hadoop 伪分布式/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          1. Hadoop 伪分布式
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-07-12 22:41:57" itemprop="dateCreated datePublished" datetime="2020-07-12T22:41:57+00:00">2020-07-12</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Java-大数据进阶/" itemprop="url" rel="index"><span itemprop="name">Java 大数据进阶</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="Hadoop-中的组件"><a href="#Hadoop-中的组件" class="headerlink" title="Hadoop 中的组件"></a>Hadoop 中的组件</h3><h4 id="1-x-版本"><a href="#1-x-版本" class="headerlink" title="1.x 版本"></a>1.x 版本</h4><p>HDFS  负责大数据的存储，Common: HDFS和MR共有的常用的工具包模块，MapReduce:  负责计算，负责计算资源的申请的调度！  </p>
+<h4 id="2-x-版本"><a href="#2-x-版本" class="headerlink" title="2.x 版本"></a>2.x 版本</h4><p>HDFS（框架）:负责大数据的存储<br>YARN（框架）： 负责大数据的资源调度</p>
+<p>MR(编程模型)： 使用 Hadoop制定的 编程要求，编写程序，完成大数据的计算！</p>
+<h4 id="区别"><a href="#区别" class="headerlink" title="区别"></a>区别</h4><p>1.x 和2.x 的区别是将资源调度和管理进行分离！由统一的资源调度平台 YARN 进行大数据计算资源的调度！提升了Hadoop的通用性！Hadoop搭建的集群中的计算资源，不仅可以运行Hadoop中的MR程序！也可以运行其他计算框架的程序！在hadoop不久之后，由于MR的低效性，出现了许多更为高效的计算框架！例如： Tez，Storm, Spark，Flink</p>
+<h3 id="HDFS"><a href="#HDFS" class="headerlink" title="HDFS"></a>HDFS</h3><p>负责大数据的存储，包含以下进程：</p>
+<ol>
+<li><strong>Namenode</strong> (必须存在，且1个)： 负责文件，名称等元数据(属性信息-文件名，大小，文件切分了多少块(block)，创建和修改时间等)的存储！Namenode 主要是接受客户端的请求，接受DN的请求！向DN分配任务！</li>
+<li><strong>Datanode</strong> (必须存在，可以N个)： 负责文件中数据的存储！主要负责接受NM分配的任务！负责数据块(block) 的管理(读，写)。</li>
+<li><strong>SecondaryNamenode</strong> (不一定存在，可以是N个):  负责辅助 NameNode工作！</li>
+</ol>
+<p>HDFS 的运行模式有两种，一种是本地，另一种是分布式。可以在 core-default.xml 中进行配置，如果是 fs.defaultFS=file:///（默认） 那么就是本地模式，如果是 fs.defaultFS=hdfs:// 那么就是分布式模式。</p>
+<h3 id="MapReduce"><a href="#MapReduce" class="headerlink" title="MapReduce"></a>MapReduce</h3><p>MapReduce(编程规范)： 程序中有 Mapper (简单处理)和 Reducer (合并)。遵循MapReduce的编程规范，编写的程序，打包后，称为一个 Job(任务)，Job 需要提交到 YARN上，向 YARN 申请计算资源，运行Job中的Task(进程)，Job 会先创建一个进程 MRAppMaster(mapreduce 应用管理者)，由 MRAppMaster 向 YARN 申请，MRAppMaster 负责监控 Job中各个Task运行情况，进行容错管理！</p>
+<p>MapReduce 也有两种运行模式。如果配置是 mapreduce.framework.name=local（默认）那么是本地运行，如果是 mapreduce.framework.name=yarn，那么就是在 yarn 上运行。</p>
+<h3 id="YARN"><a href="#YARN" class="headerlink" title="YARN"></a>YARN</h3><p>YARN负责集群中所有计算资源的管理和调度！常见进程：</p>
+<ol>
+<li><p><strong>ResourceManager</strong> (1个):   负责整个集群所有资源的管理！主要负责接受客户端的提交 Job 的请求！负责向NM分配任务！负责接受NM上报的信息！</p>
+</li>
+<li><p><strong>NodeManager</strong> (N个):  负责单台计算机所有资源的管理！负责和 RM进行通信，上报本机中的可用资源！负责领取 RM 分配的任务！负责为 Job 中的每个 Task 分配计算资源！</p>
+<p>为了防止当前Task在使用这些资源期间，被其他的task抢占资源！将计算资源，封装到一个Container中，在Container中的资源，会被暂时隔离！无法被其他进程所抢占！当前Task运行结束后，当前Container中的资源会被释放！允许其他task来使用！</p>
+</li>
+</ol>
+<h3 id="Hadoop-的安装"><a href="#Hadoop-的安装" class="headerlink" title="Hadoop 的安装"></a>Hadoop 的安装</h3><h4 id="安装-JDK"><a href="#安装-JDK" class="headerlink" title="安装 JDK"></a>安装 JDK</h4><p>上传 jdk-8u121-linux-x64.tar.gz 到 /opt/soft 目录，并进行解压到 /opt/module 下。编辑 /etc/profile，在最后添加如下信息</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">JAVA_HOME=/opt/module/jdk1.8.0_121</span><br><span class="line">PATH=$PATH:$JAVA_HOME/bin</span><br><span class="line"></span><br><span class="line">export JAVA_HOME PATH</span><br></pre></td></tr></table></figure>
+<h4 id="配置-HOST-映射"><a href="#配置-HOST-映射" class="headerlink" title="配置 HOST 映射"></a>配置 HOST 映射</h4><p>在 Hadoop 中启动多种不同类型的进程，例如 NN,DN，RM,NM，这些进程需要进行通信！在通信时，常用主机名进行通信，所以需要配置集群中所有机器的host映射。编辑  /etc/hosts 文件，添加以下记录，hadoop10 是当前机器的主机名。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">192.168.1.10 hadoop10</span><br></pre></td></tr></table></figure>
+<h4 id="创建并使用普通用户"><a href="#创建并使用普通用户" class="headerlink" title="创建并使用普通用户"></a>创建并使用普通用户</h4><p>创建 rexyan 用户</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">useradd rexyan</span><br><span class="line">passwd rexyan</span><br></pre></td></tr></table></figure>
+<p>赋予管理员权限, 编辑  /etc/sudoers  文件，在 root 下面添加 rexyan 用户不需要密码登录</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">root    ALL=(ALL)       ALL</span><br><span class="line">rexyan  ALL=(ALL)       NOPASSWD: ALL</span><br></pre></td></tr></table></figure>
+<p>将 /opt/module/ /opt/soft/ 两个目录的权限改为 rexyan 用户</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo chown -R rexyan:rexyan /opt/module/ /opt/soft/</span><br></pre></td></tr></table></figure>
+<h4 id="关闭防火墙"><a href="#关闭防火墙" class="headerlink" title="关闭防火墙"></a>关闭防火墙</h4><p>关闭防火墙，并设置开机不启动</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">sudo service iptables stop</span><br><span class="line">sudo chkconfig iptables off</span><br></pre></td></tr></table></figure>
+<h4 id="安装-Hadoop"><a href="#安装-Hadoop" class="headerlink" title="安装 Hadoop"></a>安装 Hadoop</h4><p>将在 linux 编译后的 jar 包上传到 /opt/soft 下, 并解压到 /opt/module 目录下</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tar zxvf hadoop-2.7.2.tar.gz -C /opt/module/</span><br></pre></td></tr></table></figure>
+<p>添加环境变量</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">JAVA_HOME=/opt/module/jdk1.8.0_121</span><br><span class="line">HADOOP_HOME=/opt/module/hadoop-2.7.2</span><br><span class="line">PATH=$PATH:$JAVA_HOME/bin:$HADOOP_HOME/bin:$HADOOP_HOME/sbin</span><br><span class="line"></span><br><span class="line">export JAVA_HOME PATH HADOOP_HOME</span><br></pre></td></tr></table></figure>
+<p>执行 hadoop version 验证是否安装成功</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hadoop version</span><br></pre></td></tr></table></figure>
+<h3 id="Hadoop-的配置文件"><a href="#Hadoop-的配置文件" class="headerlink" title="Hadoop 的配置文件"></a>Hadoop 的配置文件</h3><p>Hadoop 有 4 个默认的配置文件, 在 HADOOP_HOME/share/ 下的 jar 包中</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">core-default.xml： 设置hadoop最核心的参数！</span><br><span class="line">hdfs-default.xml   保存的是hdfs相关的参数！</span><br><span class="line">mapred-default.xml: MR程序在运行时，需要使用的参数！</span><br><span class="line">yarn-default.xml: yarn在启动时，需要的参数！</span><br></pre></td></tr></table></figure>
+<p>用户可以自定义 4 个自定义配置文件</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">core-site.xml： 用户自定义的hadoop最核心的参数！</span><br><span class="line">hdfs-site.xml   用户自定义的hdfs相关的参数！</span><br><span class="line">mapred-site.xml: 用户自定义的MR程序在运行时，需要使用的参数！</span><br><span class="line">yarn-site.xml: 用户自定义的yarn在启动时，需要的参数！</span><br></pre></td></tr></table></figure>
+<p>用户自定义的配置文件，可以覆盖默认配置文件中同名的参数的值。Hadoop在启动时，先加载4个默认的配置文件，再加载用户自定义的配置文件，如果用户自定义的配置文中有和4个默认配置文件中门的参数，可以覆盖之前已经加载的值！</p>
+<p>在使用 hadoop 命令时可以自定义配置文件的目录：  hadoop –config 配置文件的目录，如果没有配置，默认读取  HADOOP_HOME/etc/hadoop 中对应的配置文件。</p>
+<h3 id="HDFS-本地模式的使用"><a href="#HDFS-本地模式的使用" class="headerlink" title="HDFS 本地模式的使用"></a>HDFS 本地模式的使用</h3><p>HDFS 默认是本地模式的，在 rexyan 用户家目录中新建 hello 文件，并上传到本地的 hdfs</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hadoop fs -put /home/rexyan/hello /opt/module/</span><br></pre></td></tr></table></figure>
+<p>上面的命令的意思是将 /home/rexyan/hello 文件，上传到 hdfs 的 /opt/module/ 路径下</p>
+<p>还可以进行文件的下载，例如将 hdfs 上的/opt/module/hello  文件下载到 /tmp/hello  中</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hadoop fs -get /opt/module/hello  /tmp/hello</span><br></pre></td></tr></table></figure>
+<h3 id="HDFS-分布式模式的使用"><a href="#HDFS-分布式模式的使用" class="headerlink" title="HDFS 分布式模式的使用"></a>HDFS 分布式模式的使用</h3><p>修改 /opt/module/hadoop-2.7.2/etc/hadoop/core-site.xml  配置文件，配置 HDFS 为分布式模式，并配置 NameNode 的地址和端口信息。并且指定 hadoop 运行时产生的临时文件的存储位置。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">&lt;configuration&gt;</span><br><span class="line">  &lt;properties&gt;</span><br><span class="line">    &lt;name&gt;fs.defaultFS&lt;/name&gt;</span><br><span class="line">    &lt;value&gt;hdfs://hadoop10:9000&lt;/value&gt;</span><br><span class="line">  &lt;/properties&gt;</span><br><span class="line">  </span><br><span class="line">  &lt;properties&gt;</span><br><span class="line">    &lt;name&gt;hadoop.tmp.dir&lt;/name&gt;</span><br><span class="line">    &lt;value&gt;/opt/module/hadoop-2.7.2/data/tmp&lt;/value&gt;</span><br><span class="line">  &lt;/properties&gt;</span><br><span class="line">&lt;/configuration&gt;</span><br></pre></td></tr></table></figure>
+<p>上面将 hadoop 的临时文件改为了 /opt/module/hadoop-2.7.2/data/tmp，需要格式化 namenode，目的的是生成 /opt/module/hadoop-2.7.2/data/tmp目录，在目录下生成其他文件。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hadoop namenode -format</span><br></pre></td></tr></table></figure>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjOWOo.8VuNj2AeyYjrx4B8Zh8K3CIbwoMwG.o4E0zvwz9d5Fy*c0owracPwJ.yW2hw!!/mnull&amp;bo=jQeAAtYMQAQDCbo!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>使用 tree 命令查看 /opt/module/hadoop-2.7.2/data/tmp目录，发现下面已经生成了一些文件</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjJhML4KVLCbGHFRA4T69PozJvCPOWgJY0gPTxCpcSZmPwOkJmSC4q3h5179Yzif*xg!!/mnull&amp;bo=OgzoAToM6AEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>启动 NameNode 和 DataNode, 并使用 jps 命令查看启动状态。如果启动失败，可以在 /opt/module/hadoop-2.7.2/logs 目录下查看失败日志。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">hadoop-deamon.sh start namenode</span><br><span class="line">hadoop-deamon.sh start datanode</span><br></pre></td></tr></table></figure>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjO.KHOapPd4QntIdO9WieGPiTz4Q.oOi9VrcJnDEpa1FhYW*LC1ycqQu4ZiB85ovdg!!/mnull&amp;bo=zAreAMwK3gADCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>NameNode 启动之后，可以使用 web 页面来访问，地址就是机器所在的地址 + 50070 端口，即 <a href="http://192.168.1.10:50070/" target="_blank" rel="noopener">http://192.168.1.10:50070/</a> 能访问到以下界面就说明 namenode 没有什么问题了。</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjPVNjwZkWOe988s2BjmrCQpD1bzlnM1SO*EFUTT.V1Tu*MXfxDIC4unxe4wdruHDmg!!/mnull&amp;bo=oAQhA6AEIQMDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>namenode 启动完成之后，就可以启动 datanode</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hadoop-daemon.sh start datanode</span><br></pre></td></tr></table></figure>
+<p>可以使用 jps 或者网页查询是否启动成功</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjGvywXWsIpJApJ.En5.d46JGtemrbJCENyv6l9DwtCS3aytLqlCLuJZmwDFMjLCH0Q!!/mnull&amp;bo=vgwSAb4MEgEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjHigVlAJ3v.*Jbb0TlqijWXv6AbI1JxPb7uZTlAhjUHHd1lJnZi8sYU6KDaqDIJ1Zg!!/mnull&amp;bo=XAWVAVwFlQEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>如果 namenode 和 datanode 都启动成功了，那么就说明 hdfs 的配置没有什么问题了，可以上传一个文件试试</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hadoop fs -put hello /</span><br></pre></td></tr></table></figure>
+<p>在网页上也就能看到上传的文件了</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjBpZdKpVebpVNTEZ5hc4x65vxmAyaXRKSiUdP9*k9zYpROpRYMsLxWQsv*nbns*Tzw!!/mnull&amp;bo=GAeAAtgJeAMDCRs!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>现在 NN 和 DN 都在同一台机器，且只有一个 DN 节点，我们称这样的分布式为伪分布式。</p>
+<h3 id="MapReduce-本地模式的使用"><a href="#MapReduce-本地模式的使用" class="headerlink" title="MapReduce 本地模式的使用"></a>MapReduce 本地模式的使用</h3><p>在 /opt/module/hadoop-2.7.2/share/hadoop/mapreduce 目录下，hadoop 提供了 mapreduce 的示例 jar 包程序。如下命令表示，运行 hadoop-mapreduce-examples-2.7.2.jar 这个 jar 包，并且执行 wordcount 单词统计功能，统计 hdfs 上 / 下面的所有文件，将统计结果存放到 hdfs 的 /wc 中</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hadoop jar hadoop-mapreduce-examples-2.7.2.jar wordcount / /wc</span><br></pre></td></tr></table></figure>
+<p>执行结束后就能看到 wc 结果文件</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjNVfvjl5Yg30PS6mv7kpR2Q8.Nkv5ze*gNfxFt50YbY*SfoOXigWaWZ8EYYDzxUfPQ!!/mnull&amp;bo=KgoKAioKCgIDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>或者执行 hadoop fs -cat /wc/part-r-0000 命令查看 part-r-0000 是生成目录下的块文件，真正存放数据的地方</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hadoop fs -cat /wc/part-r-0000</span><br></pre></td></tr></table></figure>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjN*6a0qN7JarEshXe.Iv3nmG3TmDiXHvKJ9YxKvHFJbSUQ3yCJzMihDZCTjQwjtMhg!!/mnull&amp;bo=dAvcAHQL3AADCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<h3 id="MapReduce-在-Yarn-上的使用"><a href="#MapReduce-在-Yarn-上的使用" class="headerlink" title="MapReduce 在 Yarn 上的使用"></a>MapReduce 在 Yarn 上的使用</h3><p>在 yarn 上运行 MapReduce，需要配置 MapReduce 的运行模式为 yarn。复制一个示例的配置文件，并将名字改为 mapred-site.xml。编辑 mapred-site.xml 文件，配置如下内容</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">cd /opt/module/hadoop-2.7.2/etc/hadoop</span><br><span class="line">cp mapred-site.xml.template mapred-site.xml</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">&lt;configuration&gt;</span><br><span class="line">  &lt;property&gt;</span><br><span class="line">    &lt;name&gt;mapreduce.framework.name&lt;/name&gt;</span><br><span class="line">    &lt;value&gt;yarn&lt;/value&gt;</span><br><span class="line">  &lt;/property&gt;</span><br><span class="line">&lt;/configuration&gt;</span><br></pre></td></tr></table></figure>
+<p>上面我们配置了在 yarn 上运行 MapReduce，所以我们需要配置和启动 yarn（RM 和 NM）。编辑 yarn-site.xml 配置如下内容。配置文件代表了在 hadoop10 这台机器上运行 yarn 的 ResourceManager 程序，并指定 nodemanager 获取数据的方式。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">&lt;configuration&gt;</span><br><span class="line">    &lt;!-- 获取数据的方式 --&gt;</span><br><span class="line">    &lt;property&gt;</span><br><span class="line">        &lt;name&gt;yarn.nodemanager.aux-services&lt;/name&gt;</span><br><span class="line">        &lt;value&gt;mapreduce_shuffle&lt;/value&gt;</span><br><span class="line">    &lt;/property&gt;</span><br><span class="line"></span><br><span class="line">    &lt;!-- 指定YARN的ResourceManager的地址 --&gt;</span><br><span class="line">    &lt;property&gt;</span><br><span class="line">        &lt;name&gt;yarn.resourcemanager.hostname&lt;/name&gt;</span><br><span class="line">        &lt;value&gt;hadoop10&lt;/value&gt;</span><br><span class="line">    &lt;/property&gt;</span><br><span class="line">&lt;/configuration&gt;</span><br></pre></td></tr></table></figure>
+<p>启动 RM 和 NM 进程</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">yarn-daemon.sh start resourcemanager</span><br><span class="line">yarn-daemon.sh start nodemanager</span><br></pre></td></tr></table></figure>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjAXw2f3g2EKZbhfEApCLSiDNRE.zMvqYIeNmjYuDP*GfwUsud5DAHTg67q6Z6oWshg!!/mnull&amp;bo=RAzEAUQMxAEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>还可以通过 yarn 的网页来判断 yarn 是否启动成功 <a href="http://192.168.1.10:8088/cluster" target="_blank" rel="noopener">http://192.168.1.10:8088/cluster</a></p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjNqBLTm4EAbFRlBXjZdt9s5EKjBMTAfgUiM5tX*KBDFj70qK1uCPXp5Bfr0vO2H1QQ!!/mnull&amp;bo=5QmAAhQNTgMDCRY!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>启动 yarn 之后，再次提交任务，那么就不在是本地运行了。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hadoop jar hadoop-mapreduce-examples-2.7.2.jar wordcount /hello /wc2</span><br></pre></td></tr></table></figure>
+<p>查看结果数据</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjKhEri1tqbDwYAFi3BseSEgc4ra*lGM2dVe.gNxWxqU42Nb1RSKcdn8aPjH2xDMpTQ!!/mnull&amp;bo=1ArOANQKzgADCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Hadoop/" rel="tag"><i class="fa fa-tag"></i> Hadoop</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/06/14/58. 在线教育 - 讲师模块开发/" rel="prev" title="58. 在线教育 - 讲师模块开发">
+      <i class="fa fa-chevron-left"></i> 58. 在线教育 - 讲师模块开发
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/07/12/2. Hadoop 分布式/" rel="next" title="2. Hadoop 分布式">
+      2. Hadoop 分布式 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#Hadoop-中的组件"><span class="nav-number">1.</span> <span class="nav-text">Hadoop 中的组件</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1-x-版本"><span class="nav-number">1.1.</span> <span class="nav-text">1.x 版本</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-x-版本"><span class="nav-number">1.2.</span> <span class="nav-text">2.x 版本</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#区别"><span class="nav-number">1.3.</span> <span class="nav-text">区别</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#HDFS"><span class="nav-number">2.</span> <span class="nav-text">HDFS</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#MapReduce"><span class="nav-number">3.</span> <span class="nav-text">MapReduce</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#YARN"><span class="nav-number">4.</span> <span class="nav-text">YARN</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Hadoop-的安装"><span class="nav-number">5.</span> <span class="nav-text">Hadoop 的安装</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#安装-JDK"><span class="nav-number">5.1.</span> <span class="nav-text">安装 JDK</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#配置-HOST-映射"><span class="nav-number">5.2.</span> <span class="nav-text">配置 HOST 映射</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#创建并使用普通用户"><span class="nav-number">5.3.</span> <span class="nav-text">创建并使用普通用户</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#关闭防火墙"><span class="nav-number">5.4.</span> <span class="nav-text">关闭防火墙</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#安装-Hadoop"><span class="nav-number">5.5.</span> <span class="nav-text">安装 Hadoop</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Hadoop-的配置文件"><span class="nav-number">6.</span> <span class="nav-text">Hadoop 的配置文件</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#HDFS-本地模式的使用"><span class="nav-number">7.</span> <span class="nav-text">HDFS 本地模式的使用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#HDFS-分布式模式的使用"><span class="nav-number">8.</span> <span class="nav-text">HDFS 分布式模式的使用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#MapReduce-本地模式的使用"><span class="nav-number">9.</span> <span class="nav-text">MapReduce 本地模式的使用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#MapReduce-在-Yarn-上的使用"><span class="nav-number">10.</span> <span class="nav-text">MapReduce 在 Yarn 上的使用</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

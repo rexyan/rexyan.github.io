@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="线程锁线程加锁必须要注意的两点：  同步的锁对象可以是任意类型的对象。 这些加锁的线程必须使用同一个锁对象。  1. 同步代码块123456语法格式：synchronized(同步的锁对象)&amp;#123;    需要锁起来的代码：一个线程在运行这段代码期间，不想别的线程半路插入&amp;#125;和共享数据相关的语句都要锁起来 Thread 的方式创建多线程并加锁TicketService.java 123">
+<meta name="keywords" content="Java 大数据">
+<meta property="og:type" content="article">
+<meta property="og:title" content="14. 线程安全">
+<meta property="og:url" content="https://rexyan.github.io/2019/11/30/14. 线程安全/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="线程锁线程加锁必须要注意的两点：  同步的锁对象可以是任意类型的对象。 这些加锁的线程必须使用同一个锁对象。  1. 同步代码块123456语法格式：synchronized(同步的锁对象)&amp;#123;    需要锁起来的代码：一个线程在运行这段代码期间，不想别的线程半路插入&amp;#125;和共享数据相关的语句都要锁起来 Thread 的方式创建多线程并加锁TicketService.java 123">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.382Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="14. 线程安全">
+<meta name="twitter:description" content="线程锁线程加锁必须要注意的两点：  同步的锁对象可以是任意类型的对象。 这些加锁的线程必须使用同一个锁对象。  1. 同步代码块123456语法格式：synchronized(同步的锁对象)&amp;#123;    需要锁起来的代码：一个线程在运行这段代码期间，不想别的线程半路插入&amp;#125;和共享数据相关的语句都要锁起来 Thread 的方式创建多线程并加锁TicketService.java 123">
+
+<link rel="canonical" href="https://rexyan.github.io/2019/11/30/14. 线程安全/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>14. 线程安全 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2019/11/30/14. 线程安全/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          14. 线程安全
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-11-30 17:28:57" itemprop="dateCreated datePublished" datetime="2019-11-30T17:28:57+00:00">2019-11-30</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Java-大数据/" itemprop="url" rel="index"><span itemprop="name">Java 大数据</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="线程锁"><a href="#线程锁" class="headerlink" title="线程锁"></a>线程锁</h3><p>线程加锁必须要注意的两点：</p>
+<ol>
+<li>同步的锁对象可以是任意类型的对象。</li>
+<li>这些加锁的线程必须使用同一个锁对象。</li>
+</ol>
+<h4 id="1-同步代码块"><a href="#1-同步代码块" class="headerlink" title="1. 同步代码块"></a>1. 同步代码块</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">语法格式：</span><br><span class="line">synchronized(同步的锁对象)&#123;</span><br><span class="line">    需要锁起来的代码：一个线程在运行这段代码期间，不想别的线程半路插入</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">和共享数据相关的语句都要锁起来</span><br></pre></td></tr></table></figure>
+<h5 id="Thread-的方式创建多线程并加锁"><a href="#Thread-的方式创建多线程并加锁" class="headerlink" title="Thread 的方式创建多线程并加锁"></a>Thread 的方式创建多线程并加锁</h5><p>TicketService.java</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.itguigu.ticket;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> java.util.ArrayList;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">TicketService</span> </span>&#123;</span><br><span class="line">	ArrayList&lt;String&gt; allTicket;</span><br><span class="line">	</span><br><span class="line">	<span class="comment">/**</span></span><br><span class="line"><span class="comment">	 * 构造方法创建所有的票</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="title">TicketService</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		allTicket = <span class="keyword">new</span> ArrayList&lt;&gt;();</span><br><span class="line">		allTicket.add(<span class="string">"01车01A"</span>);</span><br><span class="line">		allTicket.add(<span class="string">"01车01B"</span>);</span><br><span class="line">		allTicket.add(<span class="string">"01车01C"</span>);</span><br><span class="line">		allTicket.add(<span class="string">"01车01D"</span>);</span><br><span class="line">		allTicket.add(<span class="string">"01车01E"</span>);</span><br><span class="line">		allTicket.add(<span class="string">"01车01F"</span>);</span><br><span class="line">		</span><br><span class="line">		allTicket.add(<span class="string">"02车01A"</span>);</span><br><span class="line">		allTicket.add(<span class="string">"02车01B"</span>);</span><br><span class="line">		allTicket.add(<span class="string">"02车01C"</span>);</span><br><span class="line">		allTicket.add(<span class="string">"02车01D"</span>);</span><br><span class="line">		allTicket.add(<span class="string">"02车01E"</span>);</span><br><span class="line">		allTicket.add(<span class="string">"02车01F"</span>);</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="comment">/**</span></span><br><span class="line"><span class="comment">	 * 是否还有票</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">hasTicket</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> allTicket.size() &gt; <span class="number">0</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="comment">/**</span></span><br><span class="line"><span class="comment">	 * 卖票</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> String <span class="title">sellTicket</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> allTicket.remove(<span class="number">0</span>);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>TestThread.java</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.itguigu.ticket;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">TestThread</span> </span>&#123;</span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>&#123;</span><br><span class="line">		BuyTicketByThread buyTicketByThread1 = <span class="keyword">new</span> BuyTicketByThread(<span class="string">"窗口1"</span>);</span><br><span class="line">		BuyTicketByThread buyTicketByThread2 = <span class="keyword">new</span> BuyTicketByThread(<span class="string">"窗口2"</span>);</span><br><span class="line">		</span><br><span class="line">		buyTicketByThread1.start();</span><br><span class="line">		buyTicketByThread2.start();</span><br><span class="line">	&#125; </span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">BuyTicketByThread</span> <span class="keyword">extends</span> <span class="title">Thread</span></span>&#123;</span><br><span class="line">	<span class="comment">// 因为创建两个线程就要 new 两次 BuyTicketByThread 方法，所以如果要让两个线程之间保持同一份 ticketService</span></span><br><span class="line">	<span class="comment">// 那么就应该使 ticketService 为 static。这样才好对不同对象中同一个资源变量进行加锁</span></span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> TicketService ticketService = <span class="keyword">new</span> TicketService();</span><br><span class="line">	</span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="title">BuyTicketByThread</span><span class="params">(String name)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">super</span>(name);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">while</span> (<span class="keyword">true</span>) &#123;</span><br><span class="line">			<span class="comment">// 使用 synchronized 关键字进行加锁，ticketService 是加锁的对象</span></span><br><span class="line">			<span class="comment">// synchronized 后面是锁住的操作</span></span><br><span class="line">			<span class="keyword">synchronized</span> (ticketService) &#123;</span><br><span class="line">				<span class="keyword">if</span> (ticketService.hasTicket()) &#123;</span><br><span class="line">					<span class="keyword">try</span> &#123;</span><br><span class="line">						Thread.sleep(<span class="number">10</span>);</span><br><span class="line">						System.out.println(Thread.currentThread().getName() + <span class="string">" 卖了:"</span> + ticketService.sellTicket());</span><br><span class="line">					&#125; <span class="keyword">catch</span> (InterruptedException e) &#123;</span><br><span class="line">						e.printStackTrace();</span><br><span class="line">					&#125;</span><br><span class="line">				&#125;<span class="keyword">else</span> &#123;</span><br><span class="line">					<span class="keyword">break</span>;</span><br><span class="line">				&#125;</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h5 id="Runnable-的方式创建多线程并加锁"><a href="#Runnable-的方式创建多线程并加锁" class="headerlink" title="Runnable 的方式创建多线程并加锁"></a>Runnable 的方式创建多线程并加锁</h5><p>TicketService.java（和上面一样）</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.itguigu.ticket;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> java.util.ArrayList;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">TicketService</span> </span>&#123;</span><br><span class="line">	ArrayList&lt;String&gt; allTicket;</span><br><span class="line">	</span><br><span class="line">	<span class="comment">/**</span></span><br><span class="line"><span class="comment">	 * 构造方法创建所有的票</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="title">TicketService</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		allTicket = <span class="keyword">new</span> ArrayList&lt;&gt;();</span><br><span class="line">		allTicket.add(<span class="string">"01车01A"</span>);</span><br><span class="line">		allTicket.add(<span class="string">"01车01B"</span>);</span><br><span class="line">		allTicket.add(<span class="string">"01车01C"</span>);</span><br><span class="line">		allTicket.add(<span class="string">"01车01D"</span>);</span><br><span class="line">		allTicket.add(<span class="string">"01车01E"</span>);</span><br><span class="line">		allTicket.add(<span class="string">"01车01F"</span>);</span><br><span class="line">		</span><br><span class="line">		allTicket.add(<span class="string">"02车01A"</span>);</span><br><span class="line">		allTicket.add(<span class="string">"02车01B"</span>);</span><br><span class="line">		allTicket.add(<span class="string">"02车01C"</span>);</span><br><span class="line">		allTicket.add(<span class="string">"02车01D"</span>);</span><br><span class="line">		allTicket.add(<span class="string">"02车01E"</span>);</span><br><span class="line">		allTicket.add(<span class="string">"02车01F"</span>);</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="comment">/**</span></span><br><span class="line"><span class="comment">	 * 是否还有票</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">boolean</span> <span class="title">hasTicket</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> allTicket.size() &gt; <span class="number">0</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="comment">/**</span></span><br><span class="line"><span class="comment">	 * 卖票</span></span><br><span class="line"><span class="comment">	 * <span class="doctag">@return</span></span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> String <span class="title">sellTicket</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> allTicket.remove(<span class="number">0</span>);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.itguigu.ticket;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">TestRunnable</span> </span>&#123;</span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>&#123;</span><br><span class="line">		BuyTicketByRunnable buyTicketByRunnable = <span class="keyword">new</span> BuyTicketByRunnable();</span><br><span class="line">		Thread thread1 = <span class="keyword">new</span> Thread(buyTicketByRunnable, <span class="string">"窗口1"</span>);</span><br><span class="line">		Thread thread2 = <span class="keyword">new</span> Thread(buyTicketByRunnable, <span class="string">"窗口2"</span>);</span><br><span class="line">		</span><br><span class="line">		thread1.start();</span><br><span class="line">		thread2.start();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">BuyTicketByRunnable</span> <span class="keyword">implements</span> <span class="title">Runnable</span></span>&#123;</span><br><span class="line">	<span class="comment">// 因为这里使用的是 Runnable 的方式创建的线程，且只 new 了一个 BuyTicketByRunnable 对象</span></span><br><span class="line">	<span class="comment">// 所以在两个线程中 ticketService 只有一份，我们就不用像在 Thread 中一样为此变量加上 static 了。</span></span><br><span class="line">	<span class="keyword">private</span> TicketService ticketService = <span class="keyword">new</span> TicketService();</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">while</span> (<span class="keyword">true</span>) &#123;</span><br><span class="line">			<span class="comment">// 使用 synchronized 关键字进行加锁，ticketService 是加锁的对象</span></span><br><span class="line">			<span class="comment">// synchronized 后面是锁住的操作</span></span><br><span class="line">			<span class="comment">// 因为只 new 了一个 BuyTicketByRunnable 对象，所以两个线程中其实只有一个 BuyTicketByRunnable 对象</span></span><br><span class="line">			<span class="comment">// 所以这里可以将 ticketService 换为 this（this即BuyTicketByRunnable 对象），这样也能达到效果</span></span><br><span class="line">			<span class="keyword">synchronized</span> (ticketService) &#123;</span><br><span class="line">				<span class="keyword">if</span> (ticketService.hasTicket()) &#123;</span><br><span class="line">					<span class="keyword">try</span> &#123;</span><br><span class="line">						Thread.sleep(<span class="number">10</span>);</span><br><span class="line">						System.out.println(Thread.currentThread().getName() + <span class="string">" 卖了:"</span> + ticketService.sellTicket());</span><br><span class="line">					&#125; <span class="keyword">catch</span> (InterruptedException e) &#123;</span><br><span class="line">						e.printStackTrace();</span><br><span class="line">					&#125;</span><br><span class="line">				&#125;<span class="keyword">else</span> &#123;</span><br><span class="line">					<span class="keyword">break</span>;</span><br><span class="line">				&#125;</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h5 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h5><p>在使用 synchronized 进行加锁的时候，在 Thread 创建的线程中，需要有一个静态的多个线程多只有一份变量，即上面的 <code>private static TicketService ticketService = new TicketService();</code> 而 Runnable 则不需要此变量为静态，即使用 <code>private TicketService ticketService = new TicketService();</code> 即可，而且 Runnable 还可以将锁对象选定为当前的 this，Thread 则不可以。在其他使用方面，因为是实现的 Runnable 接口，所以线程类还可以继承其他的类，而如果使用 Thread 的话，那就不能继续继承其他的类的，因为 Java 里面只能单继承。所以综上考虑应该优先使用 Runnable。</p>
+<h4 id="2-同步方法"><a href="#2-同步方法" class="headerlink" title="2. 同步方法"></a>2. 同步方法</h4><p>如果一次任务是在一个方法中完成的，那么可以对这个方法直接上锁，即在方法上加上 synchronized 关键字。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">语法格式：</span><br><span class="line">【修饰符】synchronized 返回值类型 方法名(【形参列表】)【throws 异常列表】&#123;&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>同步方法的锁对象</strong>：</p>
+<p>非静态方法：同步方法的锁对象就是当前的 this 对象</p>
+<p>静态方法：当前类的 Class 对象(每一个类型被加载到内存后都会生成一个 Class 对象来表示这个类型，只要是同一种类型，那么 Class 对象就是同一个)</p>
+<h5 id="Thread-的方式创建多线程并加锁-1"><a href="#Thread-的方式创建多线程并加锁-1" class="headerlink" title="Thread 的方式创建多线程并加锁"></a>Thread 的方式创建多线程并加锁</h5><p>在之前同步代码块的基础上将同步代码抽取为一个同步方法，而这里使用的是继承 Thread 的方式创建的线程，所以有多个 BuyTicketByThread，这时我们的同步方法就应该是静态的。因为这样才保证了多个线程使用的是同一个锁对象。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.itguigu.ticket;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">TestThread</span> </span>&#123;</span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>&#123;</span><br><span class="line">		BuyTicketByThread buyTicketByThread1 = <span class="keyword">new</span> BuyTicketByThread(<span class="string">"窗口1"</span>);</span><br><span class="line">		BuyTicketByThread buyTicketByThread2 = <span class="keyword">new</span> BuyTicketByThread(<span class="string">"窗口2"</span>);</span><br><span class="line">		</span><br><span class="line">		buyTicketByThread1.start();</span><br><span class="line">		buyTicketByThread2.start();</span><br><span class="line">	&#125; </span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">BuyTicketByThread</span> <span class="keyword">extends</span> <span class="title">Thread</span></span>&#123;</span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> TicketService ticketService = <span class="keyword">new</span> TicketService();</span><br><span class="line">	</span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="title">BuyTicketByThread</span><span class="params">(String name)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">super</span>(name);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="comment">// 这里不再是 true，这里使用 ticketService.hasTicket() 判断程序是否需要结束</span></span><br><span class="line">		<span class="keyword">while</span> (ticketService.hasTicket()) &#123;</span><br><span class="line">			saleOneTicket();</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="comment">/**</span></span><br><span class="line"><span class="comment">	 * 因为线程是继承 Thread 类实现的，所以不能使用 this 对象作为锁对象。要选用多个线程之间都是共有的</span></span><br><span class="line"><span class="comment">	 * 所以我们将同步方法 saleOneTicket 修改为静态方法。这样就能达到目的。因为是静态方法，所以这里</span></span><br><span class="line"><span class="comment">	 * 的同步方法的锁对象就是当前类的 Class 对象。</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">synchronized</span> <span class="keyword">void</span> <span class="title">saleOneTicket</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="comment">// 这里使用 ticketService.hasTicket() 来控制线程之间的安全</span></span><br><span class="line">		<span class="keyword">if</span> (ticketService.hasTicket()) &#123;</span><br><span class="line">			<span class="keyword">try</span> &#123;</span><br><span class="line">				Thread.sleep(<span class="number">10</span>);</span><br><span class="line">				System.out.println(Thread.currentThread().getName() + <span class="string">" 卖了:"</span> + ticketService.sellTicket());</span><br><span class="line">			&#125; <span class="keyword">catch</span> (InterruptedException e) &#123;</span><br><span class="line">				e.printStackTrace();</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h5 id="Runnable-的方式创建多线程并加锁-1"><a href="#Runnable-的方式创建多线程并加锁-1" class="headerlink" title="Runnable 的方式创建多线程并加锁"></a>Runnable 的方式创建多线程并加锁</h5><p>在之前同步代码块的基础上将同步代码抽取为一个同步方法，所以一个 BuyTicketByRunnable 对象也能启动多个线程。所以这种方式的实现是可以使用 this 对象【BuyTicketByRunnable 对象】作为锁对象的。那么这里就不需要加 static 了。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> com.itguigu.ticket;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">TestRunnable</span> </span>&#123;</span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>&#123;</span><br><span class="line">		BuyTicketByRunnable buyTicketByRunnable = <span class="keyword">new</span> BuyTicketByRunnable();</span><br><span class="line">		Thread thread1 = <span class="keyword">new</span> Thread(buyTicketByRunnable, <span class="string">"窗口1"</span>);</span><br><span class="line">		Thread thread2 = <span class="keyword">new</span> Thread(buyTicketByRunnable, <span class="string">"窗口2"</span>);</span><br><span class="line">		</span><br><span class="line">		thread1.start();</span><br><span class="line">		thread2.start();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">BuyTicketByRunnable</span> <span class="keyword">implements</span> <span class="title">Runnable</span></span>&#123;</span><br><span class="line">	<span class="keyword">private</span> TicketService ticketService = <span class="keyword">new</span> TicketService();</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">while</span> (ticketService.hasTicket()) &#123;</span><br><span class="line">			saleOneTicket();</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="comment">/**</span></span><br><span class="line"><span class="comment">	 * 线程的实现因为是依靠实现 Runnable 接口实现的。所以一个 BuyTicketByRunnable 对象也能启动多个线程。</span></span><br><span class="line"><span class="comment">	 * 所以这种方式的实现是可以使用 this 对象【BuyTicketByRunnable 对象】作为锁对象的。那么这里就不需要加 static 了。因为是非静态方法，所以这里的同步方法的锁对象就是当前的 this 对象。</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">synchronized</span> <span class="keyword">void</span> <span class="title">saleOneTicket</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">if</span> (ticketService.hasTicket()) &#123;</span><br><span class="line">			<span class="keyword">try</span> &#123;</span><br><span class="line">				Thread.sleep(<span class="number">10</span>);</span><br><span class="line">				System.out.println(Thread.currentThread().getName() + <span class="string">" 卖了:"</span> + ticketService.sellTicket());</span><br><span class="line">			&#125; <span class="keyword">catch</span> (InterruptedException e) &#123;</span><br><span class="line">				e.printStackTrace();</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Java-大数据/" rel="tag"><i class="fa fa-tag"></i> Java 大数据</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/11/30/13. 其他 IO 流及线程/" rel="prev" title="13. 其他 IO 流及线程">
+      <i class="fa fa-chevron-left"></i> 13. 其他 IO 流及线程
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/11/30/15. 单例/" rel="next" title="15. 单例和网络">
+      15. 单例和网络 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#线程锁"><span class="nav-number">1.</span> <span class="nav-text">线程锁</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1-同步代码块"><span class="nav-number">1.1.</span> <span class="nav-text">1. 同步代码块</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#Thread-的方式创建多线程并加锁"><span class="nav-number">1.1.1.</span> <span class="nav-text">Thread 的方式创建多线程并加锁</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#Runnable-的方式创建多线程并加锁"><span class="nav-number">1.1.2.</span> <span class="nav-text">Runnable 的方式创建多线程并加锁</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#总结"><span class="nav-number">1.1.3.</span> <span class="nav-text">总结</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-同步方法"><span class="nav-number">1.2.</span> <span class="nav-text">2. 同步方法</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#Thread-的方式创建多线程并加锁-1"><span class="nav-number">1.2.1.</span> <span class="nav-text">Thread 的方式创建多线程并加锁</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#Runnable-的方式创建多线程并加锁-1"><span class="nav-number">1.2.2.</span> <span class="nav-text">Runnable 的方式创建多线程并加锁</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

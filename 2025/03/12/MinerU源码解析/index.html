@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="流程 流程图 mermaid 代码如下： 123456789101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657graph TD    A[启动命令 magic-pdf] --&amp;gt; B&amp;#123;文件类型判断&amp;#125;    B --&amp;gt; |MS O">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MinerU源码解析">
+<meta property="og:url" content="https://rexyan.github.io/2025/03/12/MinerU源码解析/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="流程 流程图 mermaid 代码如下： 123456789101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657graph TD    A[启动命令 magic-pdf] --&amp;gt; B&amp;#123;文件类型判断&amp;#125;    B --&amp;gt; |MS O">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17417456605061741745659776.png">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.396Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="MinerU源码解析">
+<meta name="twitter:description" content="流程 流程图 mermaid 代码如下： 123456789101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657graph TD    A[启动命令 magic-pdf] --&amp;gt; B&amp;#123;文件类型判断&amp;#125;    B --&amp;gt; |MS O">
+<meta name="twitter:image" content="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17417456605061741745659776.png">
+
+<link rel="canonical" href="https://rexyan.github.io/2025/03/12/MinerU源码解析/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>MinerU源码解析 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2025/03/12/MinerU源码解析/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          MinerU源码解析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2025-03-12 22:55:57" itemprop="dateCreated datePublished" datetime="2025-03-12T22:55:57+00:00">2025-03-12</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/博客/" itemprop="url" rel="index"><span itemprop="name">博客</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="流程"><a href="#流程" class="headerlink" title="流程"></a>流程</h3><p><img src="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17417456605061741745659776.png" alt="17417456605061741745659776.png"></p>
+<p>流程图 mermaid 代码如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">graph TD</span><br><span class="line">    A[启动命令 magic-pdf] --&gt; B&#123;文件类型判断&#125;</span><br><span class="line">    B --&gt; |MS Office| C[convert_file_to_pdf]</span><br><span class="line">    B --&gt; |Image| D[fitz转PDF]</span><br><span class="line">    B --&gt; |PDF| E[直接读取]</span><br><span class="line">    C --&gt; F[parse_doc]</span><br><span class="line">    D --&gt; F</span><br><span class="line">    E --&gt; F</span><br><span class="line">    F --&gt; G[调用read_fn转换]</span><br><span class="line">    G --&gt; H[调用do_parse解析]</span><br><span class="line">    H --&gt; I&#123;用户指定页面?&#125;</span><br><span class="line">    I --&gt; |是| J[convert_pdf_bytes_to_bytes_by_pymupdf]</span><br><span class="line">    I --&gt; |否| K[prepare_env创建目录]</span><br><span class="line">    J --&gt; K</span><br><span class="line">    K --&gt; L[初始化PymuDocDataset]</span><br><span class="line">    L --&gt; M&#123;model_list为空?&#125;</span><br><span class="line">    M --&gt; |是| N[选择解析模式]</span><br><span class="line">    N --&gt; O[doc_analyze]</span><br><span class="line">    O --&gt; P&#123;文本模式?&#125;</span><br><span class="line">    P --&gt; |是| Q[pipe_txt_mode]</span><br><span class="line">    P --&gt; |否| R[pipe_ocr_mode]</span><br><span class="line">    Q --&gt; S[获取模型实例]</span><br><span class="line">    R --&gt; S</span><br><span class="line">    S --&gt; T[检查NPU/GPU]</span><br><span class="line">    T --&gt; U[设置batch_ratio]</span><br><span class="line">    U --&gt; V[BatchAnalyze初始化]</span><br><span class="line">    V --&gt; W&#123;支持批处理?&#125;</span><br><span class="line">    W --&gt; |是| X[批量处理图像]</span><br><span class="line">    W --&gt; |否| Y[逐页处理]</span><br><span class="line">    X --&gt; Z[布局模型判断]</span><br><span class="line">    Z --&gt; |LayoutLMv3| AA[逐个处理]</span><br><span class="line">    Z --&gt; |DocLayout_YOLO| AB[批量处理]</span><br><span class="line">    AA --&gt; AC[公式检测]</span><br><span class="line">    AB --&gt; AC</span><br><span class="line">    AC --&gt; AD[公式识别]</span><br><span class="line">    AD --&gt; AE[合并布局结果]</span><br><span class="line">    AE --&gt; AF[OCR识别]</span><br><span class="line">    AF --&gt; AG[表格识别]</span><br><span class="line">    AG --&gt; AH[返回InferenceResult]</span><br><span class="line">    Y --&gt; AH</span><br><span class="line">    M --&gt; |否| AI[初始化InferenceResult]</span><br><span class="line">    AI --&gt; AJ[选择解析模式]</span><br><span class="line">    AJ --&gt; AK[后续结果处理]</span><br><span class="line">    AH --&gt; AK</span><br><span class="line">    AK --&gt; AL&#123;绘制边界框?&#125;</span><br><span class="line">    AL --&gt; |是| AM[draw_model/draw_layout等]</span><br><span class="line">    AL --&gt; |否| AN[导出文件]</span><br><span class="line">    AN --&gt; AO[导出Markdown]</span><br><span class="line">    AN --&gt; AP[导出JSON]</span><br><span class="line">    AN --&gt; AQ[导出PDF]</span><br><span class="line">    AN --&gt; AR[导出内容列表]</span><br><span class="line">    </span><br><span class="line">    style A fill:#4CAF50,stroke:#388E3C</span><br><span class="line">    style B fill:#FFC107,stroke:#FFA000</span><br><span class="line">    style O fill:#2196F3,stroke:#1976D2</span><br><span class="line">    style AK fill:#9C27B0,stroke:#7B1FA2</span><br></pre></td></tr></table></figure>
+<h4 id="文字版"><a href="#文字版" class="headerlink" title="文字版"></a>文字版</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line">1. 启动命令 magic-pdf -p /data/pdf/text.pdf -o /data/pdf/result -m auto </span><br><span class="line">2. 根据文件后缀判断文件类型。如果是 Microsoft Office 文件，使用 convert_file_to_pdf 函数将其转换为 PDF。如果是图像文件，使用 fitz 库将其转换为 PDF。如果是 PDF 文件，直接读取。</span><br><span class="line">3. parse_doc 中调用 read_fn（做转换） 和 do_parse（解析入口）</span><br><span class="line">4. 用户可以选择处理某些页面的数据，这里调用 convert_pdf_bytes_to_bytes_by_pymupdf 将 PDF 字节数据转换为指定页范围的字节数据（可以指定只处理某些页）</span><br><span class="line">5. 调用 prepare_env 函数，创建输出目录结构，返回图像和 Markdown 目录路径。</span><br><span class="line">6. 使用 PymuDocDataset 初始化数据集对象 ds，用于后续的解析。</span><br><span class="line">7. 如果 model_list 为空且使用内部模型（model_list 其实为之前的解析结果，只是了方便调试使用），根据 parse_method 和数据集分类结果选择解析模式。</span><br><span class="line">                7.1 具体解析逻辑在 doc_analyze 中进行</span><br><span class="line">                        7.1.1 如果分类为文本模式，调用 pipe_txt_mode 进行文本解析</span><br><span class="line">                        7.1.2 否则，调用 pipe_ocr_mode 进行 OCR 解析。</span><br><span class="line">                        </span><br><span class="line">                        7.1.3 使用 ModelSingleton 获取自定义模型实例（get_model 方法会根据是否启用 OCR，是否显示日志，语言设置，布局模型，是否启用公式识别，是否启用表格识别 来载入一组模型，主要是两大类，CustomPaddleModel 和 CustomPEKModel，然后在里面根据配置载入 ocr 模型，公式模型，表格模型等）。</span><br><span class="line">                        7.1.4 检查设备是否支持 NPU（神经网络处理单元）或 GPU。</span><br><span class="line">                        7.1.5 根据 GPU 内存大小设置批处理比例 batch_ratio，并初始化 BatchAnalyze 对象。判断是否启用批处理分析</span><br><span class="line">                        </span><br><span class="line">                        7.1.6 如果支持批处理，则调用 BatchAnalyze 进行分析</span><br><span class="line">                        7.1.7 BatchAnalyze 中会处理每一个图像（每一个页面）</span><br><span class="line">                                7.1.7.1 如果当前 layout 模型是 LAYOUTLMv3，则逐个处理图像</span><br><span class="line">                                7.1.7.2 如果当前 layout 模型是 DocLayout_YOLO，批量处理图像。</span><br><span class="line">                                7.1.7.3 如果启用公式检测，首先进行公式检测，然后进行公式识别, 将识别结果合并到布局结果中。</span><br><span class="line">                                7.1.7.4 调用 get_res_list_from_layout_res 得到每页需要进行 ocr 识别的列表（category_id 是 0, 1, 2, 4, 6, 或 7）, table 识别的列表（category_id 是 5）, 公式识别的列表（category_id 是 13 或 14）</span><br><span class="line">                                        7.1.7.4.1 进行 OCR 识别</span><br><span class="line">                                        7.1.7.4.2 表格识别</span><br><span class="line">                                        7.1.7.4.3 返回识别结果 images_layout_res</span><br><span class="line">                                7.1.7.5 返回包含分析结果的 InferenceResult 对象。</span><br><span class="line">                        7.1.8 如果未启用批处理分析，逐页分析并记录结果</span><br><span class="line">                7.2 后续结果处理                </span><br><span class="line">                </span><br><span class="line"></span><br><span class="line">8. 否则如果提供了 model_list（model_list 其实为之前的解析结果，只是了方便调试使用） ，则初始化 InferenceResult 对象, 根据 parse_method 和数据集分类结果选择解析模式。</span><br><span class="line">9. 后续结果处理</span><br><span class="line">        9.1 如果启用绘制模型边界框，调用 draw_model 方法生成模型边界框 PDF</span><br><span class="line">        9.2 如果启用绘制布局边界框，调用 draw_layout 方法生成布局边界框 PDF。</span><br><span class="line">        9.3 如果启用绘制跨度边界框，调用 draw_span 方法生成跨度边界框 PDF。</span><br><span class="line">        9.4 如果启用绘制行排序边界框，调用 draw_line_sort 方法生成行排序边界框 PDF。</span><br><span class="line">        9.5 如果启用绘制字符边界框，调用 draw_char_bbox 函数生成字符边界框 PDF。</span><br><span class="line">        9.6 如果启用导出 Markdown，调用 dump_md 方法生成 Markdown 文件。</span><br><span class="line">        9.7 如果启用导出中间 JSON，调用 dump_middle_json 方法生成中间 JSON 文件。</span><br><span class="line">        9.8 如果启用导出模型 JSON，调用 dump_model 方法生成模型 JSON 文件。</span><br><span class="line">        9.9 如果启用导出原始 PDF，调用 write 方法将原始 PDF 字节数据写入文件。</span><br><span class="line">        9.10 如果启用导出内容列表，调用 dump_content_list 方法生成内容列表 JSON 文件。</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">如何区分模式，是使用 classify 方法进行区分</span><br><span class="line">                分析 PDF 文件的字节数据，提取出一系列元信息，包括加密状态、页面尺寸、图像和文本信息、语言、无效字符等。</span><br><span class="line">                几个维度来评价：是否加密，是否需要密码，纸张大小，总页数，是否文字可提取</span><br></pre></td></tr></table></figure>
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2024/12/24/pgvector 结合 zhparser 分词 /" rel="prev" title="pgvector 结合 zhparser 分词">
+      <i class="fa fa-chevron-left"></i> pgvector 结合 zhparser 分词
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2025/03/18/MCP 是否需要大模型具有 FunctionCall 功能/" rel="next" title="MCP 是否需要大模型有 FunctionCall 功能">
+      MCP 是否需要大模型有 FunctionCall 功能 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#流程"><span class="nav-number">1.</span> <span class="nav-text">流程</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#文字版"><span class="nav-number">1.1.</span> <span class="nav-text">文字版</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

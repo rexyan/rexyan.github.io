@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="概览本篇文章，会先介绍 LangChain 中提供的索引管理方案。然后再分别介绍 Dify 中的新文档是如何进行索引的。 在细节及其疑惑部分，我们会介绍重复文档该如何处理，文档更新后又如何获取新的向量等。 最后还看看当使用 PGVector 存储向量时，Dify 中会存储哪些字段。 LangChain 中的索引管理LangChain 在其文档中，介绍了一种叫做 RecordManager 的记录管">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Dify 向量化方案剖析">
+<meta property="og:url" content="https://rexyan.github.io/2024/06/11/Dify 向量化方案剖析/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="概览本篇文章，会先介绍 LangChain 中提供的索引管理方案。然后再分别介绍 Dify 中的新文档是如何进行索引的。 在细节及其疑惑部分，我们会介绍重复文档该如何处理，文档更新后又如何获取新的向量等。 最后还看看当使用 PGVector 存储向量时，Dify 中会存储哪些字段。 LangChain 中的索引管理LangChain 在其文档中，介绍了一种叫做 RecordManager 的记录管">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/202406112106131.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/202406112206186.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/image-20240611222659914.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20240717222022.png">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.390Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Dify 向量化方案剖析">
+<meta name="twitter:description" content="概览本篇文章，会先介绍 LangChain 中提供的索引管理方案。然后再分别介绍 Dify 中的新文档是如何进行索引的。 在细节及其疑惑部分，我们会介绍重复文档该如何处理，文档更新后又如何获取新的向量等。 最后还看看当使用 PGVector 存储向量时，Dify 中会存储哪些字段。 LangChain 中的索引管理LangChain 在其文档中，介绍了一种叫做 RecordManager 的记录管">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/202406112106131.png">
+
+<link rel="canonical" href="https://rexyan.github.io/2024/06/11/Dify 向量化方案剖析/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Dify 向量化方案剖析 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2024/06/11/Dify 向量化方案剖析/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Dify 向量化方案剖析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2024-06-11 22:55:57" itemprop="dateCreated datePublished" datetime="2024-06-11T22:55:57+00:00">2024-06-11</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/博客/" itemprop="url" rel="index"><span itemprop="name">博客</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Dify/" itemprop="url" rel="index"><span itemprop="name">Dify</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="概览"><a href="#概览" class="headerlink" title="概览"></a>概览</h3><p>本篇文章，会先介绍 LangChain 中提供的索引管理方案。然后再分别介绍 Dify 中的新文档是如何进行索引的。</p>
+<p>在细节及其疑惑部分，我们会介绍重复文档该如何处理，文档更新后又如何获取新的向量等。</p>
+<p>最后还看看当使用 PGVector 存储向量时，Dify 中会存储哪些字段。</p>
+<h3 id="LangChain-中的索引管理"><a href="#LangChain-中的索引管理" class="headerlink" title="LangChain 中的索引管理"></a>LangChain 中的索引管理</h3><p>LangChain 在其文档中，介绍了一种叫做 RecordManager 的记录管理器来管理索引。文档详细的信息可以在<a href="https://python.langchain.com/v0.1/docs/modules/data_connection/indexing/" target="_blank" rel="noopener">此处</a>查询到。它的工作原理为，在索引内容时，会为<strong>每个文档</strong>计算哈希值，并将以下信息存储在记录管理器中：</p>
+<ul>
+<li>文档哈希（页面内容和元数据的哈希）</li>
+<li>时间</li>
+<li>source id</li>
+</ul>
+<p>并且将文档索引到向量存储中时，提供了<strong>三种删除模式</strong>，分别为：</p>
+<ol>
+<li><strong>None 模式</strong>:  此模式不会自动清理旧版本的内容；但是，它仍会进行内容重复数据删除。举例：当我进行三份相同文本进行索引时，最终结果只会有一份。且以前的数据不影响。</li>
+<li><strong>incremental 模式</strong>：对相同文本再次索引时将会被跳过。但是如果对已经存在的索引进行更新，那么则会写入新版本，并删除所有共享同一 source 的旧版本。</li>
+<li><strong>full 模式</strong>：任何未传递到索引函数且存在于向量存储中的文档都将被删除。也就是说只会保存当前我提交的，之前的都会被删除。</li>
+</ol>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/202406112106131.png" alt></p>
+<p>Dify 中的索引管理和 LangChain 中的 incremental 模式类似。接下来让我们共同揭秘一下细节。</p>
+<h3 id="Dify-中的文档索引任务"><a href="#Dify-中的文档索引任务" class="headerlink" title="Dify 中的文档索引任务"></a>Dify 中的文档索引任务</h3><p>在上篇文章《 <a href="https://rexyan.github.io/2024/06/06/Dify开发环境搭建，数据上传及向量化方案/">Dify开发环境搭建，数据上传及向量化方案</a>》的末尾，我们提到了 Dify 的向量化方案是在异步任务 中完成的。因为篇幅太多，所以没有详细的介绍。本节我们就会详细的讲解一下这部分，这一部分执行的是 <strong><code>document_indexing_task</code></strong> 异步任务。了解了这一部分，那么对于接下来的文档重复如何处理？文档更新如何处理？就会很简单了。</p>
+<ol>
+<li><p>异步任务传入 dataset_id 和未被索引过的 document_id 列表</p>
+</li>
+<li><p>根据传入的 dataset_id 获取 dataset 对象，根据传入的 document_ids，循环更新 Document 对象，更新状态为 parsing，更新处理的开始时间</p>
+</li>
+<li><p>因为是异步任务所以，传入的是 document 的 id，所以这里是需要重新取获取 document 的内容。需要调用 self._extract 方法提取文本，返回值为 list[Document]，即一个 Document 的列表。并且将下一步的状态标记为 splitting</p>
+</li>
+<li><p>Document 还需要进一步的处理，为其加上一些元数据。这些元数据包括，doc_id，doc_hash。【doc_id 是 uuid，doc_hash 则是根据内容计算的 hash 值】</p>
+</li>
+<li><p>然后会清除 Document 对象的一些额外信息，例如空格，邮箱等，这些是用户可在前端进行选择的。</p>
+</li>
+<li><p>对于接下来的向量话方案来说，一个 Document 还是太大，所以需要进一步的进行拆分，将一个 Document 拆分为多个 DocumentSegment 对象。同时将 document 接下来的状态标记为 indexing，segment 的状态标记为 indexing</p>
+</li>
+<li><p>接下来就是创建一个线程，用于创建关键字索引。执行的方法为<code>self._process_keyword_index</code>，在这个方法中先获取了dataset 对象，然后创建一个 Keyword 实例。Keyword.create 使用 Jieba分词 进行关键词的提取，并且将关键词保存到 document_segment 对象中。最后将关键词保存到数据库中，或者文件系统中。</p>
+</li>
+<li><p>接下来创建一个线程池，池子的 max_workers 为10，线程一启动，就会先执行 self._process_chunk 预估大致会消耗的 token 的数量。然后创建对应的 Vector 实例，调用 create 方法创建 embeddings。</p>
+</li>
+<li>在创建 embeddings 的过程中，会根据每个 document.page_content  的hash值，使用的模型，provider 的名称来判断该段文件之前是否向量化过。如果没有向量化，那么获取到当前模型的 max_chunks，按照 max_chunks 拆分这个文本，得到每次需要向量化的 chunk 内容。得到向量化的结果后，会和文本的 hash 值进行绑定，最终存储在 Embedding 表中。会记录 模型名称，provider，hash值，pickle 序列化后的 embedding 值。如果已经向量化过了，那么直接从数据库中查询结果即可。</li>
+<li>得到向量结果后（可能是新生成的，也可能是直接从数据库获取到以前的）需要把向量保存到向量数据库中。</li>
+</ol>
+<p>以上就是整个新文档向量话的整个过程中，如果将上述详细步骤进行归类的话，分别可以归到以下几个阶段中：</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/202406112206186.png" alt></p>
+<p><strong>初始化准备</strong>： 步骤1，步骤2。这一阶段的主要工作是一些前置工作的准备和处理</p>
+<p><strong>extract 阶段</strong>：步骤3。这一阶段的主要工作是提取内容得到 Document 列表。</p>
+<p><strong>transform阶段</strong>：步骤4，步骤5。这一阶段的工作是添加一些元数据和 Document 的清洗。</p>
+<p><strong>load segments 阶段</strong>：步骤6。这一阶段的工作是拆分 Document，得到 DocumentSegment。</p>
+<p><strong>load 阶段</strong>： 步骤7，步骤8，步骤9，步骤10。这一阶段的工作是启用一个线程进行 Keyword 的获取和 embedding。以及采用线程池的方式运行 document segment 的 embedding。</p>
+<h3 id="细节及其疑惑"><a href="#细节及其疑惑" class="headerlink" title="细节及其疑惑"></a>细节及其疑惑</h3><p><strong>重复的 document 如何处理？</strong></p>
+<p>上述介绍的其实是新的 document 的 embedding 步骤，执行的是 <code>document_indexing_task</code> 异步任务。对于重复的 Document，执行的是 <strong><code>duplicate_document_indexing_task</code></strong>  异步任务，步骤如下：</p>
+<ol>
+<li>异步任务传入 dataset_id 和被索引过的 document_id 列表</li>
+<li>根据 document_id，获取所有 DocumentSegment 对象的 index_node_id，得到一个 index_node_ids 列表</li>
+<li>调用 index_processor.clean 方法，删除这些 index_node_id 在向量数据库中的数据</li>
+<li>然后再在数据库中删除这些 segment</li>
+<li>接下来就和 document_indexing_task 任务中的 extract 阶段接下来的一致了</li>
+</ol>
+<p>总结下来就是多了一个删除旧数据的过程（删除向量数据库中的数据和后端缓存中的数据，其中后端的删除中，并没有删除Embedding表中的数据，只是删除了 DocumentSegment 记录）</p>
+<p><strong>document 更新如何处理？</strong></p>
+<p>执行的是 <strong><code>document_indexing_update_task</code></strong>  异步任务，步骤如下：</p>
+<ol>
+<li>传入参数为 dataset_id，document_id。首先获取到 document 对象。</li>
+<li>将 document indexing_status 状态标记为 parsing</li>
+<li>查询 document 对应的 segments 列表，获取到所有的 index_node_id</li>
+<li>调用  index_processor.clean(dataset, index_node_ids) 在向量数据库中删除这些数据</li>
+<li>再在数据库中删除 segments 数据</li>
+<li>最后重新实例化 IndexingRunner 对象，调用 indexing_runner.run([document]) 方法，重新将 document 向量化</li>
+</ol>
+<p><strong>向量数据库中都存了哪些数据？</strong></p>
+<p>这里以  PGVector 举例，看看在往里面插入 embedding 数据时，都保存了哪些字段和数据。</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/image-20240611222659914.png" alt></p>
+<p>如上所示，当用 PostgreSQL 当作向量数据库时，会保存 doc_id，文本内容，元数据，向量数据这些内容。</p>
+<p><strong>元数据包含哪些字段</strong></p>
+<p>一个 Document 包含的内容如下，所以元数据包含 doc_id，doc_hash，document_id，dataset_id 等信息</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">document = Document(</span><br><span class="line">    page_content=segment.content,  </span><br><span class="line">    metadata=&#123;</span><br><span class="line">        <span class="string">"doc_id"</span>: segment.index_node_id,</span><br><span class="line">        <span class="string">"doc_hash"</span>: segment.index_node_hash,</span><br><span class="line">        <span class="string">"document_id"</span>: segment.document_id,</span><br><span class="line">        <span class="string">"dataset_id"</span>: segment.dataset_id,</span><br><span class="line">    &#125;</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p><strong>在进行召回的时候，是怎么通过文本片段，定位到文档的</strong></p>
+<p>查询时，根据 top_k 和 score_threshold 定位到相关的文档，然后根据元数据中的相关 doc_id, document_id 等信息再次到数据库中查询到相关的文档信息。以下是  pgvector 查询相似向量的实现：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">search_by_vector</span><span class="params">(self, query_vector: list[float], **kwargs: Any)</span> -&gt; list[Document]:</span></span><br><span class="line">    top_k = kwargs.get(<span class="string">"top_k"</span>, <span class="number">5</span>)  <span class="comment"># 默认取前五条</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">with</span> self._get_cursor() <span class="keyword">as</span> cur:</span><br><span class="line">        cur.execute(</span><br><span class="line">            <span class="string">f"SELECT meta, text, embedding &lt;=&gt; %s AS distance FROM <span class="subst">&#123;self.table_name&#125;</span> ORDER BY distance LIMIT <span class="subst">&#123;top_k&#125;</span>"</span>,</span><br><span class="line">            (json.dumps(query_vector),),</span><br><span class="line">        )</span><br><span class="line">        docs = []</span><br><span class="line">        <span class="comment"># 默认相似性分数为0，也就是不做筛选</span></span><br><span class="line">        score_threshold = kwargs.get(<span class="string">"score_threshold"</span>) <span class="keyword">if</span> kwargs.get(<span class="string">"score_threshold"</span>) <span class="keyword">else</span> <span class="number">0.0</span></span><br><span class="line">        <span class="keyword">for</span> record <span class="keyword">in</span> cur:</span><br><span class="line">            metadata, text, distance = record</span><br><span class="line">            score = <span class="number">1</span> - distance</span><br><span class="line">            metadata[<span class="string">"score"</span>] = score</span><br><span class="line">            <span class="keyword">if</span> score &gt; score_threshold:  <span class="comment"># 如果相似分数大于指定的分数，那么就保存结果</span></span><br><span class="line">                docs.append(Document(page_content=text, metadata=metadata))</span><br><span class="line">    <span class="keyword">return</span> docs</span><br></pre></td></tr></table></figure>
+<p><strong>上述 SQL 中， <code>&lt;=&gt;</code> 是什么， pgvector 还支持什么</strong></p>
+<p>计算余弦距离的函数，pgvector 还支持:</p>
+<ul>
+<li><code>&lt;-&gt;</code> - L2 distance</li>
+<li><code>&lt;#&gt;</code> - (negative) inner product</li>
+<li><code>&lt;=&gt;</code> - cosine distance</li>
+<li><code>&lt;+&gt;</code> - L1 distance (added in 0.7.0)</li>
+</ul>
+<p>更多信息可参考：<a href="https://github.com/pgvector/pgvector" target="_blank" rel="noopener">https://github.com/pgvector/pgvector</a></p>
+<p><strong>数据真实存储在 pg 中是什么样子的？</strong><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20240717222022.png" alt></p>
+<p><strong>Dify 目前支持哪些向量数据库？</strong></p>
+<p>milvus ， pgvecto_rs  pgvector，qdrant， relyt， weaviate</p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>文章开头我们先介绍了 LangChain 使用 RecordManager 来管理索引。引入了 Dify 的索引管理类似于LangChain的incremental模式。</p>
+<p>接下来我们详细的介绍了 Dify 中文档的索引任务。可以总结为 <strong>初始化准备</strong>，<strong>transform阶段</strong>，<strong>load segments 阶段</strong> 和 <strong>load 阶段</strong>。并且大致介绍了每个阶段的工作内容。</p>
+<p>在细节及其疑惑章节中，我们讨论了<strong>重复的 document 如何处理</strong>，以及 <strong>document 更新如何处理</strong>，并且还看了当使用 PGVector 存储向量时，Dify 中会存储哪些字段。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2024/06/06/Dify 开发环境搭建，数据上传及向量化方案/" rel="prev" title="Dify 开发环境搭建，数据上传及向量化方案">
+      <i class="fa fa-chevron-left"></i> Dify 开发环境搭建，数据上传及向量化方案
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2024/07/14/Dify 召回测试方案剖析/" rel="next" title="Dify 召回测试方案剖析">
+      Dify 召回测试方案剖析 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#概览"><span class="nav-number">1.</span> <span class="nav-text">概览</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#LangChain-中的索引管理"><span class="nav-number">2.</span> <span class="nav-text">LangChain 中的索引管理</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Dify-中的文档索引任务"><span class="nav-number">3.</span> <span class="nav-text">Dify 中的文档索引任务</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#细节及其疑惑"><span class="nav-number">4.</span> <span class="nav-text">细节及其疑惑</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#总结"><span class="nav-number">5.</span> <span class="nav-text">总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

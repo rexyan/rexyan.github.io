@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="概览召回测试是基于给定的查询文本测试知识库的召回效果。召回测试在知识库中非常重要，因为它直接影响到系统的全面性、用户需求的满足、系统性能的改进以及特定应用场景的需求。 Dify 中的召回测试接口信息接口 /console/api/datasets/dataset的id/hit-testing, 发起请求时，会传入检索的方式（全文检索，向量检索，混合检索），如果有 reranking_model 模">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Dify 召回测试方案剖析">
+<meta property="og:url" content="https://rexyan.github.io/2024/07/14/Dify 召回测试方案剖析/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="概览召回测试是基于给定的查询文本测试知识库的召回效果。召回测试在知识库中非常重要，因为它直接影响到系统的全面性、用户需求的满足、系统性能的改进以及特定应用场景的需求。 Dify 中的召回测试接口信息接口 /console/api/datasets/dataset的id/hit-testing, 发起请求时，会传入检索的方式（全文检索，向量检索，混合检索），如果有 reranking_model 模">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.390Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Dify 召回测试方案剖析">
+<meta name="twitter:description" content="概览召回测试是基于给定的查询文本测试知识库的召回效果。召回测试在知识库中非常重要，因为它直接影响到系统的全面性、用户需求的满足、系统性能的改进以及特定应用场景的需求。 Dify 中的召回测试接口信息接口 /console/api/datasets/dataset的id/hit-testing, 发起请求时，会传入检索的方式（全文检索，向量检索，混合检索），如果有 reranking_model 模">
+
+<link rel="canonical" href="https://rexyan.github.io/2024/07/14/Dify 召回测试方案剖析/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Dify 召回测试方案剖析 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2024/07/14/Dify 召回测试方案剖析/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Dify 召回测试方案剖析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2024-07-14 22:55:57" itemprop="dateCreated datePublished" datetime="2024-07-14T22:55:57+00:00">2024-07-14</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/博客/" itemprop="url" rel="index"><span itemprop="name">博客</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Dify/" itemprop="url" rel="index"><span itemprop="name">Dify</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="概览"><a href="#概览" class="headerlink" title="概览"></a>概览</h3><p>召回测试是基于给定的查询文本测试知识库的召回效果。召回测试在知识库中非常重要，因为它直接影响到系统的全面性、用户需求的满足、系统性能的改进以及特定应用场景的需求。</p>
+<h3 id="Dify-中的召回测试"><a href="#Dify-中的召回测试" class="headerlink" title="Dify 中的召回测试"></a>Dify 中的召回测试</h3><h4 id="接口信息"><a href="#接口信息" class="headerlink" title="接口信息"></a>接口信息</h4><p>接口 <code>/console/api/datasets/dataset的id/hit-testing</code>, 发起请求时，会传入检索的方式（全文检索，向量检索，混合检索），如果有 reranking_model 模型，还会传入相关信息。然后就是 score_threshold，top_k 等参数。</p>
+<h4 id="召回过程"><a href="#召回过程" class="headerlink" title="召回过程"></a>召回过程</h4><ol>
+<li><p>获取 dataset，并且校验 dataset 的权限，接口参数</p>
+</li>
+<li><p>调用 HitTestingService.retrieve 函数，主要逻辑都是在其中完成的</p>
+</li>
+<li><p>在函数中首选获取 retrieval_model，如果没有则使用默认的</p>
+</li>
+<li><p>根据 dataset 的 embedding_model_provider 和 embedding_model 获取对应的 embedding_model</p>
+</li>
+<li><p>embeddings = CacheEmbedding(embedding_model) 得到一个可缓存的 embedding 对象</p>
+</li>
+<li><p>调用 RetrievalService.retrieve 方法进行检索，retrieve 中，首先进行一些简单的校验，校验 dataset 的 document 数量，segment 数量等，如果为0，则就不必继续了</p>
+</li>
+<li><p>retrival_method 有几种值：<strong>keyword_search</strong>（关键字搜索），<strong>semantic_search</strong>（语义搜索），<strong>full_text_search</strong>（全文搜索），<strong>hybrid_search</strong>（混合搜索）</p>
+</li>
+<li><p><strong>keyword_search</strong>: 启动一个线程，在线程中执行 RetrievalService.keyword_search 方法。keyword_search 中，根据 dataset 获取一个 Keyword 实例，然后执行 keyword.search 搜索，得到对应的 documents</p>
+</li>
+<li><p><strong>semantic_search</strong>: 启动一个线程，在线程中执行 RetrievalService.embedding_search 方法。embedding_search 中，根据 dataset 获取一个 Vector 实例，然后执行 vector.search_by_vector 方法。首先对 传入的 query 进行 embedding，这其中使用 redis 进行了缓存，如果 hash 的 key 在 redis 中存在则直接取出，否则调用对应的模型进行 embedding，然后在缓存在 redis 中。调用具体的向量数库的 search_by_vector方法，执行查询，查询得到满足条件的 text，将 text 封装成一个 Document 对象，最后返回一个 Document 列表。</p>
+<blockquote>
+<p> 如果选择了 reranking_model，那么还会实例话一个数据后处理的 DataPostProcessor。DataPostProcessor 中有两种对数据处理的方法，一种是 rerank，另一种是 reorder。rerank 是需要模型的，reorder 不需要。会尝试执行这两种方法，先执行rerank，然后再执行 reorder</p>
+</blockquote>
+<blockquote>
+<p>调用对应 rerank 模型的 invoke_rerank 方法，底层会去调用每个 rerank 模型的接口。最后将得到的 rerank_documents 返回。</p>
+</blockquote>
+<blockquote>
+<p>如果使用了reorder，那么将 rerank_documents 传入 reorder_runner 中继续执行。reorder_runner 中 run 方法，将奇数下标的元素保持原有顺序,而偶数下标的元素则被反转。例如 documents = [doc1, doc2, doc3, doc4, doc5, doc6, doc7, doc8]，最后结果为  new_documents = [doc1, doc8, doc3, doc6, doc5, doc4, doc7, doc2]。</p>
+</blockquote>
+</li>
+<li><p><strong>full_text_index_search</strong>: full_text_index_search 中，根据 dataset 获取一个 Vector 实例，然后执行 vector.search_by_full_text 方法得到对应的 documents。如果有 reranking_model 模型，则同样执行 DataPostProcessor invoke 方法，进行数据后处理</p>
+</li>
+<li><p><strong>hybrid_search</strong>: 如果 retrival_method 为 hybrid_search，则还会进行一次 DataPostProcessor.invoke，取 top_k 条数据。</p>
+</li>
+<li><p>循环 documents，拿去到每一个 document 的 doc_id，然后去查询 DocumentSegment，最后得到的 DocumentSegment 就是从数据库中查询出来的相似的文本片段。最后将结果返回前端。</p>
+</li>
+</ol>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><table>
+<thead>
+<tr>
+<th>检索方法</th>
+<th>检索详情</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>keyword_search</strong>（关键字搜索）</td>
+<td>1. 启动一个线程，在线程中执行 RetrievalService.keyword_search 方法。<br>2. keyword_search 中，根据 dataset 获取一个 Keyword 实例，然后执行 keyword.search 搜索，得到对应的 documents</td>
+</tr>
+<tr>
+<td><strong>semantic_search</strong>（语义搜索）</td>
+<td>1. 对传入的 query 进行 embedding<br>2. 使用 redis 进行了缓存，如果 hash 的 key 在 redis 中存在则直接取出，否则调用对应的模型进行 embedding，最后将结果写会 redis 中。<br>3. 调用具体的向量数库的 search_by_vector方法，执行查询，查询得到满足条件的 text，将 text 封装成一个 Document 对象，最后返回一个 Document 列表。<br>4. 如果选择了 reranking_model，那么还有一个数据后处理，先后执行 rerank 和 reorder。</td>
+</tr>
+<tr>
+<td><strong>full_text_search</strong>（全文搜索）</td>
+<td>1. 根据 dataset 获取一个 Vector 实例，然后执行 vector.search_by_full_text 方法得到对应的 documents。<br>2. 如果有 reranking_model 模型，则同样执行 DataPostProcessor invoke 方法，进行数据后处理</td>
+</tr>
+<tr>
+<td><strong>hybrid_search</strong>（混合搜索）</td>
+<td>1. 最后还会再次进行一次数据后处理，取 top_k 条数据</td>
+</tr>
+</tbody>
+</table>
+<p>Q：search_by_full_text  方法和 search_by_vector 有什么区别？</p>
+<p>A：search_by_full_text  使用的是 bm25，search_by_vector  方法是传入要查询的向量，然后查询出相似的结果。</p>
+<p>Q：redis 中缓存的key是什么，过期时间是多少，缓存的数据格式是什么？</p>
+<p>A：key 是 provider + model + hash 值。过期时间是 600s。数据格式是将向量转换为 bytes 后的 base64 的值。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2024/06/11/Dify 向量化方案剖析/" rel="prev" title="Dify 向量化方案剖析">
+      <i class="fa fa-chevron-left"></i> Dify 向量化方案剖析
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2024/07/15/Dify 应用详解-文本生成应用/" rel="next" title="Dify 应用详解-文本生成应用">
+      Dify 应用详解-文本生成应用 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#概览"><span class="nav-number">1.</span> <span class="nav-text">概览</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Dify-中的召回测试"><span class="nav-number">2.</span> <span class="nav-text">Dify 中的召回测试</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#接口信息"><span class="nav-number">2.1.</span> <span class="nav-text">接口信息</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#召回过程"><span class="nav-number">2.2.</span> <span class="nav-text">召回过程</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#总结"><span class="nav-number">3.</span> <span class="nav-text">总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

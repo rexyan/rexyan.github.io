@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="redis 和 memcached 有啥区别 Redis 相比 Memcached 来说，拥有更多的数据结构和并支持更丰富的数据操作，通常在 Memcached 里，你需要将数据拿到客户端来进行类似的修改再 set 回去。这大大增加了网络 IO 的次数和数据体积。在 Redis 中，这些复杂的操作通常和一般的 GET/SET 一样高效。所以，如果需要缓存能够支持更复杂的结构和操作，那么Redis">
+<meta name="keywords" content="Redis">
+<meta property="og:type" content="article">
+<meta property="og:title" content="52. Redis 分布式缓存">
+<meta property="og:url" content="https://rexyan.github.io/2020/05/06/52. Redis 分布式缓存/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="redis 和 memcached 有啥区别 Redis 相比 Memcached 来说，拥有更多的数据结构和并支持更丰富的数据操作，通常在 Memcached 里，你需要将数据拿到客户端来进行类似的修改再 set 回去。这大大增加了网络 IO 的次数和数据体积。在 Redis 中，这些复杂的操作通常和一般的 GET/SET 一样高效。所以，如果需要缓存能够支持更复杂的结构和操作，那么Redis">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.387Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="52. Redis 分布式缓存">
+<meta name="twitter:description" content="redis 和 memcached 有啥区别 Redis 相比 Memcached 来说，拥有更多的数据结构和并支持更丰富的数据操作，通常在 Memcached 里，你需要将数据拿到客户端来进行类似的修改再 set 回去。这大大增加了网络 IO 的次数和数据体积。在 Redis 中，这些复杂的操作通常和一般的 GET/SET 一样高效。所以，如果需要缓存能够支持更复杂的结构和操作，那么Redis">
+
+<link rel="canonical" href="https://rexyan.github.io/2020/05/06/52. Redis 分布式缓存/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>52. Redis 分布式缓存 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2020/05/06/52. Redis 分布式缓存/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          52. Redis 分布式缓存
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-05-06 22:11:57" itemprop="dateCreated datePublished" datetime="2020-05-06T22:11:57+00:00">2020-05-06</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Java-大数据/" itemprop="url" rel="index"><span itemprop="name">Java 大数据</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="redis-和-memcached-有啥区别"><a href="#redis-和-memcached-有啥区别" class="headerlink" title="redis 和 memcached 有啥区别"></a>redis 和 memcached 有啥区别</h3><ol>
+<li>Redis 相比 Memcached 来说，拥有更多的数据结构和并支持更丰富的数据操作，通常在 Memcached 里，你需要将数据拿到客户端来进行类似的修改再 set 回去。这大大增加了网络 IO 的次数和数据体积。在 Redis 中，这些复杂的操作通常和一般的 GET/SET 一样高效。所以，如果需要缓存能够支持更复杂的结构和操作，那么Redis 会是不错的选择。</li>
+<li>memcached 没有原生的集群模式，需要依靠客户端来实现往集群中分片写入数据；但是 redis 目前是原生支持 cluster 模式的，redis 官方就是支持 redis cluster集群模式的，比 memcached 来说要更好。</li>
+</ol>
+<h3 id="为啥-redis-单线程模型也能效率这么高"><a href="#为啥-redis-单线程模型也能效率这么高" class="headerlink" title="为啥 redis 单线程模型也能效率这么高"></a>为啥 redis 单线程模型也能效率这么高</h3><ol>
+<li>纯内存操作</li>
+<li>核心是基于非阻塞的IO多路复用机制</li>
+<li>单线程反而避免了多线程的频繁上下文切换问题</li>
+</ol>
+<h3 id="redis-都有哪些数据类型？分别在哪些场景下使用比较合适？"><a href="#redis-都有哪些数据类型？分别在哪些场景下使用比较合适？" class="headerlink" title="redis 都有哪些数据类型？分别在哪些场景下使用比较合适？"></a>redis 都有哪些数据类型？分别在哪些场景下使用比较合适？</h3><p><strong>string</strong> </p>
+<p>这是最基本的类型了，没啥可说的，就是普通的set和get，做简单的kv缓存</p>
+<p><strong>hash</strong> </p>
+<p>这个是类似map的一种结构，这个一般就是可以将结构化的数据，比如一个对象（前提是这个对象没嵌套其他的对象）给缓存在redis里，然后每次读写缓存的时候，可以就操作hash里的某个字段。</p>
+<p>hash类的数据结构，主要是用来存放一些对象，把一些简单的对象给缓存起来，后续操作的时候，你可以直接仅仅修改这个对象中的某个字段的值。</p>
+<p><strong>list</strong> </p>
+<p>有序列表，这个是可以玩儿出很多花样的。比如可以通过 list 存储一些列表型的数据结构，类似粉丝列表了、文章的评论列表了之类的东西。</p>
+<p>比如可以通过lrange命令，就是从某个元素开始读取多少个元素，可以基于list实现分页查询，这个很棒的一个功能，基于redis实现简单的高性能分页，可以做类似微博那种下拉不断分页的东西，性能高，就一页一页走。</p>
+<p>比如可以搞个简单的消息队列，从list头怼进去，从list尾巴那里弄出来。</p>
+<p><strong>set</strong></p>
+<p>无序集合，自动去重</p>
+<p>直接基于 set 将系统里需要去重的数据扔进去，自动就给去重了，如果你需要对一些数据进行快速的全局去重，你当然也可以基于 jvm 内存里的 HashSet 进行去重，但是如果你的某个系统部署在多台机器上呢？就得基于 redis 进行全局的 set 去重。</p>
+<p><strong>sorted set</strong></p>
+<p>排序的 set，去重但是可以排序，写进去的时候给一个分数，自动根据分数排序，这个可以玩儿很多的花样，最大的特点是有个分数可以自定义排序规则。</p>
+<p>比如说你要是想根据时间对数据排序，那么可以写入进去的时候用某个时间作为分数，自动给你按照时间排序了。</p>
+<h3 id="redis-的过期策略都有哪些？内存淘汰机制都有哪些？"><a href="#redis-的过期策略都有哪些？内存淘汰机制都有哪些？" class="headerlink" title="redis 的过期策略都有哪些？内存淘汰机制都有哪些？"></a>redis 的过期策略都有哪些？内存淘汰机制都有哪些？</h3><p>定期删除 + 惰性删除</p>
+<p>所谓定期删除，指的是 redis 默认是每隔 100ms 就随机抽取一些设置了过期时间的 key，检查其是否过期，如果过期就删除。假设 redis 里放了10 万个 key，都设置了过期时间，你每隔几百毫秒，就检查 10 万个 key，那 redis 基本上就死了，cpu 负载会很高的，消耗在你的检查过期 key 上了。注意，这里可不是每隔 100ms 就遍历所有的设置过期时间的 key，那样就是一场性能上的灾难。实际上 redis 是每隔 100ms 随机抽取一些 key 来检查和删除的。</p>
+<p>但是问题是，定期删除可能会导致很多过期 key 到了时间并没有被删除掉，那咋整呢？所以就是惰性删除了。这就是说，在你获取某个 key 的时候，redis 会检查一下 ，这个 key 如果设置了过期时间那么是否过期了？如果过期了此时就会删除，不会给你返回任何东西。 </p>
+<p>并不是key到时间就被删除掉，而是你查询这个key的时候，redis再懒惰的检查一下。但是实际上这还是有问题的，如果定期删除漏掉了很多过期 key，然后你也没及时去查，也就没走惰性删除，此时会怎么样？如果大量过期key 堆积在内存里，导致 redis 内存块耗尽了，咋整？答案是：走内存淘汰机制。</p>
+<p>1）noeviction：当内存不足以容纳新写入数据时，新写入操作会报错，这个一般没人用吧，实在是太恶心了</p>
+<p>2）allkeys-lru：当内存不足以容纳新写入数据时，在键空间中，移除最近最少使用的key（<strong>这个是最常用的</strong>）</p>
+<p>3）allkeys-random：当内存不足以容纳新写入数据时，在键空间中，随机移除某个key，这个一般没人用吧，为啥要随机，肯定是把最近最少使用的key给干掉啊</p>
+<p>4）volatile-lru：当内存不足以容纳新写入数据时，在设置了过期时间的键空间中，移除最近最少使用的key（这个一般不太合适）</p>
+<p>5）volatile-random：当内存不足以容纳新写入数据时，在设置了过期时间的键空间中，随机移除某个key</p>
+<p>6）volatile-ttl：当内存不足以容纳新写入数据时，在设置了过期时间的键空间中，有更早过期时间的key优先移除</p>
+<h3 id="redis-如何通过读写分离来承载读请求-QPS-超过-10万-？"><a href="#redis-如何通过读写分离来承载读请求-QPS-超过-10万-？" class="headerlink" title="redis 如何通过读写分离来承载读请求 QPS 超过 10万+？"></a>redis 如何通过读写分离来承载读请求 QPS 超过 10万+？</h3><p>单机的 redis 几乎不太可能说QPS超过10万+，除非一些特殊情况，比如你的机器性能特别好，配置特别高，物理机，维护做的特别好，而且你的整体的操作不是太复杂。</p>
+<p>解决方案是主从架构，实现一主多从，主节点负责写，并且将数据同步复制到其他的 slave 节点上去，从节点负责读，所有的读请求全部走从节点。这样设计还有一个好处是可以支持水平扩容，如果读的 QPS 在增加，那么继续增加 redis slave 就可以了。</p>
+<h3 id="redis-replication"><a href="#redis-replication" class="headerlink" title="redis replication"></a>redis replication</h3><p>Redis replication 是一种 master-slave 模式的复制机制，这种机制使得 slave 节点可以成为与 master 节点完全相同的副本。</p>
+<p>如果采用了主从架构，那么建议必须开启master node的持久化！不建议用slave node作为master node的数据热备，因为那样的话，如果你关掉master的持久化（关掉master的持久化，也就是数据全部放在内存中），可能在master宕机重启的时候数据是空的，然后可能一经过复制，salve node数据也丢了。</p>
+<ol>
+<li>redis 采用异步方式复制数据到 slave 节点，不过redis 2.8开始，slave node会周期性地确认自己每次复制的数据量</li>
+<li>一个 master node 是可以配置多个 slave node 的</li>
+<li>slave node 也可以连接其他的 slave node</li>
+<li>slave node 做复制的时候，是不会 block master node 的正常工作的</li>
+<li>slave node 在做复制的时候，也不会 block 对自己的查询操作，它会用旧的数据集来提供服务; 但是复制完成的时候，需要删除旧数据集，加载新数据集，这个时候就会暂停对外服务了</li>
+<li>slave node 主要用来进行横向扩容，做读写分离，扩容的 slave node 可以提高读的吞吐量</li>
+</ol>
+<p><strong>主从架构的核心原理</strong></p>
+<p>当启动一个slave node的时候，它会发送个PSYNC命 令给master node，如果这是slave node 重新连接master node; 那么master node仅仅会复制给slave部分缺少的数据;否则如果是slave node第一次连 接master node, 那么会触发一次full resynchronization。开始full resynchronization的时候，master 会启动一个后台线程，开始生成份RDB快照文件， 同时还会将从客户端收到的所有写命令缓存在内存中。 RDB文件生成完毕之后，master 会将这个RDB发送给 slave, slave 会先写入本地磁盘，然后再从本地磁盘加载到内存中。然后 master 会将内存中缓存的写命令发送给slave, slave也会 同步这些数据。slave node如果跟master node有网络故障，断开了连接，会自动重连。master如果发现有多个slave node都来 重新连接，仅仅会启动一个rdb save操作，用一份数据服务所有slave node:</p>
+<p><strong>主从复制断点续传</strong></p>
+<p>从redis 2.8 开始，就支持主从复制的断点续传，如果主从复制过程中，网络连接断掉了，那么可以接着上次复制的地方，继续复制下去，而不是从头开始复制一份。<br>master node 会在内存中生成一个 backlog; master 和 slave 都会保存一个 replica offset 还有一个master<br>id, offset就是保存在backlog中的。如果master和slave网络连接断掉了，slave会 让master从上次的replica offset开 始继续复制，但是如果没有找到对应的 offset,那么就会执行一次 resynchronization</p>
+<p><strong>无磁盘化复制</strong></p>
+<p>可以通过修改配置文件中的 repl-diskless- sync 设置，让 master 在内存中直接创建 rdb,然后发送给 slave;不会在自己本地落地磁盘了。<br>也可以设置，repl- diskless-sync-delay, 让 master 等待一定时长再开始复制，因为要等更多slave重新连接过来。</p>
+<p><strong>过期 key 处理</strong></p>
+<p>slave 不会过期 key;只会等待 master 过期 key.如果 master过期了一个key; 或者通过LRU淘汰了一个key;那么会模拟一条del 命令发送给slave.</p>
+<p><strong>redis replication的完整流运行程和原理</strong></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line">1、复制的完整流程</span><br><span class="line">（1）slave node启动，仅仅保存master node的信息，包括master node的host和ip，但是复制流程没开始</span><br><span class="line">  master host和ip是从哪儿来的，redis.conf里面的slaveof配置的</span><br><span class="line"></span><br><span class="line">（2）slave node内部有个定时任务，每秒检查是否有新的master node要连接和复制，如果发现，就跟master node建立socket网络连接</span><br><span class="line">（3）slave node发送ping命令给master node</span><br><span class="line">（4）口令认证，如果master设置了requirepass，那么salve node必须发送masterauth的口令过去进行认证</span><br><span class="line">（5）master node第一次执行全量复制，将所有数据发给slave node</span><br><span class="line">（6）master node后续持续将写命令，异步复制给slave node</span><br><span class="line"></span><br><span class="line">2、数据同步相关的核心机制</span><br><span class="line">指的就是第一次slave连接msater的时候，执行的全量复制，那个过程里面你的一些细节的机制</span><br><span class="line"></span><br><span class="line">（1）master和slave都会维护一个offset</span><br><span class="line">master会在自身不断累加offset，slave也会在自身不断累加offset</span><br><span class="line">slave每秒都会上报自己的offset给master，同时master也会保存每个slave的offset</span><br><span class="line"></span><br><span class="line">这个倒不是说特定就用在全量复制的，主要是master和slave都要知道各自的数据的offset，才能知道互相之间的数据不一致的情况</span><br><span class="line"></span><br><span class="line">（2）backlog</span><br><span class="line">master node有一个backlog，默认是1MB大小</span><br><span class="line">master node给slave node复制数据时，也会将数据在backlog中同步写一份</span><br><span class="line">backlog主要是用来做全量复制中断候的增量复制的</span><br><span class="line"></span><br><span class="line">（3）master run id</span><br><span class="line">info server，可以看到master run id</span><br><span class="line">如果根据host+ip定位master node，是不靠谱的，如果master node重启或者数据出现了变化，那么slave node应该根据不同的run id区分，run id不同就做全量复制</span><br><span class="line">如果需要不更改run id重启redis，可以使用redis-cli debug reload命令</span><br><span class="line"></span><br><span class="line">（4）psync</span><br><span class="line">从节点使用psync从master node进行复制，psync runid offset</span><br><span class="line">master node会根据自身的情况返回响应信息，可能是FULLRESYNC runid offset触发全量复制，可能是CONTINUE触发增量复制</span><br><span class="line"></span><br><span class="line">3、全量复制</span><br><span class="line">（1）master执行bgsave，在本地生成一份rdb快照文件</span><br><span class="line">（2）master node将rdb快照文件发送给salve node，如果rdb复制时间超过60秒（repl-timeout），那么slave node就会认为复制失败，可以适当调节大这个参数</span><br><span class="line">（3）对于千兆网卡的机器，一般每秒传输100MB，6G文件，很可能超过60s</span><br><span class="line">（4）master node在生成rdb时，会将所有新的写命令缓存在内存中，在salve node保存了rdb之后，再将新的写命令复制给salve node</span><br><span class="line">（5）client-output-buffer-limit slave 256MB 64MB 60，如果在复制期间，内存缓冲区持续消耗超过64MB，或者一次性超过256MB，那么停止复制，复制失败</span><br><span class="line">（6）slave node接收到rdb之后，清空自己的旧数据，然后重新加载rdb到自己的内存中，同时基于旧的数据版本对外提供服务</span><br><span class="line">（7）如果slave node开启了AOF，那么会立即执行BGREWRITEAOF，重写AOF</span><br><span class="line"></span><br><span class="line">  rdb生成、rdb通过网络拷贝、slave旧数据的清理、slave aof rewrite，很耗费时间,如果复制的数据量在4G~6G之间，那么很可能全量复制时间消耗到1分半到2分钟</span><br><span class="line"></span><br><span class="line">4、增量复制</span><br><span class="line">（1）如果全量复制过程中，master-slave网络连接断掉，那么salve重新连接master时，会触发增量复制</span><br><span class="line">（2）master直接从自己的backlog中获取部分丢失的数据，发送给slave node，默认backlog就是1MB</span><br><span class="line">（3）msater就是根据slave发送的psync中的offset来从backlog中获取数据的</span><br><span class="line"></span><br><span class="line">5、heartbeat</span><br><span class="line">主从节点互相都会发送heartbeat信息,master默认每隔10秒发送一次heartbeat，salve node每隔1秒发送一个heartbeat</span><br><span class="line"></span><br><span class="line">6、异步复制</span><br><span class="line">master每次接收到写命令之后，现在内部写入数据，然后异步发送给slave node</span><br></pre></td></tr></table></figure>
+<h3 id="redis主从架构下如何才能做到高可用性？"><a href="#redis主从架构下如何才能做到高可用性？" class="headerlink" title="redis主从架构下如何才能做到高可用性？"></a>redis主从架构下如何才能做到高可用性？</h3><p>这就需要在 master node 故障的时候，自动检测，并将某个 salve node 自动切换为 master node，这样的过程叫做主备切换，这个过程就实现了 redis 主从架构下的高可用性。</p>
+<h3 id="redis-哨兵模式"><a href="#redis-哨兵模式" class="headerlink" title="redis 哨兵模式"></a>redis 哨兵模式</h3><p>sentinal，中文名是哨兵，哨兵是redis集群架构中非常重要的一个组件，主要功能如下</p>
+<p>（1）集群监控，负责监控 redis master 和 slave 进程是否正常工作<br>（2）消息通知，如果某个 redis 实例有故障，那么哨兵负责发送消息作为报警通知给管理员<br>（3）故障转移，如果 master node 挂掉了，会自动转移到 slave node 上<br>（4）配置中心，如果故障转移发生了，通知 client 客户端新的 master 地址</p>
+<p>哨兵本身也是分布式的，作为一个哨兵集群去运行，互相协同工作</p>
+<p>（1）故障转移时，判断一个master node 是宕机了，需要大部分的哨兵都同意才行，涉及到了分布式选举的问题（和 zk 类似，如果有两个 sentinal，那么需要两个都同意故障转移才行。如果有三个，则也是需要两个同意才行，如果有四个，也是需要两个同意才行。如果有五个，就需要三个同意才行）<br>（2）即使部分哨兵节点挂掉了，哨兵集群还是能正常工作的，但是如果一个作为高可用机制重要组成部分的故障转移系统本身是单点的，那就很坑爹了，所以哨兵也是以集群方式运行的。</p>
+<p>目前采用的是sentinal 2版本，sentinal 2相对于sentinal 1来说，重写了很多代码，主要是让故障转移的机制和算法变得更加健壮和简单</p>
+<p>哨兵的核心知识</p>
+<p>（1）哨兵至少需要3个实例，来保证自己的健壮性<br>（2）哨兵 + redis主从的部署架构，是不会保证数据零丢失的，只能保证redis集群的高可用性<br>（3）对于哨兵 + redis主从这种复杂的部署架构，尽量在测试环境和生产环境，都进行充足的测试和演练</p>
+<p>为什么redis哨兵集群只有2个节点无法正常工作？</p>
+<p>如下图，redis 共有两个节点，一个 master 一个 slave，同时拥有两个 sentinal</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">+----+         +----+</span><br><span class="line">| M1 |---------| R1 |</span><br><span class="line">| S1 |         | S2 |</span><br><span class="line">+----+         +----+</span><br></pre></td></tr></table></figure>
+<p>master 宕机，s1 和 s2 中只要有1个哨兵认为 master 宕机就可以进行切换，同时 s1 和 s2 中会选举出一个哨兵来执行故障转移。但是这个时候不满足故障转移的条件，因为不满足大部分的哨兵都同意。两个 sentinal ，那就需要两个都同意执行故障转移才行，但是另一个挂了，所以无法同意，所以就不能执行故障转移。</p>
+<p>但是如果是下图中的情况，那就是可以的，这也是经典的3节点哨兵集群模式。如果M1所在机器宕机了，那么三个哨兵还剩下2个，S2和S3可以一致认为master宕机，然后选举出一个来执行故障转移，因为 sentinal 是 3，所以只剩下 s2 和 s3 是满足大部分的哨兵都同意故障转移条件的。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">       +----+</span><br><span class="line">       | M1 |</span><br><span class="line">       | S1 |</span><br><span class="line">       +----+</span><br><span class="line">          |</span><br><span class="line">+----+    |    +----+</span><br><span class="line">| R2 |----+----| R3 |</span><br><span class="line">| S2 |         | S3 |</span><br><span class="line">+----+         +----+</span><br></pre></td></tr></table></figure>
+<h3 id="主从-哨兵模式下，怎样防止数据丢失"><a href="#主从-哨兵模式下，怎样防止数据丢失" class="headerlink" title="主从 + 哨兵模式下，怎样防止数据丢失"></a>主从 + 哨兵模式下，怎样防止数据丢失</h3><p><strong>两种数据丢失的情况</strong></p>
+<p>（1）异步复制导致的数据丢失</p>
+<p>因为 master -&gt; slave 的复制是异步的，所以可能有部分数据还没复制到 slave，master 就宕机了，此时这些部分数据就丢失了</p>
+<p>（2）脑裂导致的数据丢失</p>
+<p>脑裂，也就是说，某个 master 所在机器突然脱离了正常的网络，跟其他 slave 机器不能连接，但是实际上 master还运行着，此时哨兵可能就会认为 master 宕机了，然后开启选举，将其他 slave 切换成了master，这个时候，集群里就会有两个 master，也就是所谓的脑裂。此时虽然某个 slave 被切换成了 master，但是可能 client还没来得及切换到新的 master，还继续写向旧 master 的数据可能也丢失了。因此旧 master 再次恢复的时候，会被作为一个 slave 挂到新的 master 上去，自己的数据会清空，重新从新的 master 复制数据，这就导致了数据的丢失。</p>
+<p><strong>解决异步复制和脑裂导致的数据丢失</strong></p>
+<p>可以设置两个参数，用来解决数据上面两种数据丢失的情况</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">min-slaves-to-write 1  # 该参数要求至少有1个slave</span><br><span class="line">min-slaves-max-lag 10  # 该参数要求数据复制和同步的延迟不能超过10秒，如果说一旦所有的slave，数据复制和同步的延迟都超过了10秒钟，那么这个时候，master 就不会再接收任何请求了</span><br></pre></td></tr></table></figure>
+<p>减少异步复制的数据丢失：有了 min-slaves-max-lag 这个配置，就可以确保说，一旦 slave 复制数据和 ack 延时太长，就认为如果此时 master 宕机后损失的数据太多了，那么就拒绝写请求，这样可以把 master 宕机时由于部分数据未同步到 slave 导致的数据丢失降低的可控范围内。（这样是为了保证 master 和 slave 之间的数据差异不能超过 10s 的传输时间，超过则认为两者数据差距相差较大，假如此时 master 宕机，那么损失的数据就较多）</p>
+<p>减少脑裂的数据丢失：如果一个 master 出现了脑裂，跟其他 slave 丢了连接，那么上面两个配置可以确保说，如果不能继续给指定数量的 slave 发送数据，而且 slave 超过10秒没有给自己 ack 消息，那么就直接拒绝客户端的写请求这样脑裂后的旧 master 就不会接受 client 的新数据，也就避免了大量数据丢失（顶多也就是丢失这 10s 的数据），因此在脑裂场景下，最多就丢失 10 秒的数据。</p>
+<h3 id="redis-持久化"><a href="#redis-持久化" class="headerlink" title="redis 持久化"></a>redis 持久化</h3><p><strong>RDB 和 AOF 两种持久化机制的介绍</strong></p>
+<p>RDB 持久化机制，对 redis 中的数据执行周期性的持久化。AOF 机制对每条写入命令作为日志，以 append-only 的模式写入一个日志文件中，在 redis 重启的时候，可以通过回放 AOF 日志中的写入指令来重新构建整个数据集如果我们想要 redis 仅仅作为纯内存的缓存来用，那么可以禁止 RDB 和 AOF 所有的持久化机制。</p>
+<p>通过 RDB 或 AOF，都可以将 redis 内存中的数据给持久化到磁盘上面来，然后可以将这些数据备份到别的地方去，比如说阿里云，云服务，如果 redis 挂了，服务器上的内存和磁盘上的数据都丢了，可以从云服务上拷贝回来之前的数据，放到指定的目录中，然后重新启动 redis，redis 就会自动根据持久化数据文件中的数据，去恢复内存中的数据，继续对外提供服务，如果同时使用 RDB 和 AOF 两种持久化机制，那么在 redis 重启的时候，会使用AOF 来重新构建数据，因为 AOF 中的数据更加完整。</p>
+<p><strong>RDB持久化机制的优点</strong></p>
+<p>（1）RDB会生成多个数据文件，每个数据文件都代表了某一个时刻中redis的数据，这种多个数据文件的方式，非常适合做冷备，可以将这种完整的数据文件发送到一些远程的安全存储上去，比如说Amazon的S3云服务上去，在国内可以是阿里云的ODPS分布式存储上，以预定好的备份策略来定期备份redis中的数据</p>
+<p>（2）RDB对redis对外提供的读写服务，影响非常小，可以让redis保持高性能，因为redis主进程只需要fork一个子进程，让子进程执行磁盘IO操作来进行RDB持久化即可</p>
+<p>（3）相对于AOF持久化机制来说，直接基于RDB数据文件来重启和恢复redis进程，更加快速</p>
+<p><strong>RDB持久化机制的缺点</strong></p>
+<p>（1）如果想要在redis故障时，尽可能少的丢失数据，那么RDB没有AOF好。一般来说，RDB数据快照文件，都是每隔5分钟，或者更长时间生成一次，这个时候就得接受一旦redis进程宕机，那么会丢失最近5分钟的数据</p>
+<p>（2）RDB每次在fork子进程来执行RDB快照数据文件生成的时候，如果数据文件特别大，可能会导致对客户端提供的服务暂停数毫秒，或者甚至数秒</p>
+<p><strong>AOF持久化机制的优点</strong></p>
+<p>（1）AOF 可以更好的保护数据不丢失，一般 AOF 会每隔1秒，通过一个后台线程执行一次 fsync 操作，最多丢失1秒钟的数据</p>
+<p>（2）AOF 日志文件以 append-only 模式写入，所以没有任何磁盘寻址的开销，写入性能非常高，而且文件不容易破损，即使文件尾部破损，也很容易修复</p>
+<p>（3）AOF 日志文件即使过大的时候，出现后台重写操作，也不会影响客户端的读写。因为在rewrite log 的时候，会对其中的指导进行压缩，创建出一份需要恢复数据的最小日志出来。再创建新日志文件的时候，老的日志文件还是照常写入。当新的merge后的日志文件ready的时候，再交换新老日志文件即可。</p>
+<p>（4）AOF 日志文件的命令通过非常可读的方式进行记录，这个特性非常适合做灾难性的误删除的紧急恢复。比如某人不小心用 flushall 命令清空了所有数据，只要这个时候后台 rewrite 还没有发生，那么就可以立即拷贝 AOF 文件，将最后一条 flushall 命令给删了，然后再将该 AOF 文件放回去，就可以通过恢复机制，自动恢复所有数据</p>
+<p><strong>AOF持久化机制的缺点</strong></p>
+<p>（1）对于同一份数据来说，AOF日志文件通常比RDB数据快照文件更大</p>
+<p>（2）AOF开启后，支持的写 QPS 会比 RDB 支持的写 QPS 低，因为 AOF 一般会配置成每秒 fsyn c一次日志文件，当然，每秒一次 fsync，性能也还是很高的</p>
+<p>（3）以前 AOF 发生过 bug，就是通过 AOF 记录的日志，进行数据恢复的时候，没有恢复一模一样的数据出来。所以说，类似 AOF 这种较为复杂的基于命令日志/merge/回放的方式，比基于 RDB 每次持久化一份完整的数据快照文件的方式，更加脆弱一些，容易有 bug。不过 AOF 就是为了避免 rewrite 过程导致的 bug，因此每次 rewrite并不是基于旧的指令日志进行 merge 的，而是基于当时内存中的数据进行指令的重新构建，这样健壮性会好很多。</p>
+<p><strong>RDB和AOF到底该如何选择</strong></p>
+<p>（1）不要仅仅使用RDB，因为那样会导致你丢失很多数据</p>
+<p>（2）也不要仅仅使用AOF，因为那样有两个问题，第一，你通过AOF做冷备，没有RDB做冷备，来的恢复速度更快; 第二，RDB每次简单粗暴生成数据快照，更加健壮，可以避免AOF这种复杂的备份和恢复机制的bug</p>
+<p>（3）综合使用AOF和RDB两种持久化机制，用AOF来保证数据不丢失，作为数据恢复的第一选择; 用RDB来做不同程度的冷备，在AOF文件都丢失或损坏不可用的时候，还可以使用RDB来进行快速的数据恢复</p>
+<h3 id="redis-集群模式工作原理"><a href="#redis-集群模式工作原理" class="headerlink" title="redis 集群模式工作原理"></a>redis 集群模式工作原理</h3><p>redis replication 是一个 mater，多个 slave，要几个 slave 跟你的要求的读吞吐量有关系，然后自己搭建一个 sentinal 集群，去保证 redis 主从架构的高可用性。</p>
+<p>redis 集群是 多master + 读写分离 + 高可用。也就是说主要是针对海量数据+高并发+高可用的场景，海量数据，如果你的数据量很大，那么建议就用redis cluster。</p>
+<p>redis 集群的特点：</p>
+<p>（1）自动将数据进行分片，每个master上放一部分数据<br>（2）提供内置的高可用支持，部分master不可用时，还是可以继续工作的</p>
+<p>在 redis cluster 架构下，每个 redis 要放开两个端口号，比如一个是6379，另外一个就是 +10000 的端口号，比如16379，16379端口号是用来进行节点间通信的，也就是cluster bus（集群总线）。cluster bus 的通信，用来进行故障检测，配置更新，故障转移授权。cluster bus用了另外一种二进制的协议，主要用于节点间进行高效的数据交换，占用更少的网络带宽和处理时间。</p>
+<h3 id="分布式数据存储的核心算法"><a href="#分布式数据存储的核心算法" class="headerlink" title="分布式数据存储的核心算法"></a>分布式数据存储的核心算法</h3><p>使用这些算法的目的是为了解决在多个 master 节点的时候（redis 集群），数据如何分布到这些节点上去。</p>
+<p><strong>hash算法</strong> , <strong>一致性 Hash 算法</strong>,  <strong>Hash slot 算法</strong> <a href="https://www.cnblogs.com/myseries/p/10959050.html" target="_blank" rel="noopener">文章地址</a></p>
+<p>redis cluster有固定的16384个hash slot，对每个key计算CRC16值，然后对16384取模，可以获取key对应的hash slot，redis cluster中每个master都会持有部分 slot，比如有 3 个 master，那么可能每个 master 持有5000多个 hash slot，hash slot 让 node 的增加和移除很简单，增加一个 master，就将其他 master 的 hash slot 移动部分过去，减少一个 master，就将它的 hash slot 移动到其他 master 上去，移动 hash slot 的成本是非常低的，客户端的 api，可以对指定的数据，让他们走同一个 hash slot，通过 hash tag 来实现。</p>
+<h3 id="redis-集群节点间通信"><a href="#redis-集群节点间通信" class="headerlink" title="redis 集群节点间通信"></a>redis 集群节点间通信</h3><p>redis cluster节点间采取 gossip 协议进行通信，不是将集群元数据（节点信息，故障，等等）集中存储在某个节点上，而是互相之间不断通信，保持整个集群所有节点的数据是完整的。gossip 和集中式（zookeeper）相比，好处在于，元数据的更新比较分散，不是集中在一个地方，更新请求会陆陆续续，打到所有节点上去更新，有一定的延时，降低了压力; 缺点，元数据更新有延时，可能导致集群的一些操作会有一些滞后。</p>
+<p>gossip 通信端口：每个节点都有一个专门用于节点间通信的端口，就是自己提供服务的端口号+10000，比如7001，那么用于节点间通信的就是17001端口。每隔节点每隔一段时间都会往另外几个节点发送 ping 消息，同时其他几点接收到 ping 之后返回 pong。每个节点都会频繁给其他节点发送 ping，其中包含自己的状态还有自己维护的集群元数据，互相通过 ping 交换元数据。</p>
+<p>节点间使用 gossip 交换的数据信息：故障信息，节点的增加和移除，hash slot信息，等等</p>
+<h3 id="redis-集群-master-选举"><a href="#redis-集群-master-选举" class="headerlink" title="redis 集群 master 选举"></a>redis 集群 master 选举</h3><p>如果一个节点认为另外一个节点宕机，那么就是pfail，主观宕机，如果多个节点都认为另外一个节点宕机了，那么就是fail，客观宕机，跟哨兵的原理几乎一样，sdown，odown。在cluster-node-timeout内，某个节点一直没有返回 pong，那么就被认为 pfail，如果一个节点认为某个节点 pfail 了，那么会在 gossip ping 消息中，ping 给其他节点，如果超过半数的节点都认为 pfail 了，那么就会变成 fail。所有的 master node 对 slave 选举投票，给要进行选举的 slave 进行投票，如果大部分 master node（N/2 + 1）都投票给了某个从节点，那么选举通过，那个从节点可以切换成 master。整个流程跟哨兵相比，非常类似，所以说，redis cluster 功能强大，直接集成了replication 和 sentinal 的功能。</p>
+<h3 id="缓存雪崩，缓存穿透"><a href="#缓存雪崩，缓存穿透" class="headerlink" title="缓存雪崩，缓存穿透"></a>缓存雪崩，缓存穿透</h3><p><a href="[https://github.com/AobingJava/JavaFamily/blob/master/docs/redis/%E7%BC%93%E5%AD%98%E5%87%BB%E7%A9%BF%E3%80%81%E9%9B%AA%E5%B4%A9%E3%80%81%E7%A9%BF%E9%80%8F.md](https://github.com/AobingJava/JavaFamily/blob/master/docs/redis/缓存击穿、雪崩、穿透.md">其他资料</a>)</p>
+<p><strong>缓存雪崩</strong><br>事前：redis高可用，主从+哨兵，redis cluster，避免全盘崩溃<br>事中：本地 ehcache 缓存 + hystrix 限流&amp;降级，避免 MySQL被打死<br>事后：redis 持久化，快速恢复缓存数据</p>
+<h3 id="保证缓存与数据库双写一致性"><a href="#保证缓存与数据库双写一致性" class="headerlink" title="保证缓存与数据库双写一致性"></a>保证缓存与数据库双写一致性</h3><p>Cache Aside Pattern</p>
+<p>（1）读的时候，先读缓存，缓存没有的话，那么就读数据库，然后取出数据后放入缓存，同时返回响应</p>
+<p>（2）更新的时候，先删除缓存，然后再更新数据库</p>
+<p>为什么是删除缓存，而不是更新缓存呢？</p>
+<ol>
+<li>原因很简单，很多时候，复杂点的缓存的场景，因为缓存有的时候，不简单是数据库中直接取出来的值，比如可能更新了某个表的一个字段，然后其对应的缓存，是需要查询另外两个表的数据，并进行运算，才能计算出缓存最新的值的更新缓存的代价是很高的。</li>
+<li>如果你频繁修改一个缓存涉及的多个表，那么这个缓存会被频繁的更新，频繁的更新缓存但是问题在于，这个缓存到底会不会被频繁访问到？举个例子，一个缓存涉及的表的字段，在1分钟内就修改了20次，或者是100次，那么缓存跟新20次，100次; 但是这个缓存在1分钟内就被读取了1次，有大量的冷数据。删除缓存，而不是更新缓存，就是一个lazy计算的思想，不要每次都重新做复杂的计算，不管它会不会用到，而是让它到需要被使用的时候再重新计算</li>
+</ol>
+<p>问题：先修改数据库，再删除缓存，如果删除缓存失败了，那么会导致数据库中是新数据，缓存中是旧数据，数据出现不一致，怎么解决？</p>
+<p>解决思路：先删除缓存，再修改数据库，如果删除缓存成功了，如果修改数据库失败了，那么数据库中是旧数据，缓存中是空的，那么数据不会不一致。因为读的时候缓存没有，则读数据库中旧数据，然后更新到缓存中。</p>
+<p>问题：高并发下，数据发生了变更，先删除了缓存，然后要去修改数据库。此时还没修改完成，另一个请求去读取缓存，发现缓存空了，去查询数据库，查到了修改前的旧数据，放到了缓存中。这个时候数据库的修改才完成。这也会导致数据不一致的情况，该怎么解决？（也就是说你的修改还没完成，但是读取缓存的操作已经完成了，导致数据库中的数据和缓存中的不一样。）</p>
+<p>解决思路：上述情况只会在高并发下，且缓存都是读比较多，写比较少的情况下会发生。那么怎么避免呢？思路就是在内存中新建内存队列，让同一个商品，或者相同 ID 的数据的删除缓存操作，数据变更操作，缓存更新，缓存读取，操作依次进行，只要能保证缓存更新，缓存读取的操作在数据变更操作的后面，这个问题就能得到解决。</p>
+<p>当然这里面还有优化的空间。比如突然对某商品进行了 2w 次的缓存读请求，但是该商品只修改了一次，那就只需要保证队列中只有一次 删除缓存操作，数据变更操作，缓存更新，缓存读取 操作进行，没必要所有的读取都进入内存队列中，因为修改和更新了一次，剩余 1w999 次读取到的数据都是一致的了。</p>
+<h3 id="redis-的并发竞争问题是什么"><a href="#redis-的并发竞争问题是什么" class="headerlink" title="redis 的并发竞争问题是什么"></a>redis 的并发竞争问题是什么</h3><p>并发竞争就是多客户端同时并发写一个key，可能本来应该先到的数据后到了，导致数据错了。或者是多客户端同时获取一个key，修改值之后再写回去，只要顺序错了，数据就错了。</p>
+<p>解决的思路：借用分布式锁，确保同一时间，只能有一个系统实例在操作某个key。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Redis/" rel="tag"><i class="fa fa-tag"></i> Redis</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/05/06/51. MySQL 高级/" rel="prev" title="51. MySQL 高级">
+      <i class="fa fa-chevron-left"></i> 51. MySQL 高级
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/05/07/53. 分布式搜索引擎/" rel="next" title="53. 分布式搜索引擎">
+      53. 分布式搜索引擎 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#redis-和-memcached-有啥区别"><span class="nav-number">1.</span> <span class="nav-text">redis 和 memcached 有啥区别</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#为啥-redis-单线程模型也能效率这么高"><span class="nav-number">2.</span> <span class="nav-text">为啥 redis 单线程模型也能效率这么高</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#redis-都有哪些数据类型？分别在哪些场景下使用比较合适？"><span class="nav-number">3.</span> <span class="nav-text">redis 都有哪些数据类型？分别在哪些场景下使用比较合适？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#redis-的过期策略都有哪些？内存淘汰机制都有哪些？"><span class="nav-number">4.</span> <span class="nav-text">redis 的过期策略都有哪些？内存淘汰机制都有哪些？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#redis-如何通过读写分离来承载读请求-QPS-超过-10万-？"><span class="nav-number">5.</span> <span class="nav-text">redis 如何通过读写分离来承载读请求 QPS 超过 10万+？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#redis-replication"><span class="nav-number">6.</span> <span class="nav-text">redis replication</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#redis主从架构下如何才能做到高可用性？"><span class="nav-number">7.</span> <span class="nav-text">redis主从架构下如何才能做到高可用性？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#redis-哨兵模式"><span class="nav-number">8.</span> <span class="nav-text">redis 哨兵模式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#主从-哨兵模式下，怎样防止数据丢失"><span class="nav-number">9.</span> <span class="nav-text">主从 + 哨兵模式下，怎样防止数据丢失</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#redis-持久化"><span class="nav-number">10.</span> <span class="nav-text">redis 持久化</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#redis-集群模式工作原理"><span class="nav-number">11.</span> <span class="nav-text">redis 集群模式工作原理</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#分布式数据存储的核心算法"><span class="nav-number">12.</span> <span class="nav-text">分布式数据存储的核心算法</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#redis-集群节点间通信"><span class="nav-number">13.</span> <span class="nav-text">redis 集群节点间通信</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#redis-集群-master-选举"><span class="nav-number">14.</span> <span class="nav-text">redis 集群 master 选举</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#缓存雪崩，缓存穿透"><span class="nav-number">15.</span> <span class="nav-text">缓存雪崩，缓存穿透</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#保证缓存与数据库双写一致性"><span class="nav-number">16.</span> <span class="nav-text">保证缓存与数据库双写一致性</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#redis-的并发竞争问题是什么"><span class="nav-number">17.</span> <span class="nav-text">redis 的并发竞争问题是什么</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

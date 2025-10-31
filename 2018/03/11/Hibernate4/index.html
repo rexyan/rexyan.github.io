@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="Hibernate3 太长，此文紧接Hibernate3 多对多建表原则：创建中间表，中间表中至少两个字段作为外键，分别指向多对多双方的主键在Java中采用对象关系来描述：在A中定义B类类型的Set集合，在B类中定义A类类型的Set集合，使用Set集合是为了避免数据的重复。 SQL1234567891011121314151617181920212223242526CREATE TABLE `sy">
+<meta name="keywords" content="技术,Hibernate">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Hibernate4">
+<meta property="og:url" content="https://rexyan.github.io/2018/03/11/Hibernate4/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="Hibernate3 太长，此文紧接Hibernate3 多对多建表原则：创建中间表，中间表中至少两个字段作为外键，分别指向多对多双方的主键在Java中采用对象关系来描述：在A中定义B类类型的Set集合，在B类中定义A类类型的Set集合，使用Set集合是为了避免数据的重复。 SQL1234567891011121314151617181920212223242526CREATE TABLE `sy">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.394Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Hibernate4">
+<meta name="twitter:description" content="Hibernate3 太长，此文紧接Hibernate3 多对多建表原则：创建中间表，中间表中至少两个字段作为外键，分别指向多对多双方的主键在Java中采用对象关系来描述：在A中定义B类类型的Set集合，在B类中定义A类类型的Set集合，使用Set集合是为了避免数据的重复。 SQL1234567891011121314151617181920212223242526CREATE TABLE `sy">
+
+<link rel="canonical" href="https://rexyan.github.io/2018/03/11/Hibernate4/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Hibernate4 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2018/03/11/Hibernate4/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Hibernate4
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2018-03-11 13:14:57" itemprop="dateCreated datePublished" datetime="2018-03-11T13:14:57+00:00">2018-03-11</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Java/" itemprop="url" rel="index"><span itemprop="name">Java</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>Hibernate3 太长，此文紧接Hibernate3</p>
+<h3 id="多对多"><a href="#多对多" class="headerlink" title="多对多"></a>多对多</h3><p>建表原则：创建中间表，中间表中至少两个字段作为外键，分别指向多对多双方的主键<br>在Java中采用对象关系来描述：在A中定义B类类型的Set集合，在B类中定义A类类型的Set集合，使用Set集合是为了避免数据的重复。</p>
+<h4 id="SQL"><a href="#SQL" class="headerlink" title="SQL"></a>SQL</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">CREATE TABLE `sys_role` (</span><br><span class="line">  `role_id` bigint(32) NOT NULL AUTO_INCREMENT,</span><br><span class="line">  `role_name` varchar(32) NOT NULL COMMENT &apos;角色名称&apos;,</span><br><span class="line">  `role_memo` varchar(128) DEFAULT NULL COMMENT &apos;备注&apos;,</span><br><span class="line">  PRIMARY KEY (`role_id`)</span><br><span class="line">) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">CREATE TABLE `sys_user` (</span><br><span class="line">  `user_id` bigint(32) NOT NULL AUTO_INCREMENT COMMENT &apos;用户id&apos;,</span><br><span class="line">  `user_code` varchar(32) NOT NULL COMMENT &apos;用户账号&apos;,</span><br><span class="line">  `user_name` varchar(64) NOT NULL COMMENT &apos;用户名称&apos;,</span><br><span class="line">  `user_password` varchar(32) NOT NULL COMMENT &apos;用户密码&apos;,</span><br><span class="line">  `user_state` char(1) NOT NULL COMMENT &apos;1:正常,0:暂停&apos;,</span><br><span class="line">  PRIMARY KEY (`user_id`)</span><br><span class="line">) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">CREATE TABLE `sys_user_role` (</span><br><span class="line">  `role_id` bigint(32) NOT NULL COMMENT &apos;角色id&apos;,</span><br><span class="line">  `user_id` bigint(32) NOT NULL COMMENT &apos;用户id&apos;,</span><br><span class="line">  PRIMARY KEY (`role_id`,`user_id`),</span><br><span class="line">  KEY `FK_user_role_user_id` (`user_id`),</span><br><span class="line">  CONSTRAINT `FK_user_role_role_id` FOREIGN KEY (`role_id`) REFERENCES `sys_role` (`role_id`) ON DELETE NO ACTION ON UPDATE NO ACTION,</span><br><span class="line">  CONSTRAINT `FK_user_role_user_id` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE NO ACTION ON UPDATE NO ACTION</span><br><span class="line">) ENGINE=InnoDB DEFAULT CHARSET=utf8;</span><br></pre></td></tr></table></figure>
+<h4 id="创建实体"><a href="#创建实体" class="headerlink" title="创建实体"></a>创建实体</h4><h5 id="用户实体"><a href="#用户实体" class="headerlink" title="用户实体"></a>用户实体</h5><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br></pre></td><td class="code"><pre><span class="line">package me.yanrs.domain;</span><br><span class="line"></span><br><span class="line">import java.util.HashSet;</span><br><span class="line">import java.util.Set;</span><br><span class="line"></span><br><span class="line">import me.yanrs.domain.Role;</span><br><span class="line"></span><br><span class="line">public class User &#123;</span><br><span class="line">	private Long user_id;</span><br><span class="line">	private String user_code;</span><br><span class="line">	private String user_name;</span><br><span class="line">	private String user_password;</span><br><span class="line">	private Byte user_state;</span><br><span class="line">	</span><br><span class="line">	private Set&lt;Role&gt; roles = new HashSet&lt;Role&gt;();</span><br><span class="line"></span><br><span class="line">	public Long getUser_id() &#123;</span><br><span class="line">		return user_id;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public void setUser_id(Long user_id) &#123;</span><br><span class="line">		this.user_id = user_id;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public String getUser_code() &#123;</span><br><span class="line">		return user_code;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public void setUser_code(String user_code) &#123;</span><br><span class="line">		this.user_code = user_code;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public String getUser_name() &#123;</span><br><span class="line">		return user_name;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public void setUser_name(String user_name) &#123;</span><br><span class="line">		this.user_name = user_name;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public String getUser_password() &#123;</span><br><span class="line">		return user_password;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public void setUser_password(String user_password) &#123;</span><br><span class="line">		this.user_password = user_password;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public Byte getUser_state() &#123;</span><br><span class="line">		return user_state;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public void setUser_state(Byte user_state) &#123;</span><br><span class="line">		this.user_state = user_state;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public Set&lt;Role&gt; getRoles() &#123;</span><br><span class="line">		return roles;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public void setRoles(Set&lt;Role&gt; roles) &#123;</span><br><span class="line">		this.roles = roles;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h5 id="角色实体"><a href="#角色实体" class="headerlink" title="角色实体"></a>角色实体</h5><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line">package me.yanrs.domain;</span><br><span class="line"></span><br><span class="line">import java.util.HashSet;</span><br><span class="line">import java.util.Set;</span><br><span class="line"></span><br><span class="line">public class Role &#123;</span><br><span class="line">	private Long role_id;</span><br><span class="line">	private String role_name;</span><br><span class="line">	private String role_memo;</span><br><span class="line">	</span><br><span class="line">	private Set&lt;User&gt; users = new HashSet&lt;User&gt;();</span><br><span class="line"></span><br><span class="line">	public Long getRole_id() &#123;</span><br><span class="line">		return role_id;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public void setRole_id(Long role_id) &#123;</span><br><span class="line">		this.role_id = role_id;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public String getRole_name() &#123;</span><br><span class="line">		return role_name;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public void setRole_name(String role_name) &#123;</span><br><span class="line">		this.role_name = role_name;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public String getRole_memo() &#123;</span><br><span class="line">		return role_memo;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public void setRole_memo(String role_memo) &#123;</span><br><span class="line">		this.role_memo = role_memo;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public Set&lt;User&gt; getUsers() &#123;</span><br><span class="line">		return users;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	public void setUsers(Set&lt;User&gt; users) &#123;</span><br><span class="line">		this.users = users;</span><br><span class="line">	&#125;	</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h4 id="配置关系映射"><a href="#配置关系映射" class="headerlink" title="配置关系映射"></a>配置关系映射</h4><h5 id="User-hbm-xml"><a href="#User-hbm-xml" class="headerlink" title="User.hbm.xml"></a>User.hbm.xml</h5><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;</span><br><span class="line">&lt;!DOCTYPE hibernate-mapping PUBLIC </span><br><span class="line">    &quot;-//Hibernate/Hibernate Mapping DTD 3.0//EN&quot;</span><br><span class="line">    &quot;http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd&quot;&gt;</span><br><span class="line">&lt;hibernate-mapping package=&quot;me.yanrs.domain&quot;&gt;</span><br><span class="line">	&lt;class name=&quot;User&quot; table=&quot;sys_user&quot;&gt;</span><br><span class="line">		&lt;id name=&quot;user_id&quot;&gt;</span><br><span class="line">			&lt;generator class=&quot;native&quot;&gt;&lt;/generator&gt;</span><br><span class="line">		&lt;/id&gt;</span><br><span class="line">		&lt;property name=&quot;user_code&quot; column=&quot;user_code&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;user_name&quot; column=&quot;user_name&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;user_password&quot; column=&quot;user_password&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;user_state&quot; column=&quot;user_state&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;!-- </span><br><span class="line">			set:</span><br><span class="line">				name: 关联的另一方的集合的属性名称</span><br><span class="line">				table: 中间表的名称</span><br><span class="line">			key:</span><br><span class="line">				column: 当前对象在中间表中的外键的名称</span><br><span class="line">			many-to-many:</span><br><span class="line">				class: 关联另一方的类的全路径</span><br><span class="line">				column: 关联另一方在中间表中的外键名称</span><br><span class="line">		 --&gt;</span><br><span class="line">		&lt;set name=&quot;roles&quot; table=&quot;sys_user_role&quot;&gt;</span><br><span class="line">			&lt;key column=&quot;user_id&quot;&gt;&lt;/key&gt;</span><br><span class="line">			&lt;many-to-many class=&quot;me.yanrs.domain.Role&quot; column=&quot;role_id&quot;&gt;&lt;/many-to-many&gt;</span><br><span class="line">		&lt;/set&gt;</span><br><span class="line">	&lt;/class&gt;</span><br><span class="line">&lt;/hibernate-mapping&gt;</span><br></pre></td></tr></table></figure>
+<h5 id="Role-hbm-xml"><a href="#Role-hbm-xml" class="headerlink" title="Role.hbm.xml"></a>Role.hbm.xml</h5><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;</span><br><span class="line">&lt;!DOCTYPE hibernate-mapping PUBLIC </span><br><span class="line">    &quot;-//Hibernate/Hibernate Mapping DTD 3.0//EN&quot;</span><br><span class="line">    &quot;http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd&quot;&gt;</span><br><span class="line">&lt;hibernate-mapping package=&quot;me.yanrs.domain&quot;&gt;</span><br><span class="line">	&lt;class name=&quot;Role&quot; table=&quot;sys_role&quot;&gt;</span><br><span class="line">		&lt;id name=&quot;role_id&quot;&gt;</span><br><span class="line">			&lt;generator class=&quot;native&quot;&gt;&lt;/generator&gt;</span><br><span class="line">		&lt;/id&gt;</span><br><span class="line">		&lt;property name=&quot;role_name&quot; column=&quot;role_name&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;role_memo&quot; column=&quot;role_memo&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;!-- </span><br><span class="line">			set:</span><br><span class="line">				name: 关联的另一方的集合的属性名称</span><br><span class="line">				table: 中间表的名称</span><br><span class="line">			key:</span><br><span class="line">				column: 当前对象在中间表中的外键的名称</span><br><span class="line">			many-to-many:</span><br><span class="line">				class: 关联另一方的类的全路径</span><br><span class="line">				column: 关联另一方在中间表中的外键名称</span><br><span class="line">		 --&gt;</span><br><span class="line">		&lt;set name=&quot;users&quot; table=&quot;sys_user_role&quot;&gt;</span><br><span class="line">			&lt;key column=&quot;role_id&quot;&gt;&lt;/key&gt;</span><br><span class="line">			&lt;many-to-many class=&quot;me.yanrs.domain.User&quot; column=&quot;user_id&quot;&gt;&lt;/many-to-many&gt;</span><br><span class="line">		&lt;/set&gt;</span><br><span class="line">	&lt;/class&gt;</span><br><span class="line">&lt;/hibernate-mapping&gt;</span><br></pre></td></tr></table></figure>
+<h5 id="hibernate-cfg-xml"><a href="#hibernate-cfg-xml" class="headerlink" title="hibernate.cfg.xml"></a>hibernate.cfg.xml</h5><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;</span><br><span class="line">&lt;!DOCTYPE hibernate-configuration PUBLIC</span><br><span class="line">	&quot;-//Hibernate/Hibernate Configuration DTD 3.0//EN&quot;</span><br><span class="line">	&quot;http://www.hibernate.org/dtd/hibernate-configuration-3.0.dtd&quot;&gt;</span><br><span class="line">&lt;hibernate-configuration&gt;</span><br><span class="line">	&lt;session-factory&gt;</span><br><span class="line">		&lt;property name=&quot;hibernate.connection.driver_class&quot;&gt;com.mysql.jdbc.Driver&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;hibernate.connection.url&quot;&gt;jdbc:mysql:///test1&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;hibernate.connection.username&quot;&gt;root&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;hibernate.connection.password&quot;&gt;root&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;hibernate.dialect&quot;&gt;org.hibernate.dialect.MySQLDialect&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;hibernate.show_sql&quot;&gt;true&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;hibernate.format_sql&quot;&gt;true&lt;/property&gt;</span><br><span class="line">		</span><br><span class="line">		&lt;!-- create可以自动根据实体创建数据库，update不创建 --&gt;</span><br><span class="line">		&lt;property name=&quot;hibernate.hbm2ddl.auto&quot;&gt;update&lt;/property&gt;</span><br><span class="line">		</span><br><span class="line">		&lt;property name=&quot;hibernate.current_session_context_class&quot;&gt;thread&lt;/property&gt;  </span><br><span class="line">		</span><br><span class="line">		&lt;!-- 将实体对象的hibernate的xml文件放到此处，不然会提示  Unknown entity--&gt;</span><br><span class="line">		&lt;mapping resource=&quot;me/yanrs/domain/Customer.hbm.xml&quot; /&gt;</span><br><span class="line">		&lt;mapping resource=&quot;me/yanrs/domain/Linkman.hbm.xml&quot; /&gt;</span><br><span class="line">		&lt;mapping resource=&quot;me/yanrs/domain/Role.hbm.xml&quot; /&gt;</span><br><span class="line">		&lt;mapping resource=&quot;me/yanrs/domain/User.hbm.xml&quot; /&gt;</span><br><span class="line">	&lt;/session-factory&gt;</span><br><span class="line">&lt;/hibernate-configuration&gt;</span><br></pre></td></tr></table></figure>
+<h5 id="新增"><a href="#新增" class="headerlink" title="新增"></a>新增</h5><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line">package me.yanrs.service;</span><br><span class="line"></span><br><span class="line">import java.awt.print.Printable;</span><br><span class="line"></span><br><span class="line">import org.hibernate.Session;</span><br><span class="line">import org.hibernate.Transaction;</span><br><span class="line"></span><br><span class="line">import me.yanrs.domain.Customer;</span><br><span class="line">import me.yanrs.domain.Linkman;</span><br><span class="line">import me.yanrs.domain.Role;</span><br><span class="line">import me.yanrs.domain.User;</span><br><span class="line">import me.yanrs.utils.HibernateUtils;</span><br><span class="line"></span><br><span class="line">public class one_to_many &#123;</span><br><span class="line">	public static void main(String[] args) &#123;</span><br><span class="line">		// one2many_base();</span><br><span class="line">		// one2many_no_cascade();</span><br><span class="line">		// one2many_delete_customer_no_cascade();</span><br><span class="line">		many2many_no_cascade();</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">		private static void many2many_no_cascade() &#123;</span><br><span class="line">		Session session = HibernateUtils.getCurrentSession();</span><br><span class="line">		//开启事务</span><br><span class="line">		Transaction beginTransaction = session.beginTransaction();</span><br><span class="line">		</span><br><span class="line">		User user = new User();</span><br><span class="line">		user.setUser_name(&quot;user11&quot;);</span><br><span class="line">		</span><br><span class="line">		User user2 = new User();</span><br><span class="line">		user2.setUser_name(&quot;user22&quot;);</span><br><span class="line">		</span><br><span class="line">		//创建两个角色</span><br><span class="line">		Role role = new Role();</span><br><span class="line">		role.setRole_name(&quot;role11&quot;);</span><br><span class="line">		</span><br><span class="line">		Role role2 = new Role();</span><br><span class="line">		role2.setRole_name(&quot;role22&quot;);</span><br><span class="line">		</span><br><span class="line">		role.getUsers().add(user);</span><br><span class="line">		role.getUsers().add(user2);</span><br><span class="line">		role2.getUsers().add(user2);</span><br><span class="line">		role2.getUsers().add(user);</span><br><span class="line">		</span><br><span class="line">		session.save(user);</span><br><span class="line">		session.save(user2);</span><br><span class="line">		session.save(role);</span><br><span class="line">		session.save(role2);</span><br><span class="line">		</span><br><span class="line">		//不要忘记提交</span><br><span class="line">		beginTransaction.commit();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h4 id="inverse"><a href="#inverse" class="headerlink" title="inverse"></a>inverse</h4><p>在多对多的保存操作中，如果进行了双向维护关系，就必须有一方放弃外键的维护权。一般由被动方放弃。用户主动选择角色，角色是被选择的，所以一般角色要放弃外键的维护权。但如果只进行单向维护关系，那么就不需要放弃外键维护权。</p>
+<h4 id="级联操作"><a href="#级联操作" class="headerlink" title="级联操作"></a>级联操作</h4><p>在多对多中级联操作同样也有方向性的，例如 用户 和 角色 。如果要以用户为主控方，那么就需要在用户的配置文件中进行cascade配置，反之如果要以联系人为主控方，那么就需要在联系人的配置文件中进行cascade配置。</p>
+<ol>
+<li>保存用户级联角色<br>Role.hbm.xml配置 (放弃维护外键)<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;</span><br><span class="line">&lt;!DOCTYPE hibernate-mapping PUBLIC </span><br><span class="line">    &quot;-//Hibernate/Hibernate Mapping DTD 3.0//EN&quot;</span><br><span class="line">    &quot;http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd&quot;&gt;</span><br><span class="line">&lt;hibernate-mapping package=&quot;me.yanrs.domain&quot;&gt;</span><br><span class="line">	&lt;class name=&quot;Role&quot; table=&quot;sys_role&quot;&gt;</span><br><span class="line">		&lt;id name=&quot;role_id&quot;&gt;</span><br><span class="line">			&lt;generator class=&quot;native&quot;&gt;&lt;/generator&gt;</span><br><span class="line">		&lt;/id&gt;</span><br><span class="line">		&lt;property name=&quot;role_name&quot; column=&quot;role_name&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;role_memo&quot; column=&quot;role_memo&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;!-- </span><br><span class="line">			set:</span><br><span class="line">				name: 关联的另一方的集合的属性名称</span><br><span class="line">				table: 中间表的名称</span><br><span class="line">			key:</span><br><span class="line">				column: 当前对象在中间表中的外键的名称</span><br><span class="line">			many-to-many:</span><br><span class="line">				class: 关联另一方的类的全路径</span><br><span class="line">				column: 关联另一方在中间表中的外键名称</span><br><span class="line">		 --&gt;</span><br><span class="line">		&lt;set inverse=&quot;true&quot; name=&quot;users&quot; table=&quot;sys_user_role&quot;&gt;</span><br><span class="line">			&lt;key column=&quot;role_id&quot;&gt;&lt;/key&gt;</span><br><span class="line">			&lt;many-to-many class=&quot;me.yanrs.domain.User&quot; column=&quot;user_id&quot;&gt;&lt;/many-to-many&gt;</span><br><span class="line">		&lt;/set&gt;</span><br><span class="line">	&lt;/class&gt;</span><br><span class="line">&lt;/hibernate-mapping&gt;</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>User.hbm.xml配置<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;</span><br><span class="line">&lt;!DOCTYPE hibernate-mapping PUBLIC </span><br><span class="line">    &quot;-//Hibernate/Hibernate Mapping DTD 3.0//EN&quot;</span><br><span class="line">    &quot;http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd&quot;&gt;</span><br><span class="line">&lt;hibernate-mapping package=&quot;me.yanrs.domain&quot;&gt;</span><br><span class="line">	&lt;class name=&quot;User&quot; table=&quot;sys_user&quot;&gt;</span><br><span class="line">		&lt;id name=&quot;user_id&quot;&gt;</span><br><span class="line">			&lt;generator class=&quot;native&quot;&gt;&lt;/generator&gt;</span><br><span class="line">		&lt;/id&gt;</span><br><span class="line">		&lt;property name=&quot;user_code&quot; column=&quot;user_code&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;user_name&quot; column=&quot;user_name&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;user_password&quot; column=&quot;user_password&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;user_state&quot; column=&quot;user_state&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;!-- </span><br><span class="line">			set:</span><br><span class="line">				name: 关联的另一方的集合的属性名称</span><br><span class="line">				table: 中间表的名称</span><br><span class="line">			key:</span><br><span class="line">				column: 当前对象在中间表中的外键的名称</span><br><span class="line">			many-to-many:</span><br><span class="line">				class: 关联另一方的类的全路径</span><br><span class="line">				column: 关联另一方在中间表中的外键名称</span><br><span class="line">		 --&gt;</span><br><span class="line">		&lt;set cascade=&quot;save-update&quot; name=&quot;roles&quot; table=&quot;sys_user_role&quot;&gt;</span><br><span class="line">			&lt;key column=&quot;user_id&quot;&gt;&lt;/key&gt;</span><br><span class="line">			&lt;many-to-many class=&quot;me.yanrs.domain.Role&quot; column=&quot;role_id&quot;&gt;&lt;/many-to-many&gt;</span><br><span class="line">		&lt;/set&gt;</span><br><span class="line">	&lt;/class&gt;</span><br><span class="line">&lt;/hibernate-mapping&gt;</span><br></pre></td></tr></table></figure></p>
+<p>测试代码<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><span class="line">package me.yanrs.service;</span><br><span class="line"></span><br><span class="line">import org.hibernate.Session;</span><br><span class="line">import org.hibernate.Transaction;</span><br><span class="line"></span><br><span class="line">import me.yanrs.domain.Customer;</span><br><span class="line">import me.yanrs.domain.Linkman;</span><br><span class="line">import me.yanrs.domain.Role;</span><br><span class="line">import me.yanrs.domain.User;</span><br><span class="line">import me.yanrs.utils.HibernateUtils;</span><br><span class="line"></span><br><span class="line">public class one_to_many &#123;</span><br><span class="line">	public static void main(String[] args) &#123;</span><br><span class="line">		// one2many_base();</span><br><span class="line">		// one2many_no_cascade();</span><br><span class="line">		// one2many_delete_customer_no_cascade();</span><br><span class="line">		//many2many_no_cascade();</span><br><span class="line">		 many2many_cascade();</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	private static void many2many_cascade() &#123;</span><br><span class="line">		Session session = HibernateUtils.getCurrentSession();</span><br><span class="line">		//开启事务</span><br><span class="line">		Transaction beginTransaction = session.beginTransaction();</span><br><span class="line">		</span><br><span class="line">		User user = new User();</span><br><span class="line">		user.setUser_name(&quot;user11&quot;);</span><br><span class="line">		</span><br><span class="line">		User user2 = new User();</span><br><span class="line">		user2.setUser_name(&quot;user22&quot;);</span><br><span class="line">		</span><br><span class="line">		//创建两个角色</span><br><span class="line">		Role role = new Role();</span><br><span class="line">		role.setRole_name(&quot;role11&quot;);</span><br><span class="line">		</span><br><span class="line">		Role role2 = new Role();</span><br><span class="line">		role2.setRole_name(&quot;role22&quot;);</span><br><span class="line">		</span><br><span class="line">		user.getRoles().add(role);</span><br><span class="line">		user2.getRoles().add(role2);</span><br><span class="line">		</span><br><span class="line">		session.save(user);</span><br><span class="line">		session.save(user2);</span><br><span class="line">		</span><br><span class="line">		//不要忘记提交</span><br><span class="line">		beginTransaction.commit();</span><br><span class="line">		</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<ol start="2">
+<li>保存角色级联用户<br>Role.hbm.xml配置<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;</span><br><span class="line">&lt;!DOCTYPE hibernate-mapping PUBLIC </span><br><span class="line">    &quot;-//Hibernate/Hibernate Mapping DTD 3.0//EN&quot;</span><br><span class="line">    &quot;http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd&quot;&gt;</span><br><span class="line">&lt;hibernate-mapping package=&quot;me.yanrs.domain&quot;&gt;</span><br><span class="line">	&lt;class name=&quot;Role&quot; table=&quot;sys_role&quot;&gt;</span><br><span class="line">		&lt;id name=&quot;role_id&quot;&gt;</span><br><span class="line">			&lt;generator class=&quot;native&quot;&gt;&lt;/generator&gt;</span><br><span class="line">		&lt;/id&gt;</span><br><span class="line">		&lt;property name=&quot;role_name&quot; column=&quot;role_name&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;role_memo&quot; column=&quot;role_memo&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;!-- </span><br><span class="line">			set:</span><br><span class="line">				name: 关联的另一方的集合的属性名称</span><br><span class="line">				table: 中间表的名称</span><br><span class="line">			key:</span><br><span class="line">				column: 当前对象在中间表中的外键的名称</span><br><span class="line">			many-to-many:</span><br><span class="line">				class: 关联另一方的类的全路径</span><br><span class="line">				column: 关联另一方在中间表中的外键名称</span><br><span class="line">		 --&gt;</span><br><span class="line">		&lt;set cascade=&quot;save-update&quot; name=&quot;users&quot; table=&quot;sys_user_role&quot;&gt;</span><br><span class="line">			&lt;key column=&quot;role_id&quot;&gt;&lt;/key&gt;</span><br><span class="line">			&lt;many-to-many class=&quot;me.yanrs.domain.User&quot; column=&quot;user_id&quot;&gt;&lt;/many-to-many&gt;</span><br><span class="line">		&lt;/set&gt;</span><br><span class="line">	&lt;/class&gt;</span><br><span class="line">&lt;/hibernate-mapping&gt;</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>User.hbm.xml配置(放弃外键的维护)<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;</span><br><span class="line">&lt;!DOCTYPE hibernate-mapping PUBLIC </span><br><span class="line">    &quot;-//Hibernate/Hibernate Mapping DTD 3.0//EN&quot;</span><br><span class="line">    &quot;http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd&quot;&gt;</span><br><span class="line">&lt;hibernate-mapping package=&quot;me.yanrs.domain&quot;&gt;</span><br><span class="line">	&lt;class name=&quot;User&quot; table=&quot;sys_user&quot;&gt;</span><br><span class="line">		&lt;id name=&quot;user_id&quot;&gt;</span><br><span class="line">			&lt;generator class=&quot;native&quot;&gt;&lt;/generator&gt;</span><br><span class="line">		&lt;/id&gt;</span><br><span class="line">		&lt;property name=&quot;user_code&quot; column=&quot;user_code&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;user_name&quot; column=&quot;user_name&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;user_password&quot; column=&quot;user_password&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;property name=&quot;user_state&quot; column=&quot;user_state&quot;&gt;&lt;/property&gt;</span><br><span class="line">		&lt;!-- </span><br><span class="line">			set:</span><br><span class="line">				name: 关联的另一方的集合的属性名称</span><br><span class="line">				table: 中间表的名称</span><br><span class="line">			key:</span><br><span class="line">				column: 当前对象在中间表中的外键的名称</span><br><span class="line">			many-to-many:</span><br><span class="line">				class: 关联另一方的类的全路径</span><br><span class="line">				column: 关联另一方在中间表中的外键名称</span><br><span class="line">		 --&gt;</span><br><span class="line">		&lt;set inverse=&quot;true&quot; name=&quot;roles&quot; table=&quot;sys_user_role&quot;&gt;</span><br><span class="line">			&lt;key column=&quot;user_id&quot;&gt;&lt;/key&gt;</span><br><span class="line">			&lt;many-to-many class=&quot;me.yanrs.domain.Role&quot; column=&quot;role_id&quot;&gt;&lt;/many-to-many&gt;</span><br><span class="line">		&lt;/set&gt;</span><br><span class="line">	&lt;/class&gt;</span><br><span class="line">&lt;/hibernate-mapping&gt;</span><br></pre></td></tr></table></figure></p>
+<p>测试代码<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line">package me.yanrs.service;</span><br><span class="line"></span><br><span class="line">import org.hibernate.Session;</span><br><span class="line">import org.hibernate.Transaction;</span><br><span class="line"></span><br><span class="line">import me.yanrs.domain.Customer;</span><br><span class="line">import me.yanrs.domain.Linkman;</span><br><span class="line">import me.yanrs.domain.Role;</span><br><span class="line">import me.yanrs.domain.User;</span><br><span class="line">import me.yanrs.utils.HibernateUtils;</span><br><span class="line"></span><br><span class="line">public class one_to_many &#123;</span><br><span class="line">	public static void main(String[] args) &#123;</span><br><span class="line">		// one2many_base();</span><br><span class="line">		// one2many_no_cascade();</span><br><span class="line">		// one2many_delete_customer_no_cascade();</span><br><span class="line">		//many2many_no_cascade();</span><br><span class="line">		 many2many_cascade();</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	private static void many2many_cascade() &#123;</span><br><span class="line">		Session session = HibernateUtils.getCurrentSession();</span><br><span class="line">		//开启事务</span><br><span class="line">		Transaction beginTransaction = session.beginTransaction();</span><br><span class="line">		</span><br><span class="line">		User user = new User();</span><br><span class="line">		user.setUser_name(&quot;user11&quot;);</span><br><span class="line">		</span><br><span class="line">		User user2 = new User();</span><br><span class="line">		user2.setUser_name(&quot;user22&quot;);</span><br><span class="line">		</span><br><span class="line">		//创建两个角色</span><br><span class="line">		Role role = new Role();</span><br><span class="line">		role.setRole_name(&quot;role11&quot;);</span><br><span class="line">		</span><br><span class="line">		Role role2 = new Role();</span><br><span class="line">		role2.setRole_name(&quot;role22&quot;);</span><br><span class="line">		</span><br><span class="line">		role.getUsers().add(user);</span><br><span class="line">		role.getUsers().add(user2);</span><br><span class="line">		role2.getUsers().add(user);</span><br><span class="line">		role2.getUsers().add(user2);</span><br><span class="line">		</span><br><span class="line">		session.save(role);</span><br><span class="line">		session.save(role2);</span><br><span class="line">		</span><br><span class="line">		//不要忘记提交</span><br><span class="line">		beginTransaction.commit();</span><br><span class="line">		</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<ol start="2">
+<li><p>新增<br>为Role新增一个用户（上面代码中的配置不变【上面的配置是User放弃外键的维护，cascade=”save-update” 】）</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line">package me.yanrs.service;</span><br><span class="line"></span><br><span class="line">import org.hibernate.Session;</span><br><span class="line">import org.hibernate.Transaction;</span><br><span class="line"></span><br><span class="line">import com.sun.jndi.toolkit.url.Uri;</span><br><span class="line"></span><br><span class="line">import me.yanrs.domain.Customer;</span><br><span class="line">import me.yanrs.domain.Linkman;</span><br><span class="line">import me.yanrs.domain.Role;</span><br><span class="line">import me.yanrs.domain.User;</span><br><span class="line">import me.yanrs.utils.HibernateUtils;</span><br><span class="line"></span><br><span class="line">public class one_to_many &#123;</span><br><span class="line">	public static void main(String[] args) &#123;</span><br><span class="line">		// one2many_base();</span><br><span class="line">		// one2many_no_cascade();</span><br><span class="line">		// one2many_delete_customer_no_cascade();</span><br><span class="line">		//many2many_no_cascade();</span><br><span class="line">		// many2many_cascade();</span><br><span class="line">		add_user_for_role();</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	private static void add_user_for_role() &#123;</span><br><span class="line">		Session session = HibernateUtils.getCurrentSession();</span><br><span class="line">		//开启事务</span><br><span class="line">		Transaction beginTransaction = session.beginTransaction();</span><br><span class="line">		User user = new User();</span><br><span class="line">		user.setUser_name(&quot;new_user&quot;);</span><br><span class="line">		</span><br><span class="line">		Role role = session.get(Role.class, 1l);</span><br><span class="line">		role.getUsers().add(user);</span><br><span class="line">		</span><br><span class="line">		//持久化对象无需save，直接commit即可</span><br><span class="line">		beginTransaction.commit();</span><br><span class="line">		</span><br><span class="line">	&#125;</span><br><span class="line">｝</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>删除<br>删除User的时候，删除对应的角色。配置为User.hbm.xml中cascade=”delete”，Role.hbm.xml中inverse=”true”</p>
+</li>
+</ol>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line">package me.yanrs.service;</span><br><span class="line"></span><br><span class="line">import org.hibernate.Session;</span><br><span class="line">import org.hibernate.Transaction;</span><br><span class="line"></span><br><span class="line">import com.sun.jndi.toolkit.url.Uri;</span><br><span class="line"></span><br><span class="line">import me.yanrs.domain.Customer;</span><br><span class="line">import me.yanrs.domain.Linkman;</span><br><span class="line">import me.yanrs.domain.Role;</span><br><span class="line">import me.yanrs.domain.User;</span><br><span class="line">import me.yanrs.utils.HibernateUtils;</span><br><span class="line"></span><br><span class="line">public class one_to_many &#123;</span><br><span class="line">	public static void main(String[] args) &#123;</span><br><span class="line">		// one2many_base();</span><br><span class="line">		// one2many_no_cascade();</span><br><span class="line">		// one2many_delete_customer_no_cascade();</span><br><span class="line">		//many2many_no_cascade();</span><br><span class="line">		// many2many_cascade();</span><br><span class="line">		//add_user_for_role();</span><br><span class="line">		delete_user();</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	private static void delete_user() &#123;</span><br><span class="line">		Session session = HibernateUtils.getCurrentSession();</span><br><span class="line">		//开启事务</span><br><span class="line">		Transaction beginTransaction = session.beginTransaction();</span><br><span class="line">		User user = session.get(User.class, 1l);</span><br><span class="line">		</span><br><span class="line">		Role role = session.get(Role.class, 1l);</span><br><span class="line">		Role role2 = session.get(Role.class, 2l);</span><br><span class="line">		</span><br><span class="line">		user.getRoles().remove(role);</span><br><span class="line">		user.getRoles().remove(role2);</span><br><span class="line">		</span><br><span class="line">		//持久化对象无需save，直接commit即可</span><br><span class="line">		</span><br><span class="line">		beginTransaction.commit();</span><br><span class="line">		</span><br><span class="line">	&#125;</span><br><span class="line">｝</span><br></pre></td></tr></table></figure>
+<p>多对多的关系主要是靠中间表来维护的，在Hibernate中多对多主要是靠关联的集合来维护的，所以我们只需关心如何操作集合即可。</p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>级联操作的取值可以是save-update、delete、all<br>inverse的默认值是false，代表维护外键，ture为不维护外键</p>
+<ol>
+<li><p>一对多中<br>主控方进行级联操作的配置，一的一方应该放弃外键的维护</p>
+</li>
+<li><p>多对多中<br>必须有一方要放弃主键的维护，一般是被动方放弃主键的维护，主动方进行级联操作的配置</p>
+</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/技术/" rel="tag"><i class="fa fa-tag"></i> 技术</a>
+              <a href="/tags/Hibernate/" rel="tag"><i class="fa fa-tag"></i> Hibernate</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2018/03/07/Python分页插件pagination/" rel="prev" title="Python分页插件pagination">
+      <i class="fa fa-chevron-left"></i> Python分页插件pagination
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2018/03/11/Hibernate3 /" rel="next" title="Hibernate3">
+      Hibernate3 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#多对多"><span class="nav-number">1.</span> <span class="nav-text">多对多</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#SQL"><span class="nav-number">1.1.</span> <span class="nav-text">SQL</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#创建实体"><span class="nav-number">1.2.</span> <span class="nav-text">创建实体</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#用户实体"><span class="nav-number">1.2.1.</span> <span class="nav-text">用户实体</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#角色实体"><span class="nav-number">1.2.2.</span> <span class="nav-text">角色实体</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#配置关系映射"><span class="nav-number">1.3.</span> <span class="nav-text">配置关系映射</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#User-hbm-xml"><span class="nav-number">1.3.1.</span> <span class="nav-text">User.hbm.xml</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#Role-hbm-xml"><span class="nav-number">1.3.2.</span> <span class="nav-text">Role.hbm.xml</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#hibernate-cfg-xml"><span class="nav-number">1.3.3.</span> <span class="nav-text">hibernate.cfg.xml</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#新增"><span class="nav-number">1.3.4.</span> <span class="nav-text">新增</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#inverse"><span class="nav-number">1.4.</span> <span class="nav-text">inverse</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#级联操作"><span class="nav-number">1.5.</span> <span class="nav-text">级联操作</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#总结"><span class="nav-number">2.</span> <span class="nav-text">总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

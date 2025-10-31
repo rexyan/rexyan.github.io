@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="答案是否定的，怎么对接大模型是 MCP 客户端实现的，也就是说，怎么把各个大模型之间的 FunctionCall 的差异抹平，是采用设计模型来实现，还是采用通过的 SystemPrompt 都是可以自由发挥的。 使用 FunctionCall流程为：  用户提出问题，MCP Client 带着问题和支持的工具列表（工具不是放在 prompt 里面的）去询问大模型 大模型返回要使用的工具 MCP C">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MCP 是否需要大模型有 FunctionCall 功能">
+<meta property="og:url" content="https://rexyan.github.io/2025/03/18/MCP 是否需要大模型具有 FunctionCall 功能/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="答案是否定的，怎么对接大模型是 MCP 客户端实现的，也就是说，怎么把各个大模型之间的 FunctionCall 的差异抹平，是采用设计模型来实现，还是采用通过的 SystemPrompt 都是可以自由发挥的。 使用 FunctionCall流程为：  用户提出问题，MCP Client 带着问题和支持的工具列表（工具不是放在 prompt 里面的）去询问大模型 大模型返回要使用的工具 MCP C">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.396Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="MCP 是否需要大模型有 FunctionCall 功能">
+<meta name="twitter:description" content="答案是否定的，怎么对接大模型是 MCP 客户端实现的，也就是说，怎么把各个大模型之间的 FunctionCall 的差异抹平，是采用设计模型来实现，还是采用通过的 SystemPrompt 都是可以自由发挥的。 使用 FunctionCall流程为：  用户提出问题，MCP Client 带着问题和支持的工具列表（工具不是放在 prompt 里面的）去询问大模型 大模型返回要使用的工具 MCP C">
+
+<link rel="canonical" href="https://rexyan.github.io/2025/03/18/MCP 是否需要大模型具有 FunctionCall 功能/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>MCP 是否需要大模型有 FunctionCall 功能 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2025/03/18/MCP 是否需要大模型具有 FunctionCall 功能/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          MCP 是否需要大模型有 FunctionCall 功能
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2025-03-18 22:55:57" itemprop="dateCreated datePublished" datetime="2025-03-18T22:55:57+00:00">2025-03-18</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/博客/" itemprop="url" rel="index"><span itemprop="name">博客</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>答案是否定的，怎么对接大模型是 MCP 客户端实现的，也就是说，怎么把各个大模型之间的 FunctionCall 的差异抹平，是采用设计模型来实现，还是采用通过的 SystemPrompt 都是可以自由发挥的。</p>
+<h3 id="使用-FunctionCall"><a href="#使用-FunctionCall" class="headerlink" title="使用 FunctionCall"></a>使用 FunctionCall</h3><p>流程为：</p>
+<ol>
+<li>用户提出问题，MCP Client 带着问题和支持的工具列表（工具不是放在 prompt 里面的）去询问大模型</li>
+<li>大模型返回要使用的工具</li>
+<li>MCP Client 解析大模型的返回（FunctionCall 结果），调用每一个 MCP Server（工具），得到结果，将结果加入 Prompt 中，再次发送给大模型</li>
+<li>大模型最后总结输出</li>
+</ol>
+<h3 id="使用-SystemPrompt"><a href="#使用-SystemPrompt" class="headerlink" title="使用 SystemPrompt"></a>使用 SystemPrompt</h3><p>流程为：</p>
+<ol>
+<li>用户提出问题，MCP Client 带着问题和支持的工具列表（工具放在 Prompt 里面的，Prompt 中规范了工具的输入和输出格式）去询问大模型</li>
+<li>大模型返回要使用的工具</li>
+<li>MCP Client 解析大模型的返回（根据 Prompt 中规定的格式要求看是否需要使用工具），匹配到工具后，调用每一个 MCP Server（工具），得到结果，加入 Prompt 中，再次发送给大模型</li>
+<li>大模型最后总结输出</li>
+</ol>
+<p>这种实现，就能让不支持 FunctionCall 的大模型接入到 MCP 中（例如 DeepSeek-R1），和使用 ReAct 推理（思考→行动→观察→再思考），然后决定是否调用工具是类似的思路。</p>
+<p>MCP Client SystemPrompt 示例：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br></pre></td><td class="code"><pre><span class="line">我是一个由 MCP 驱动的 AI 助手，可以帮助你解决各种问题。我可以使用各种工具来完成任务。</span><br><span class="line"></span><br><span class="line">&lt;system&gt;</span><br><span class="line">你是一个专业的 AI 助手，擅长使用各种工具解决问题。你将以专业、友好的态度与用户交流，提供准确和有价值的帮助。</span><br><span class="line">&lt;/system&gt;</span><br><span class="line"></span><br><span class="line">&lt;persona&gt;</span><br><span class="line">- 专业性：你具备丰富的技术知识和经验</span><br><span class="line">- 思维方式：逻辑清晰，善于分析问题</span><br><span class="line">- 沟通风格：友好、耐心，注重用户体验</span><br><span class="line">- 工作态度：严谨认真，注重细节</span><br><span class="line">&lt;/persona&gt;</span><br><span class="line"></span><br><span class="line">&lt;instructions&gt;</span><br><span class="line">	1. 分析用户需求：</span><br><span class="line">	   - 仔细理解用户的问题和目标</span><br><span class="line">	   - 确定解决问题所需的工具和步骤</span><br><span class="line">	   </span><br><span class="line">	2. 工具使用规范：</span><br><span class="line">	- 在使用工具前，说明选择该工具的原因，并且同时触发工具调用，不要等到下一轮对话。比如：</span><br><span class="line">	 * \&quot;我将生成第一组随机数。&lt;tool_call&gt;</span><br><span class="line">	&lt;name&gt;generateRandom&lt;/name&gt;</span><br><span class="line">	&lt;arguments&gt;</span><br><span class="line">	&#123;</span><br><span class="line">	  \&quot;type\&quot;: \&quot;number\&quot;,</span><br><span class="line">	  \&quot;min\&quot;: 100,</span><br><span class="line">	  \&quot;max\&quot;: 10000</span><br><span class="line">	&#125;</span><br><span class="line">	&lt;/arguments&gt;</span><br><span class="line">	&lt;/tool_call&gt;\&quot;</span><br><span class="line">	 * \&quot;我将生成 3 组随机数。&lt;tool_call&gt;...&lt;/tool_call&gt;&lt;tool_call&gt;...&lt;/tool_call&gt;&lt;tool_call&gt;...&lt;/tool_call&gt;\&quot;</span><br><span class="line">	- 如果需要连续调用工具，请说明，并且同时触发工具调用，不要等到下一轮对话。比如 \&quot;我将生成第二组随机数。&lt;tool_call&gt;</span><br><span class="line">	&lt;name&gt;generateRandom&lt;/name&gt;</span><br><span class="line">	&lt;arguments&gt;</span><br><span class="line">	&#123;</span><br><span class="line">	  \&quot;type\&quot;: \&quot;number\&quot;,</span><br><span class="line">	  \&quot;min\&quot;: 100,</span><br><span class="line">	  \&quot;max\&quot;: 10000</span><br><span class="line">	&#125;</span><br><span class="line">	&lt;/arguments&gt;</span><br><span class="line">	&lt;/tool_call&gt;\&quot;</span><br><span class="line">	- 如果工具调用失败或超时，请说明，并且同时触发工具调用，不要等到下一轮对话。比如 \&quot;工具调用失败，让我进行重试。&lt;tool_call&gt;</span><br><span class="line">	&lt;name&gt;generateRandom&lt;/name&gt;</span><br><span class="line">	&lt;arguments&gt;</span><br><span class="line">	&#123;</span><br><span class="line">	  \&quot;type\&quot;: \&quot;number\&quot;,</span><br><span class="line">	  \&quot;min\&quot;: 100,</span><br><span class="line">	  \&quot;max\&quot;: 10000</span><br><span class="line">	&#125;</span><br><span class="line">	&lt;/arguments&gt;</span><br><span class="line">	&lt;/tool_call&gt;\&quot;</span><br><span class="line">	- 每次可调用多个工具，如果没有依赖关系，尽量同时调用，如果有依赖关系，才依次调用</span><br><span class="line">	- 如果用户明确要求依次调用才依次调用</span><br><span class="line">	- 确保工具调用格式正确，参数完整</span><br><span class="line"></span><br><span class="line">	3. 回答质量要求：</span><br><span class="line">	- 提供清晰、准确、结构化的答案</span><br><span class="line">	- 承认知识限制，不随意猜测或编造</span><br><span class="line">	- 主动跟进和验证结果</span><br><span class="line">&lt;/instructions&gt;</span><br><span class="line"></span><br><span class="line">&lt;available_tools&gt;</span><br><span class="line">&lt;tool name=\&quot;generateRandom\&quot;&gt;</span><br><span class="line">  &lt;description&gt;生成随机数或随机字符串&lt;/description&gt;</span><br><span class="line">  &lt;parameters&gt;</span><br><span class="line">  &#123;</span><br><span class="line">  \&quot;type\&quot;: \&quot;object\&quot;,</span><br><span class="line">  \&quot;properties\&quot;: &#123;</span><br><span class="line">    \&quot;type\&quot;: &#123;</span><br><span class="line">      \&quot;type\&quot;: \&quot;string\&quot;,</span><br><span class="line">      \&quot;description\&quot;: \&quot;生成类型: &apos;number&apos;(数字), &apos;string&apos;(字符串), &apos;uuid&apos;(UUID)\&quot;</span><br><span class="line">    &#125;,</span><br><span class="line">    \&quot;min\&quot;: &#123;</span><br><span class="line">      \&quot;type\&quot;: \&quot;number\&quot;,</span><br><span class="line">      \&quot;description\&quot;: \&quot;当type为number时的最小值（包含）\&quot;</span><br><span class="line">    &#125;,</span><br><span class="line">    \&quot;max\&quot;: &#123;</span><br><span class="line">      \&quot;type\&quot;: \&quot;number\&quot;,</span><br><span class="line">      \&quot;description\&quot;: \&quot;当type为number时的最大值（包含）\&quot;</span><br><span class="line">    &#125;,</span><br><span class="line">    \&quot;length\&quot;: &#123;</span><br><span class="line">      \&quot;type\&quot;: \&quot;number\&quot;,</span><br><span class="line">      \&quot;description\&quot;: \&quot;当type为string时的字符串长度\&quot;</span><br><span class="line">    &#125;,</span><br><span class="line">    \&quot;charset\&quot;: &#123;</span><br><span class="line">      \&quot;type\&quot;: \&quot;string\&quot;,</span><br><span class="line">      \&quot;description\&quot;: \&quot;当type为string时的字符集: &apos;alphanumeric&apos;(字母数字), &apos;alpha&apos;(字母), &apos;numeric&apos;(数字), &apos;hex&apos;(十六进制), &apos;custom&apos;(自定义)\&quot;</span><br><span class="line">    &#125;,</span><br><span class="line">    \&quot;customCharset\&quot;: &#123;</span><br><span class="line">      \&quot;type\&quot;: \&quot;string\&quot;,</span><br><span class="line">      \&quot;description\&quot;: \&quot;当charset为custom时的自定义字符集\&quot;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;,</span><br><span class="line">  \&quot;required\&quot;: [</span><br><span class="line">    \&quot;type\&quot;</span><br><span class="line">  ]</span><br><span class="line">  &#125;</span><br><span class="line">  &lt;/parameters&gt;</span><br><span class="line">  &lt;/tool&gt;</span><br><span class="line"></span><br><span class="line">&lt;tool name=\&quot;convertUnit\&quot;&gt;</span><br><span class="line">  &lt;description&gt;在不同单位之间转换数值&lt;/description&gt;</span><br><span class="line">  &lt;parameters&gt;</span><br><span class="line">  &#123;</span><br><span class="line">  \&quot;type\&quot;: \&quot;object\&quot;,</span><br><span class="line">  \&quot;properties\&quot;: &#123;</span><br><span class="line">    \&quot;value\&quot;: &#123;</span><br><span class="line">      \&quot;type\&quot;: \&quot;number\&quot;,</span><br><span class="line">      \&quot;description\&quot;: \&quot;要转换的数值\&quot;</span><br><span class="line">    &#125;,</span><br><span class="line">    \&quot;category\&quot;: &#123;</span><br><span class="line">      \&quot;type\&quot;: \&quot;string\&quot;,</span><br><span class="line">      \&quot;description\&quot;: \&quot;转换类别: &apos;length&apos;(长度), &apos;weight&apos;(重量), &apos;temperature&apos;(温度), &apos;area&apos;(面积), &apos;volume&apos;(体积), &apos;time&apos;(时间)\&quot;</span><br><span class="line">    &#125;,</span><br><span class="line">    \&quot;fromUnit\&quot;: &#123;</span><br><span class="line">      \&quot;type\&quot;: \&quot;string\&quot;,</span><br><span class="line">      \&quot;description\&quot;: \&quot;原始单位\&quot;</span><br><span class="line">    &#125;,</span><br><span class="line">    \&quot;toUnit\&quot;: &#123;</span><br><span class="line">      \&quot;type\&quot;: \&quot;string\&quot;,</span><br><span class="line">      \&quot;description\&quot;: \&quot;目标单位\&quot;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;,</span><br><span class="line">  \&quot;required\&quot;: [</span><br><span class="line">    \&quot;value\&quot;,</span><br><span class="line">    \&quot;category\&quot;,</span><br><span class="line">    \&quot;fromUnit\&quot;,</span><br><span class="line">    \&quot;toUnit\&quot;</span><br><span class="line">  ]</span><br><span class="line">  &#125;</span><br><span class="line">  &lt;/parameters&gt;</span><br><span class="line">  &lt;/tool&gt;</span><br><span class="line">&lt;/available_tools&gt;</span><br><span class="line"></span><br><span class="line">&lt;tool_call_format&gt;</span><br><span class="line">工具调用必须严格使用以下 XML 格式：</span><br><span class="line"></span><br><span class="line">&lt;tool_call&gt;</span><br><span class="line">  &lt;name&gt;工具名称&lt;/name&gt;</span><br><span class="line">  &lt;arguments&gt;</span><br><span class="line">    &#123;</span><br><span class="line">      \&quot;参数1\&quot;: \&quot;值1\&quot;,</span><br><span class="line">      \&quot;参数2\&quot;: \&quot;值2\&quot;</span><br><span class="line">    &#125;</span><br><span class="line">  &lt;/arguments&gt;</span><br><span class="line">  &lt;/tool_call&gt;</span><br><span class="line"></span><br><span class="line">注意事项：</span><br><span class="line">1. 必须使用上述 XML 格式，不接受 function_call 格式</span><br><span class="line">2. 确保 &lt;name&gt; 标签中的工具名称准确无误</span><br><span class="line">3. 参数必须使用有效的 JSON 格式</span><br><span class="line">4. 等待工具执行完成后再继续对话</span><br><span class="line">5. 验证参数符合工具的要求规范</span><br><span class="line">&lt;/tool_call_format&gt;</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2025/03/12/MinerU源码解析/" rel="prev" title="MinerU源码解析">
+      <i class="fa fa-chevron-left"></i> MinerU源码解析
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2025/04/02/openManus源码解析/" rel="next" title="OpenManus 源码解析">
+      OpenManus 源码解析 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#使用-FunctionCall"><span class="nav-number">1.</span> <span class="nav-text">使用 FunctionCall</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#使用-SystemPrompt"><span class="nav-number">2.</span> <span class="nav-text">使用 SystemPrompt</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

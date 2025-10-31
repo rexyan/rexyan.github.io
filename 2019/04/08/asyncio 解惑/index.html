@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="介绍现在的asyncio，有了很多的模块已经在支持：aiohttp,aiodns,aioredis等等 https://github.com/aio-libs 这里列出了已经支持的内容，并在持续更新，当然到目前为止实现协程的不仅仅只有asyncio,tornado和gevent都实现了类似功能。 asyncio 关键字的说明：  event_loop 事件循环：程序开启一个无限循环，把一些函数注册">
+<meta name="keywords" content="Python">
+<meta property="og:type" content="article">
+<meta property="og:title" content="asyncio 解惑">
+<meta property="og:url" content="https://rexyan.github.io/2019/04/08/asyncio 解惑/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="介绍现在的asyncio，有了很多的模块已经在支持：aiohttp,aiodns,aioredis等等 https://github.com/aio-libs 这里列出了已经支持的内容，并在持续更新，当然到目前为止实现协程的不仅仅只有asyncio,tornado和gevent都实现了类似功能。 asyncio 关键字的说明：  event_loop 事件循环：程序开启一个无限循环，把一些函数注册">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.402Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="asyncio 解惑">
+<meta name="twitter:description" content="介绍现在的asyncio，有了很多的模块已经在支持：aiohttp,aiodns,aioredis等等 https://github.com/aio-libs 这里列出了已经支持的内容，并在持续更新，当然到目前为止实现协程的不仅仅只有asyncio,tornado和gevent都实现了类似功能。 asyncio 关键字的说明：  event_loop 事件循环：程序开启一个无限循环，把一些函数注册">
+
+<link rel="canonical" href="https://rexyan.github.io/2019/04/08/asyncio 解惑/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>asyncio 解惑 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2019/04/08/asyncio 解惑/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          asyncio 解惑
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-04-08 17:54:57" itemprop="dateCreated datePublished" datetime="2019-04-08T17:54:57+00:00">2019-04-08</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Python-进阶/" itemprop="url" rel="index"><span itemprop="name">Python 进阶</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="介绍"><a href="#介绍" class="headerlink" title="介绍"></a>介绍</h3><p>现在的asyncio，有了很多的模块已经在支持：aiohttp,aiodns,aioredis等等 <a href="https://github.com/aio-libs" target="_blank" rel="noopener">https://github.com/aio-libs</a> 这里列出了已经支持的内容，并在持续更新，当然到目前为止实现协程的不仅仅只有asyncio,tornado和gevent都实现了类似功能。</p>
+<p>asyncio 关键字的说明：</p>
+<ul>
+<li><p>event_loop 事件循环：程序开启一个无限循环，把一些函数注册到事件循环上，当满足事件发生的时候，调用相应的协程函数</p>
+</li>
+<li><p>coroutine 协程：协程对象，指一个使用async关键字定义的函数，它的调用不会立即执行函数，而是会返回一个协程对象。协程对象需要注册到事件循环，由事件循环调用。</p>
+</li>
+<li><p>task 任务：一个协程对象就是一个原生可以挂起的函数，任务则是对协程进一步封装，其中包含了任务的各种状态</p>
+</li>
+<li><p>future: 代表将来执行或没有执行的任务的结果。它和task上没有本质上的区别</p>
+</li>
+<li><p>async/await 关键字：python3.5用于定义协程的关键字，async定义一个协程，await用于挂起阻塞的异步调用接口。</p>
+</li>
+</ul>
+<h3 id="定义一个协程"><a href="#定义一个协程" class="headerlink" title="定义一个协程"></a>定义一个协程</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> time</span><br><span class="line"><span class="keyword">import</span> asyncio</span><br><span class="line"></span><br><span class="line">now = <span class="keyword">lambda</span> : time.time()</span><br><span class="line"></span><br><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">do_some_work</span><span class="params">(x)</span>:</span></span><br><span class="line">    print(<span class="string">"waiting:"</span>, x)</span><br><span class="line"></span><br><span class="line">start = now()</span><br><span class="line"><span class="comment"># 这里是一个协程对象，这个时候do_some_work函数并没有执行</span></span><br><span class="line">coroutine = do_some_work(<span class="number">2</span>)</span><br><span class="line">print(coroutine)</span><br><span class="line"><span class="comment">#  创建一个事件loop</span></span><br><span class="line">loop = asyncio.get_event_loop()</span><br><span class="line"><span class="comment"># 将协程加入到事件循环loop</span></span><br><span class="line">loop.run_until_complete(coroutine)</span><br><span class="line"></span><br><span class="line">print(<span class="string">"Time:"</span>,now()-start)</span><br></pre></td></tr></table></figure>
+<p>在上面带中我们通过async关键字定义一个协程（coroutine）,当然协程不能直接运行，需要将协程加入到事件循环 loop 中。asyncio.get_event_loop：创建一个事件循环，然后使用 run_until_complete 将协程注册到事件循环，并启动事件循环。</p>
+<h3 id="创建一个-task"><a href="#创建一个-task" class="headerlink" title="创建一个 task"></a>创建一个 task</h3><p>协程对象不能直接运行，在注册事件循环的时候，其实是 run_until_complete 方法将协程包装成为了一个任务（task）对象. task 对象是 Future 类的子类，保存了协程运行后的状态，用于未来获取协程的结果 。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> asyncio</span><br><span class="line"><span class="keyword">import</span> time</span><br><span class="line"></span><br><span class="line">now = <span class="keyword">lambda</span>: time.time()</span><br><span class="line"></span><br><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">do_some_work</span><span class="params">(x)</span>:</span></span><br><span class="line">    print(<span class="string">"waiting:"</span>, x)</span><br><span class="line"></span><br><span class="line">start = now()</span><br><span class="line"></span><br><span class="line">coroutine = do_some_work(<span class="number">2</span>)</span><br><span class="line">loop = asyncio.get_event_loop()</span><br><span class="line">task = loop.create_task(coroutine)</span><br><span class="line">print(task)</span><br><span class="line">loop.run_until_complete(task)</span><br><span class="line">print(task)</span><br><span class="line">print(<span class="string">"Time:"</span>,now()-start)</span><br></pre></td></tr></table></figure>
+<p>结果为：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">&lt;Task pending coro=&lt;do_some_work() running at /app/py_code/study_asyncio/simple_ex2.py:13&gt;&gt;</span><br><span class="line">waiting: 2</span><br><span class="line">&lt;Task finished coro=&lt;do_some_work() done, defined at /app/py_code/study_asyncio/simple_ex2.py:13&gt; result=None&gt;</span><br><span class="line">Time: 0.0003514289855957031</span><br></pre></td></tr></table></figure>
+<p>创建 task 后，在 task 加入事件循环之前为 pending 状态，当完成后，状态为 finished。关于上面通过loop.create_task(coroutine) 创建task,同样的可以通过 asyncio.ensure_future(coroutine) 创建 task。</p>
+<h3 id="绑定回调"><a href="#绑定回调" class="headerlink" title="绑定回调"></a>绑定回调</h3><p>绑定回调，在task执行完成的时候可以获取执行的结果，回调的最后一个参数是future对象，通过该对象可以获取协程返回值。 </p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> time</span><br><span class="line"><span class="keyword">import</span> asyncio</span><br><span class="line"></span><br><span class="line">now = <span class="keyword">lambda</span> : time.time()</span><br><span class="line"></span><br><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">do_some_work</span><span class="params">(x)</span>:</span></span><br><span class="line">    print(<span class="string">"waiting:"</span>,x)</span><br><span class="line">    <span class="keyword">return</span> <span class="string">"Done after &#123;&#125;s"</span>.format(x)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">callback</span><span class="params">(future)</span>:</span></span><br><span class="line">    print(<span class="string">"callback:"</span>,future.result())</span><br><span class="line"></span><br><span class="line">start = now()</span><br><span class="line">coroutine = do_some_work(<span class="number">2</span>)</span><br><span class="line">loop = asyncio.get_event_loop()</span><br><span class="line">task = asyncio.ensure_future(coroutine)</span><br><span class="line">print(task)</span><br><span class="line">task.add_done_callback(callback)</span><br><span class="line">print(task)</span><br><span class="line">loop.run_until_complete(task)</span><br><span class="line"></span><br><span class="line">print(<span class="string">"Time:"</span>, now()-start)</span><br></pre></td></tr></table></figure>
+<p>结果为：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">&lt;Task pending coro=&lt;do_some_work() running at /app/py_code/study_asyncio/simple_ex3.py:13&gt;&gt;</span><br><span class="line">&lt;Task pending coro=&lt;do_some_work() running at /app/py_code/study_asyncio/simple_ex3.py:13&gt; cb=[callback() at /app/py_code/study_asyncio/simple_ex3.py:18]&gt;</span><br><span class="line">waiting: 2</span><br><span class="line">callback: Done after 2s</span><br><span class="line">Time: 0.00039196014404296875</span><br></pre></td></tr></table></figure>
+<p>通过 add_done_callback 方法给 task 任务添加回调函数，当 task（也可以说是coroutine）执行完成的时候,就会调用回调函数。并通过参数 future 获取协程执行的结果。这里我们创建 的task和回调里的 future 对象实际上是同一个对象。</p>
+<h3 id="阻塞和-await"><a href="#阻塞和-await" class="headerlink" title="阻塞和 await"></a>阻塞和 await</h3><p>使用async可以定义协程对象，使用await可以针对耗时的操作进行挂起，就像生成器里的yield一样，函数让出控制权。协程遇到await，事件循环将会挂起该协程，执行别的协程，直到其他的协程也挂起或者执行完毕，再进行下一个协程的执行</p>
+<p>耗时的操作一般是一些IO操作，例如网络请求，文件读取等。我们使用asyncio.sleep函数来模拟IO操作。协程的目的也是让这些IO操作异步化。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> asyncio</span><br><span class="line"><span class="keyword">import</span> time</span><br><span class="line"></span><br><span class="line">now = <span class="keyword">lambda</span> :time.time()</span><br><span class="line"></span><br><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">do_some_work</span><span class="params">(x)</span>:</span></span><br><span class="line">    print(<span class="string">"waiting:"</span>,x)</span><br><span class="line">    <span class="comment"># await 后面就是调用耗时的操作</span></span><br><span class="line">    <span class="keyword">await</span> asyncio.sleep(x)</span><br><span class="line">    <span class="keyword">return</span> <span class="string">"Done after &#123;&#125;s"</span>.format(x)</span><br><span class="line"></span><br><span class="line">start = now()</span><br><span class="line"></span><br><span class="line">coroutine = do_some_work(<span class="number">2</span>)</span><br><span class="line">loop = asyncio.get_event_loop()</span><br><span class="line">task = asyncio.ensure_future(coroutine)</span><br><span class="line">loop.run_until_complete(task)</span><br><span class="line"></span><br><span class="line">print(<span class="string">"Task ret:"</span>, task.result())</span><br><span class="line">print(<span class="string">"Time:"</span>, now() - start)</span><br></pre></td></tr></table></figure>
+<p>在 await asyncio.sleep(x)，因为这里 sleep 了，模拟了阻塞或者耗时操作，这个时候就会让出控制权。 即当遇到阻塞调用的函数的时候，使用 await 方法将协程的控制权让出, 以便 loop 调用其他的协程。 </p>
+<h3 id="并发和并行"><a href="#并发和并行" class="headerlink" title="并发和并行"></a>并发和并行</h3><p>并发指的是同时具有多个活动的系统</p>
+<p>并行值得是用并发来使一个系统运行的更快。并行可以在操作系统的多个抽象层次进行运用</p>
+<p>所以并发通常是指有多个任务需要同时进行，并行则是同一个时刻有多个任务执行</p>
+<p>下面这个例子非常形象：</p>
+<p>并发情况下是一个老师在同一时间段辅助不同的人功课。并行则是好几个老师分别同时辅助多个学生功课。简而言之就是一个人同时吃三个馒头还是三个人同时分别吃一个的情况，吃一个馒头算一个任务</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> asyncio</span><br><span class="line"><span class="keyword">import</span> time</span><br><span class="line"></span><br><span class="line">now = <span class="keyword">lambda</span> :time.time()</span><br><span class="line"></span><br><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">do_some_work</span><span class="params">(x)</span>:</span></span><br><span class="line">    print(<span class="string">"Waiting:"</span>,x)</span><br><span class="line">    <span class="keyword">await</span> asyncio.sleep(x)</span><br><span class="line">    <span class="keyword">return</span> <span class="string">"Done after &#123;&#125;s"</span>.format(x)</span><br><span class="line"></span><br><span class="line">start = now()</span><br><span class="line"></span><br><span class="line">coroutine1 = do_some_work(<span class="number">1</span>)</span><br><span class="line">coroutine2 = do_some_work(<span class="number">2</span>)</span><br><span class="line">coroutine3 = do_some_work(<span class="number">4</span>)</span><br><span class="line"></span><br><span class="line">tasks = [</span><br><span class="line">    asyncio.ensure_future(coroutine1),</span><br><span class="line">    asyncio.ensure_future(coroutine2),</span><br><span class="line">    asyncio.ensure_future(coroutine3)</span><br><span class="line">]</span><br><span class="line"></span><br><span class="line">loop = asyncio.get_event_loop()</span><br><span class="line">loop.run_until_complete(asyncio.wait(tasks))</span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> task <span class="keyword">in</span> tasks:</span><br><span class="line">    print(<span class="string">"Task ret:"</span>,task.result())</span><br><span class="line"></span><br><span class="line">print(<span class="string">"Time:"</span>,now()-start)</span><br></pre></td></tr></table></figure>
+<p>运行结果：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">Waiting: 1</span><br><span class="line">Waiting: 2</span><br><span class="line">Waiting: 4</span><br><span class="line">Task ret: Done after 1s</span><br><span class="line">Task ret: Done after 2s</span><br><span class="line">Task ret: Done after 4s</span><br><span class="line">Time: 4.004154920578003</span><br></pre></td></tr></table></figure>
+<p>总时间为 4s 左右。4s 的阻塞时间，足够前面两个协程执行完毕。如果是同步顺序的任务，那么至少需要 7s。此时我们使用了 aysncio 实现了并发。asyncio.wait(tasks) 也可以使用 asyncio.gather(*tasks) ,前者接受一个 task列表，后者接收一堆 task。</p>
+<h3 id="协程嵌套"><a href="#协程嵌套" class="headerlink" title="协程嵌套"></a>协程嵌套</h3><p>使用 async 可以定义协程，协程用于耗时的 io 操作，我们也可以封装更多的 io 操作过程，这样就实现了嵌套的协程，即一个协程中 await 了另外一个协程，如此连接起来。 </p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> asyncio</span><br><span class="line"><span class="keyword">import</span> time</span><br><span class="line"></span><br><span class="line">now = <span class="keyword">lambda</span>: time.time()</span><br><span class="line"></span><br><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">do_some_work</span><span class="params">(x)</span>:</span></span><br><span class="line">    print(<span class="string">"waiting:"</span>,x)</span><br><span class="line">    <span class="keyword">await</span> asyncio.sleep(x)</span><br><span class="line">    <span class="keyword">return</span> <span class="string">"Done after &#123;&#125;s"</span>.format(x)</span><br><span class="line"></span><br><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">main</span><span class="params">()</span>:</span></span><br><span class="line">    coroutine1 = do_some_work(<span class="number">1</span>)</span><br><span class="line">    coroutine2 = do_some_work(<span class="number">2</span>)</span><br><span class="line">    coroutine3 = do_some_work(<span class="number">4</span>)</span><br><span class="line">    tasks = [</span><br><span class="line">        asyncio.ensure_future(coroutine1),</span><br><span class="line">        asyncio.ensure_future(coroutine2),</span><br><span class="line">        asyncio.ensure_future(coroutine3)</span><br><span class="line">    ]</span><br><span class="line"></span><br><span class="line">    dones, pendings = <span class="keyword">await</span> asyncio.wait(tasks)</span><br><span class="line">    <span class="keyword">for</span> task <span class="keyword">in</span> dones:</span><br><span class="line">        print(<span class="string">"Task ret:"</span>, task.result())</span><br><span class="line"></span><br><span class="line">    <span class="comment"># results = await asyncio.gather(*tasks)</span></span><br><span class="line">    <span class="comment"># for result in results:</span></span><br><span class="line">    <span class="comment">#     print("Task ret:",result)</span></span><br><span class="line"></span><br><span class="line">start = now()</span><br><span class="line"></span><br><span class="line">loop = asyncio.get_event_loop()</span><br><span class="line">loop.run_until_complete(main())</span><br><span class="line">print(<span class="string">"Time:"</span>, now()-start)</span><br></pre></td></tr></table></figure>
+<p>如果我们把上面代码中的：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">dones, pendings = <span class="keyword">await</span> asyncio.wait(tasks)</span><br><span class="line"><span class="keyword">for</span> task <span class="keyword">in</span> dones:</span><br><span class="line">	print(<span class="string">"Task ret:"</span>, task.result())</span><br></pre></td></tr></table></figure>
+<p>替换为：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">results = <span class="keyword">await</span> asyncio.gather(*tasks)</span><br><span class="line"><span class="keyword">for</span> result <span class="keyword">in</span> results:</span><br><span class="line">	print(<span class="string">"Task ret:"</span>,result)</span><br></pre></td></tr></table></figure>
+<p>这样得到的就是一个结果的列表。</p>
+<p>不在main协程函数里处理结果，直接返回await的内容，那么最外层的run_until_complete将会返回main协程的结果。 将上述的代码更改为： </p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> asyncio</span><br><span class="line"><span class="keyword">import</span> time</span><br><span class="line"></span><br><span class="line">now = <span class="keyword">lambda</span>: time.time()</span><br><span class="line"></span><br><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">do_some_work</span><span class="params">(x)</span>:</span></span><br><span class="line">    print(<span class="string">"waiting:"</span>,x)</span><br><span class="line">    <span class="keyword">await</span> asyncio.sleep(x)</span><br><span class="line">    <span class="keyword">return</span> <span class="string">"Done after &#123;&#125;s"</span>.format(x)</span><br><span class="line"></span><br><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">main</span><span class="params">()</span>:</span></span><br><span class="line">    coroutine1 = do_some_work(<span class="number">1</span>)</span><br><span class="line">    coroutine2 = do_some_work(<span class="number">2</span>)</span><br><span class="line">    coroutine3 = do_some_work(<span class="number">4</span>)</span><br><span class="line">    tasks = [</span><br><span class="line">        asyncio.ensure_future(coroutine1),</span><br><span class="line">        asyncio.ensure_future(coroutine2),</span><br><span class="line">        asyncio.ensure_future(coroutine3)</span><br><span class="line">    ]</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">await</span> asyncio.gather(*tasks)</span><br><span class="line"></span><br><span class="line">start = now()</span><br><span class="line"></span><br><span class="line">loop = asyncio.get_event_loop()</span><br><span class="line">results = loop.run_until_complete(main())</span><br><span class="line"><span class="keyword">for</span> result <span class="keyword">in</span> results:</span><br><span class="line">    print(<span class="string">"Task ret:"</span>,result)</span><br><span class="line"></span><br><span class="line">print(<span class="string">"Time:"</span>, now()-start)</span><br></pre></td></tr></table></figure>
+<p>或者返回使用asyncio.wait方式挂起协程:</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> asyncio</span><br><span class="line"><span class="keyword">import</span> time</span><br><span class="line"></span><br><span class="line">now = <span class="keyword">lambda</span>: time.time()</span><br><span class="line"></span><br><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">do_some_work</span><span class="params">(x)</span>:</span></span><br><span class="line">    print(<span class="string">"waiting:"</span>,x)</span><br><span class="line">    <span class="keyword">await</span> asyncio.sleep(x)</span><br><span class="line">    <span class="keyword">return</span> <span class="string">"Done after &#123;&#125;s"</span>.format(x)</span><br><span class="line"></span><br><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">main</span><span class="params">()</span>:</span></span><br><span class="line">    coroutine1 = do_some_work(<span class="number">1</span>)</span><br><span class="line">    coroutine2 = do_some_work(<span class="number">2</span>)</span><br><span class="line">    coroutine3 = do_some_work(<span class="number">4</span>)</span><br><span class="line">    tasks = [</span><br><span class="line">        asyncio.ensure_future(coroutine1),</span><br><span class="line">        asyncio.ensure_future(coroutine2),</span><br><span class="line">        asyncio.ensure_future(coroutine3)</span><br><span class="line">    ]</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">await</span> asyncio.wait(tasks)</span><br><span class="line"></span><br><span class="line">start = now()</span><br><span class="line"></span><br><span class="line">loop = asyncio.get_event_loop()</span><br><span class="line">done,pending = loop.run_until_complete(main())</span><br><span class="line"><span class="keyword">for</span> task <span class="keyword">in</span> done:</span><br><span class="line">    print(<span class="string">"Task ret:"</span>,task.result())</span><br><span class="line"></span><br><span class="line">print(<span class="string">"Time:"</span>, now()-start)</span><br></pre></td></tr></table></figure>
+<p>也可以使用asyncio的as_completed方法 :</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> asyncio</span><br><span class="line"><span class="keyword">import</span> time</span><br><span class="line"></span><br><span class="line">now = <span class="keyword">lambda</span>: time.time()</span><br><span class="line"></span><br><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">do_some_work</span><span class="params">(x)</span>:</span></span><br><span class="line">    print(<span class="string">"waiting:"</span>,x)</span><br><span class="line">    <span class="keyword">await</span> asyncio.sleep(x)</span><br><span class="line">    <span class="keyword">return</span> <span class="string">"Done after &#123;&#125;s"</span>.format(x)</span><br><span class="line"></span><br><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">main</span><span class="params">()</span>:</span></span><br><span class="line">    coroutine1 = do_some_work(<span class="number">1</span>)</span><br><span class="line">    coroutine2 = do_some_work(<span class="number">2</span>)</span><br><span class="line">    coroutine3 = do_some_work(<span class="number">4</span>)</span><br><span class="line">    tasks = [</span><br><span class="line">        asyncio.ensure_future(coroutine1),</span><br><span class="line">        asyncio.ensure_future(coroutine2),</span><br><span class="line">        asyncio.ensure_future(coroutine3)</span><br><span class="line">    ]</span><br><span class="line">    <span class="keyword">for</span> task <span class="keyword">in</span> asyncio.as_completed(tasks):</span><br><span class="line">        result = <span class="keyword">await</span> task</span><br><span class="line">        print(<span class="string">"Task ret: &#123;&#125;"</span>.format(result))</span><br><span class="line"></span><br><span class="line">start = now()</span><br><span class="line"></span><br><span class="line">loop = asyncio.get_event_loop()</span><br><span class="line">loop.run_until_complete(main())</span><br><span class="line">print(<span class="string">"Time:"</span>, now()-start)</span><br></pre></td></tr></table></figure>
+<h3 id="协程的停止"><a href="#协程的停止" class="headerlink" title="协程的停止"></a>协程的停止</h3><p>future对象有几个状态：</p>
+<ul>
+<li>Pending</li>
+<li>Running</li>
+<li>Done</li>
+<li>Cacelled</li>
+</ul>
+<p>创建 future 的时候，task为 pending，事件循环调用执行的时候当然就是 running，调用完毕自然就是 done，如果需要停止事件循环，就需要先把 task 取消。可以使用 asyncio.Task 获取事件循环的 task。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> asyncio</span><br><span class="line"><span class="keyword">import</span> time</span><br><span class="line"></span><br><span class="line">now = <span class="keyword">lambda</span> :time.time()</span><br><span class="line"></span><br><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">do_some_work</span><span class="params">(x)</span>:</span></span><br><span class="line">    print(<span class="string">"Waiting:"</span>,x)</span><br><span class="line">    <span class="keyword">await</span> asyncio.sleep(x)</span><br><span class="line">    <span class="keyword">return</span> <span class="string">"Done after &#123;&#125;s"</span>.format(x)</span><br><span class="line"></span><br><span class="line">coroutine1 =do_some_work(<span class="number">1</span>)</span><br><span class="line">coroutine2 =do_some_work(<span class="number">2</span>)</span><br><span class="line">coroutine3 =do_some_work(<span class="number">2</span>)</span><br><span class="line"></span><br><span class="line">tasks = [</span><br><span class="line">    asyncio.ensure_future(coroutine1),</span><br><span class="line">    asyncio.ensure_future(coroutine2),</span><br><span class="line">    asyncio.ensure_future(coroutine3),</span><br><span class="line">]</span><br><span class="line"></span><br><span class="line">start = now()</span><br><span class="line"></span><br><span class="line">loop = asyncio.get_event_loop()</span><br><span class="line"><span class="keyword">try</span>:</span><br><span class="line">    loop.run_until_complete(asyncio.wait(tasks))</span><br><span class="line"><span class="keyword">except</span> KeyboardInterrupt <span class="keyword">as</span> e:</span><br><span class="line">    print(asyncio.Task.all_tasks())</span><br><span class="line">    <span class="keyword">for</span> task <span class="keyword">in</span> asyncio.Task.all_tasks():</span><br><span class="line">        print(task.cancel())</span><br><span class="line">    loop.stop()</span><br><span class="line">    loop.run_forever()</span><br><span class="line"><span class="keyword">finally</span>:</span><br><span class="line">    loop.close()</span><br><span class="line"></span><br><span class="line">print(<span class="string">"Time:"</span>,now()-start)</span><br></pre></td></tr></table></figure>
+<p>启动事件循环之后，马上ctrl+c，会触发run_until_complete的执行异常 KeyBorardInterrupt。然后通过循环asyncio.Task取消future。可以看到输出如下： </p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">Waiting: 1</span><br><span class="line">Waiting: 2</span><br><span class="line">Waiting: 2</span><br><span class="line">^C&#123;&lt;Task finished coro=&lt;do_some_work() done, defined at /app/py_code/study_asyncio/simple_ex10.py:13&gt; result=&apos;Done after 1s&apos;&gt;, &lt;Task pending coro=&lt;do_some_work() running at /app/py_code/study_asyncio/simple_ex10.py:15&gt; wait_for=&lt;Future pending cb=[Task._wakeup()]&gt; cb=[_wait.&lt;locals&gt;._on_completion() at /usr/local/lib/python3.5/asyncio/tasks.py:428]&gt;, &lt;Task pending coro=&lt;do_some_work() running at /app/py_code/study_asyncio/simple_ex10.py:15&gt; wait_for=&lt;Future pending cb=[Task._wakeup()]&gt; cb=[_wait.&lt;locals&gt;._on_completion() at /usr/local/lib/python3.5/asyncio/tasks.py:428]&gt;, &lt;Task pending coro=&lt;wait() running at /usr/local/lib/python3.5/asyncio/tasks.py:361&gt; wait_for=&lt;Future pending cb=[Task._wakeup()]&gt;&gt;&#125;</span><br><span class="line">False</span><br><span class="line">True</span><br><span class="line">True</span><br><span class="line">True</span><br><span class="line">Time: 1.0707225799560547</span><br></pre></td></tr></table></figure>
+<p>True 表示 cannel 成功，loop stop 之后还需要再次开启事件循环，最后在 close，不然还会抛出异常, 循环 task，逐个 cancel 是一种方案，可是正如上面我们把 task 的列表封装在 main 函数中，main 函数外进行事件循环的调用。这个时候，main 相当于最外出的一个 task，那么处理包装的 main 函数即可。</p>
+<h3 id="新线程协程"><a href="#新线程协程" class="headerlink" title="新线程协程"></a>新线程协程</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> asyncio</span><br><span class="line"><span class="keyword">import</span> time</span><br><span class="line"><span class="keyword">from</span> threading <span class="keyword">import</span> Thread</span><br><span class="line"></span><br><span class="line">now = <span class="keyword">lambda</span> :time.time()</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">start_loop</span><span class="params">(loop)</span>:</span></span><br><span class="line">    asyncio.set_event_loop(loop)</span><br><span class="line">    loop.run_forever()</span><br><span class="line"></span><br><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">do_some_work</span><span class="params">(x)</span>:</span></span><br><span class="line">    print(<span class="string">'Waiting &#123;&#125;'</span>.format(x))</span><br><span class="line">    <span class="keyword">await</span> asyncio.sleep(x)</span><br><span class="line">    print(<span class="string">'Done after &#123;&#125;s'</span>.format(x))</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">more_work</span><span class="params">(x)</span>:</span></span><br><span class="line">    print(<span class="string">'More work &#123;&#125;'</span>.format(x))</span><br><span class="line">    time.sleep(x)</span><br><span class="line">    print(<span class="string">'Finished more work &#123;&#125;'</span>.format(x))</span><br><span class="line"></span><br><span class="line">start = now()</span><br><span class="line">new_loop = asyncio.new_event_loop()</span><br><span class="line">t = Thread(target=start_loop, args=(new_loop,))</span><br><span class="line">t.start()</span><br><span class="line">print(<span class="string">'TIME: &#123;&#125;'</span>.format(time.time() - start))</span><br><span class="line"></span><br><span class="line">asyncio.run_coroutine_threadsafe(do_some_work(<span class="number">6</span>), new_loop)</span><br><span class="line">asyncio.run_coroutine_threadsafe(do_some_work(<span class="number">4</span>), new_loop)</span><br></pre></td></tr></table></figure>
+<p>上述的例子，主线程中创建一个 new_loop，然后在另外的子线程中开启一个无限事件循环。 主线程通过run_coroutine_threadsafe 新注册协程对象。这样就能在子线程中进行事件循环的并发操作，同时主线程又不会被 block。一共执行的时间大概在 6s 左右。</p>
+<p>文章来源:  <a href="https://www.cnblogs.com/zhaof/p/8490045.html" target="_blank" rel="noopener">https://www.cnblogs.com/zhaof/p/8490045.html</a> </p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Python/" rel="tag"><i class="fa fa-tag"></i> Python</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/04/08/协程/" rel="prev" title="协程">
+      <i class="fa fa-chevron-left"></i> 协程
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/04/24/Sanic 维护及使用情况分析/" rel="next" title="Sanic 维护及使用情况分析">
+      Sanic 维护及使用情况分析 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#介绍"><span class="nav-number">1.</span> <span class="nav-text">介绍</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#定义一个协程"><span class="nav-number">2.</span> <span class="nav-text">定义一个协程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#创建一个-task"><span class="nav-number">3.</span> <span class="nav-text">创建一个 task</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#绑定回调"><span class="nav-number">4.</span> <span class="nav-text">绑定回调</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#阻塞和-await"><span class="nav-number">5.</span> <span class="nav-text">阻塞和 await</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#并发和并行"><span class="nav-number">6.</span> <span class="nav-text">并发和并行</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#协程嵌套"><span class="nav-number">7.</span> <span class="nav-text">协程嵌套</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#协程的停止"><span class="nav-number">8.</span> <span class="nav-text">协程的停止</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#新线程协程"><span class="nav-number">9.</span> <span class="nav-text">新线程协程</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

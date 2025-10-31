@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="JVM体系结构灰色部分没有垃圾回收，垃圾回收出现在橙色部分，而且 99% 的垃圾回收都在堆当中。  灰色的部分（虚拟机栈，本地方法栈，程序计数器）是线程隔离的数据区。其他部分都是线程共享的。 类加载器负责加载 class 文件，class 文件在文件开头有特定的文件标示，并且 ClassLoader 只负责 class 文件的加载，至于它是否可以运行，则由 Execution Engine 决定。">
+<meta name="keywords" content="JVM">
+<meta property="og:type" content="article">
+<meta property="og:title" content="54. JVM">
+<meta property="og:url" content="https://rexyan.github.io/2020/05/19/54. JVM/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="JVM体系结构灰色部分没有垃圾回收，垃圾回收出现在橙色部分，而且 99% 的垃圾回收都在堆当中。  灰色的部分（虚拟机栈，本地方法栈，程序计数器）是线程隔离的数据区。其他部分都是线程共享的。 类加载器负责加载 class 文件，class 文件在文件开头有特定的文件标示，并且 ClassLoader 只负责 class 文件的加载，至于它是否可以运行，则由 Execution Engine 决定。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjOwtYHJuGsJyZl3yoa57vHy7F7gjiuzc9zoKgNxqkICl40.bwWCegiLlYHtNEM7HLw!!/mnull&bo=MgPYAjID2AIDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjEjxrkbN*AdmhELI5MopBuh*pcV.JHAJ3gzV6c6adxDD4Empvhj5unBqYleCR2F8bw!!/mnull&bo=nwE2AZ8BNgECCS0!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjBjnPM4YLvHLnDsCU06ZnRjOcc9GZK7o2npr9ZRam1U82U*byJfaRTLbsv.4NLFR1g!!/mnull&bo=nQGaAJ0BmgACCS0!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjJ2aCrL*1JKKMNmcR6ujPdBWZKJhB0He.H19axk5XBriOpEYxo1Du2Q*xHrDT7BS4A!!/mnull&bo=lwGVAJcBlQACCS0!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.388Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="54. JVM">
+<meta name="twitter:description" content="JVM体系结构灰色部分没有垃圾回收，垃圾回收出现在橙色部分，而且 99% 的垃圾回收都在堆当中。  灰色的部分（虚拟机栈，本地方法栈，程序计数器）是线程隔离的数据区。其他部分都是线程共享的。 类加载器负责加载 class 文件，class 文件在文件开头有特定的文件标示，并且 ClassLoader 只负责 class 文件的加载，至于它是否可以运行，则由 Execution Engine 决定。">
+<meta name="twitter:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjOwtYHJuGsJyZl3yoa57vHy7F7gjiuzc9zoKgNxqkICl40.bwWCegiLlYHtNEM7HLw!!/mnull&bo=MgPYAjID2AIDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+
+<link rel="canonical" href="https://rexyan.github.io/2020/05/19/54. JVM/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>54. JVM | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2020/05/19/54. JVM/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          54. JVM
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-05-19 22:30:57" itemprop="dateCreated datePublished" datetime="2020-05-19T22:30:57+00:00">2020-05-19</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Java-大数据/" itemprop="url" rel="index"><span itemprop="name">Java 大数据</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="JVM体系结构"><a href="#JVM体系结构" class="headerlink" title="JVM体系结构"></a>JVM体系结构</h3><p>灰色部分没有垃圾回收，垃圾回收出现在橙色部分，而且 99% 的垃圾回收都在堆当中。</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjOwtYHJuGsJyZl3yoa57vHy7F7gjiuzc9zoKgNxqkICl40.bwWCegiLlYHtNEM7HLw!!/mnull&amp;bo=MgPYAjID2AIDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p><strong>灰色的部分（虚拟机栈，本地方法栈，程序计数器）是线程隔离的数据区。其他部分都是线程共享的。</strong></p>
+<h4 id="类加载器"><a href="#类加载器" class="headerlink" title="类加载器"></a>类加载器</h4><p>负责加载 class 文件，class 文件在文件开头有特定的文件标示，并且 ClassLoader 只负责 class 文件的加载，至于它是否可以运行，则由 Execution Engine 决定。类加载器有，虚拟机自带的加载器，启动类加载器（Bootstrap）扩展类加载器（Extension），应用程序类加载器（AppClassLoader），用户自定义加载器（继承 ClassLoader 自己实现的）</p>
+<h4 id="程序计数器"><a href="#程序计数器" class="headerlink" title="程序计数器"></a>程序计数器</h4><p>程序计数器(Progam Counter Register)是一块较小的内存空间，它可以看作是当前线程所执行的<br>字节码的行号指示器。在 Java 虛拟机的概念模型里，字节码解释器工作时就是通过改变这个计数器<br>的值来选取下一条需要执行的字节码指令，它是程序控制流的指示器，分支、循环、跳转、异常处<br>理、线程恢复等基础功能都需要依赖这个计数器来完成。</p>
+<p>由于 Java 虚拟机的多线程是通过线程轮流切换、分配处理器执行时间的方式来实现的，在任何一<br>个确定的时刻， 一个处理器(对于多核处理器来说是一个内核)都只会执行一条线程中的指令。因<br>此，为了线程切换后能恢复到正确的执行位置，每条线程都需要有一个独立的程序计数器，各条线程<br>之间计数器互不影响，独立存储，我们称这类内存区域为“线程私有”的内存。</p>
+<p>如果线程正在执行的是一个 Java 方法，这个计数器记录的是正在执行的虚拟机字节码指令的地<br>址;如果正在执行的是本地(Native) 方法，这个计数器值则应为空(Undefined) 。此内存区域是唯<br>一个在《Java虚拟机规范》中没有规定任何 OutOfMemoryError 情况的区域。</p>
+<h4 id="虚拟机栈（Java-栈）"><a href="#虚拟机栈（Java-栈）" class="headerlink" title="虚拟机栈（Java 栈）"></a>虚拟机栈（Java 栈）</h4><p>在线程创建的时候创建，生命周期是跟随线程的生命周期的，对于栈来说不存在垃圾回收的问题。</p>
+<p>里面主要存放8种基本类型的变量 + 对象的引用变量 + 实例方法</p>
+<h4 id="本地方法栈"><a href="#本地方法栈" class="headerlink" title="本地方法栈"></a>本地方法栈</h4><p>它的具体做法是在本地方法栈中登记 native 方法，在执行引擎执行的时候加载本地方法库</p>
+<h4 id="方法区"><a href="#方法区" class="headerlink" title="方法区"></a>方法区</h4><p>方法区是所有线程共享的，所有字段和方法的字节码，以及一些特殊方法如构造函数，接口代码也是定义在这里。简单来说就是所有定义的方法的信息都保存在这里。</p>
+<p><strong>静态变量，常量，类信息（构造函数，接口定义）运行时常量池</strong> 都存在这里，但是实例变量不在这里，实例变量在堆中。</p>
+<h4 id="堆"><a href="#堆" class="headerlink" title="堆"></a>堆</h4><p>一个 JVM 实例只存在一个堆内存，堆内存的大小是可以调节的。类载器读取了类文件后, 需要把类、方法、常变量放到堆内存中，保存所有引用类型的真实信息，以方便执行器执行，堆内存分为三部分，分别是 <strong>新生区</strong>， <strong>养老区</strong>， <strong>永久区</strong>。</p>
+<p>新生区是类的诞生、成长、消亡的区域，一个类在这里产生，应用，最后被垃圾回收器收集，结束生命。新生区又分为两部分: 伊甸区(Eden space)和幸存者区(Survivor pace)， 所有的类都是在伊甸区被 new 出来的。幸存区有两个: 0区(Survivor 0 space)和1区(Survivor 1 space)。当伊甸园的空间用完时,程序又需要创建对象，JVM 的垃圾回收器将对伊甸园区进行垃圾回收(Minor GC),将伊甸园区中的不再被其他对象所引用的对象进行销毁。然后将伊甸园中的剩余对象移动到幸存0区。若幸存0区也满了，再对该区进行垃圾回收,然后移动到1区。那如果1区也满了呢?再次垃圾回收,满足条件后再移动到养老区。若养老区也满了,那么这个时候将产生 MajorGC(FullGC)，进行养老区的内存清理。若养老区执行了 Full GC 之后发现依然无法进行对象的保存，就会产生 OOM 异常 “OutOfMemoryError” 。</p>
+<p>如果出现 java.lang.OutOfMemoryError: Java heap space异常，说明 Java虚拟机的堆内存不够。原可能是 Java虚拟机的堆内存设置不够，可以通过参数 -Xms、-Xmx 来调整（<strong>如果默认不调整，Java 虚拟机启动占用的内存大小为机器内存的 64/1，最大可达机器内存 4/1。可以通过-Xms 来设置最小内存，-Xmx 类设置最大内存</strong> ）。或者是代码中创建了大量大对象，并且长时间不能被垃圾收集器收集(存在被引用)。</p>
+<p>永久区是一个常驻内存区域，用于存放 JDK 自身所携带的 Class, Interface 的元数据，也就是说它存储的是运行环境必须的类信息，被装载进此区域的数据是不会被垃圾回收器回收掉的，关闭 JVM 才会释放此区域所占用的内存。如果出现 java. lang. OutOfMemoryError: PermGen space,说明是 Java 虚拟机对永久代 Perm 内存设置不够。一般出现这种情况，都是程序启动需要加载大量的第三方jar包。例如:在一个 Tomcat 下部署了太多的应用。或者大量动态反射生成的类不断被加载，最终导致 Perm 区被占满。在 Java 1.7 及 1.7 以前是存在 永久区 的，从 1.8 开始就没有了，取而代之的是元空间。</p>
+<p>可以<a href="https://www.jianshu.com/p/c34af977ade1" target="_blank" rel="noopener">导出 JVM 的dump 文件进行分析</a>，查看到底是哪里发生了 oom 问题。</p>
+<h4 id="执行引擎"><a href="#执行引擎" class="headerlink" title="执行引擎"></a>执行引擎</h4><p>负责解释命令，将命令提交给操作系统执行。</p>
+<h4 id="本地库接口"><a href="#本地库接口" class="headerlink" title="本地库接口"></a>本地库接口</h4><p>本地接口的作用是融合不同的编程语言为 Java 所用，它的具体做法是在本地方法栈中登记 native 方法，在执行引擎执行的时候加载本地方法库</p>
+<h3 id="GC"><a href="#GC" class="headerlink" title="GC"></a>GC</h3><p>GC，又叫做分带收集算法。表现为频繁的收集<strong>新生区</strong>，较少的收集<strong>养老区</strong>，基本不动 <strong>永久区</strong></p>
+<h4 id="GC-的四种算法"><a href="#GC-的四种算法" class="headerlink" title="GC 的四种算法"></a>GC 的四种算法</h4><ol>
+<li><p>引用计数算法：引用计数为 0 就会被回收，但是存在循环引用的问题。</p>
+</li>
+<li><p>复制算法：这种算法在新生区中被使用，HotSpot JVM把年轻代（新生区）分为了三部分：1个 Eden 区和2个Survivor区（分别叫from和to）。默认比例为 8:1:1, 一般情况下，新创建的对象都会被分配到Eden区(一些大对象特殊处理),这些对象经过第一次Minor GC 后，如果仍然存活，将会被移到 Survivor 区。对象 在Survivor区中每熬过一次 Minor GC，年龄就会增加1岁，当它的年龄增加到一定程度时，就会被移动到年老代（养老区）中。因为年轻代中的对象基本都是朝生夕死的 (90%以上)，所以在年轻代的垃圾回收算法使用的是复制算法，复制算法的基本思想就是将内存分为两块，每次只用其中一块，当这一块内存用完，就将还活着的对象复制到另外一块上面。复制算法不会产生内存碎片。在GC开始的时候，对象只会存在于Eden区和名为“From”的Survivor区，Survivor区“To”是空的。紧接着进行GC，Eden区中所有存活的对象都会被复制到“To”，而在“From”区中，仍存活的对象会根据他们的年龄值来决定去向。年龄达到一定值(年龄阈值，可以通过-XX:MaxTenuringThreshold 来设置)的对象会被移动到年老代中，没有达到阈值的对象会被复制到 “To” 区域。经过这次 GC 后，Eden 区和 From区已经被清空。这个时候，“From” 和 “To” 会交换他们的角色，也就是新的 “To” 就是上次 GC 前的 “From”，新的 “From” 就是上次GC前的 “To”。不管怎样，都会保证名为To的Survivor区域是空的。Minor GC会一直重复这样的过程，直到“To”区被填满，“To”区被填满之后，会将所有对象移动到年老代中。</p>
+<p>因为Eden区对象一般存活率较低，一般的，使用两块10%的内存作为空闲和活动区间，而另外80%的内存，则是用来给新建对象分配内存的。一旦发生GC，将10%的from活动区间与另外80%中存活的eden对象转移到10%的to空闲区间，接下来，将之前90%的内存全部释放，以此类推。 </p>
+<p>复制算法它的缺点也是相当明显的。 它浪费了一半的内存，这太要命了。 如果对象的存活率很高，我们可以极端一点，假设是100%存活，那么我们需要将所有对象都复制一遍，并将所有引用地址重置一遍。复制这一工作所花费的时间，在对象存活率达到一定程度时，将会变的不可忽视。 所以从以上描述不难看出，复制算法要想使用，最起码对象的存活率要非常低才行，而且最重要的是，我们必须要克服50%内存的浪费。</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjEjxrkbN*AdmhELI5MopBuh*pcV.JHAJ3gzV6c6adxDD4Empvhj5unBqYleCR2F8bw!!/mnull&amp;bo=nwE2AZ8BNgECCS0!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+</li>
+</ol>
+<ol start="3">
+<li><p>标记清除：标记清除在养老区中被使用。当堆中的有效内存空间（available memory）被耗尽的时候，就会停止整个程序（也被称为stop the world），然后进行两项工作，第一项则是标记，第二项则是清除。标记：从引用根节点开始标记所有被引用的对象。标记的过程其实就是遍历所有的GC Roots，然后将所有GC Roots可达的对象      标记为存活的对象。 清除：遍历整个堆，把未标记的对象清除。</p>
+<p>它的缺点就是效率比较低（递归与全堆对象遍历），而且在进行GC的时候，需要停止应用程序，这会导致用户体验非常差劲。其次，主要的缺点则是这种方式清理出来的空闲内存是不连续的，这点不难理解，我们的死亡对象都是随即的出现在内存的各个角落的，现在把它们清除之后，内存的布局自然会乱七八糟。而为了应付这一点，JVM就不得不维持一个内存的空闲列表，这又是一种开销。而且在分配数组对象的时候，寻找连续的内存空间会不太好找。 </p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjBjnPM4YLvHLnDsCU06ZnRjOcc9GZK7o2npr9ZRam1U82U*byJfaRTLbsv.4NLFR1g!!/mnull&amp;bo=nQGaAJ0BmgACCS0!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+</li>
+</ol>
+<ol start="4">
+<li><p>标记压缩：标记压缩在养老区中被使用。在整理压缩阶段，不再对标记的对像做回收，而是通过所有存活对像都向一端移动，然后直接清除边界以外的内存。可以看到，标记的存活对象将会被整理，按照内存地址依次排列，而未被标记的内存会被清理掉。如此一来，当我们需要给新对象分配内存时，JVM只需要持有一个内存的起始地址即可，这比维护一个空闲列表显然少了许多开销。 标记/整理算法不仅可以弥补标记/清除算法当中，内存区域分散的缺点，也消除了复制算法当中，内存减半的高额代价。</p>
+<p>标记/整理算法唯一的缺点就是效率也不高，不仅要标记所有存活对象，还要整理所有存活对象的引用地址。从效率上来说，标记/整理算法要低于复制算法。</p>
+</li>
+<li><p>标记清除压缩：是标记清除和标记压缩的结合。</p>
+</li>
+</ol>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ChQ0KIcA.iub3F93BayOjJ2aCrL*1JKKMNmcR6ujPdBWZKJhB0He.H19axk5XBriOpEYxo1Du2Q*xHrDT7BS4A!!/mnull&amp;bo=lwGVAJcBlQACCS0!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/JVM/" rel="tag"><i class="fa fa-tag"></i> JVM</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/05/17/freeSSHD 使用说明/" rel="prev" title="freeSSHD 使用说明">
+      <i class="fa fa-chevron-left"></i> freeSSHD 使用说明
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/05/19/55. Zookeeper/" rel="next" title="55. Zookeeper">
+      55. Zookeeper <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#JVM体系结构"><span class="nav-number">1.</span> <span class="nav-text">JVM体系结构</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#类加载器"><span class="nav-number">1.1.</span> <span class="nav-text">类加载器</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#程序计数器"><span class="nav-number">1.2.</span> <span class="nav-text">程序计数器</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#虚拟机栈（Java-栈）"><span class="nav-number">1.3.</span> <span class="nav-text">虚拟机栈（Java 栈）</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#本地方法栈"><span class="nav-number">1.4.</span> <span class="nav-text">本地方法栈</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#方法区"><span class="nav-number">1.5.</span> <span class="nav-text">方法区</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#堆"><span class="nav-number">1.6.</span> <span class="nav-text">堆</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#执行引擎"><span class="nav-number">1.7.</span> <span class="nav-text">执行引擎</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#本地库接口"><span class="nav-number">1.8.</span> <span class="nav-text">本地库接口</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#GC"><span class="nav-number">2.</span> <span class="nav-text">GC</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#GC-的四种算法"><span class="nav-number">2.1.</span> <span class="nav-text">GC 的四种算法</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

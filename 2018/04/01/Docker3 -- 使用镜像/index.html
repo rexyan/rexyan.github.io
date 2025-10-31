@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="更换Docker源修改Docker配置文件/etc/default/docker，在最后增加1DOCKER_OPTS=&amp;quot;--registry-mirror=http://aad0405c.m.daocloud.io&amp;quot; 重启Docker1service docker restart 获取镜像通常情况下，描述一个镜像需要包括“名称” + “标签”。例如：获得一个Ubuntu 14.">
+<meta name="keywords" content="Docker,容器">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Docker3 镜像">
+<meta property="og:url" content="https://rexyan.github.io/2018/04/01/Docker3 -- 使用镜像/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="更换Docker源修改Docker配置文件/etc/default/docker，在最后增加1DOCKER_OPTS=&amp;quot;--registry-mirror=http://aad0405c.m.daocloud.io&amp;quot; 重启Docker1service docker restart 获取镜像通常情况下，描述一个镜像需要包括“名称” + “标签”。例如：获得一个Ubuntu 14.">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.391Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Docker3 镜像">
+<meta name="twitter:description" content="更换Docker源修改Docker配置文件/etc/default/docker，在最后增加1DOCKER_OPTS=&amp;quot;--registry-mirror=http://aad0405c.m.daocloud.io&amp;quot; 重启Docker1service docker restart 获取镜像通常情况下，描述一个镜像需要包括“名称” + “标签”。例如：获得一个Ubuntu 14.">
+
+<link rel="canonical" href="https://rexyan.github.io/2018/04/01/Docker3 -- 使用镜像/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Docker3 镜像 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2018/04/01/Docker3 -- 使用镜像/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Docker3 镜像
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2018-04-01 19:54:57" itemprop="dateCreated datePublished" datetime="2018-04-01T19:54:57+00:00">2018-04-01</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Docker/" itemprop="url" rel="index"><span itemprop="name">Docker</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="更换Docker源"><a href="#更换Docker源" class="headerlink" title="更换Docker源"></a>更换Docker源</h3><p>修改Docker配置文件/etc/default/docker，在最后增加<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">DOCKER_OPTS=&quot;--registry-mirror=http://aad0405c.m.daocloud.io&quot;</span><br></pre></td></tr></table></figure></p>
+<p>重启Docker<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">service docker restart</span><br></pre></td></tr></table></figure></p>
+<h3 id="获取镜像"><a href="#获取镜像" class="headerlink" title="获取镜像"></a>获取镜像</h3><p>通常情况下，描述一个镜像需要包括“名称” + “标签”。<br>例如：获得一个Ubuntu 14.04的系统镜像【在进行拉取之前先更改docker源。否则速度很慢】<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker pull ubuntu:14.04</span><br></pre></td></tr></table></figure></p>
+<p>如果不指定TAG，那么会默认选择latest标签，例如：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker pull ubuntu</span><br></pre></td></tr></table></figure></p>
+<p>一般来说，镜像的latest标签代表着镜像是最新的，也就是说可能存在不稳定的情况。在生产环境中应该避免这种镜像。</p>
+<p>下载过程分析<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">root@ubuntu:~# docker pull ubuntu</span><br><span class="line">Using default tag: latest</span><br><span class="line">latest: Pulling from library/ubuntu</span><br><span class="line">43cff9ac2d34: Pull complete </span><br><span class="line">d25abb784368: Pull complete </span><br><span class="line">7355f8e4aeb7: Pull complete </span><br><span class="line">ea422b11e5e1: Pull complete </span><br><span class="line">a4f1088e42dc: Pull complete </span><br><span class="line">Digest: sha256:e348fbbea0e0a0e73ab0370de151e7800684445c509d46195aef73e090a49bd6</span><br><span class="line">Status: Downloaded newer image for ubuntu:latest</span><br></pre></td></tr></table></figure></p>
+<p>从上面可以看出镜像由若干层组成，43cff9ac2d34这样的就代表这层的ID。这里特别要注意，当不同的镜像包含相同的层时，本地仅存一份内容，这样做的目的是为了减少需要的存储空间。</p>
+<p>pull的时候，默认的是使用Docker Hub仓库上的镜像，我们称之为官方仓库。如果要从非官方仓库下载镜像，则需要加上仓库地址，例如：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker pull hub.c.163.com/public/ubuntu:14.04</span><br></pre></td></tr></table></figure></p>
+<h3 id="查看镜像信息"><a href="#查看镜像信息" class="headerlink" title="查看镜像信息"></a>查看镜像信息</h3><h4 id="列出镜像"><a href="#列出镜像" class="headerlink" title="列出镜像"></a>列出镜像</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">root@ubuntu:~# docker images</span><br><span class="line">REPOSITORY                    TAG                 IMAGE ID            CREATED             SIZE</span><br><span class="line">ubuntu                        latest              adfebeb0ac91        3 weeks ago         111 MB</span><br><span class="line">ubuntu                        14.04               a35e70164dfb        3 weeks ago         222 MB</span><br><span class="line">hub.c.163.com/public/ubuntu   14.04               2fe5c4bba1f9        2 years ago         237 MB</span><br></pre></td></tr></table></figure>
+<p>REPOSITORY: 来自哪个仓库<br>TAG：镜像的标签<br>IMAGE ID：镜像的唯一标识【这个是可以重复的，重复说明他们指向同一个镜像】<br>CREATED：镜像最后的更新时间<br>SIZE：镜像的大小【越小越好，由于相同的镜像层本地只会存储一份，所以，物理上占用的存储空间会小于各镜像的逻辑体积之和】</p>
+<p>其他命令选项<br>-a:列出所有的镜像文件，包含临时文件，默认为否<br>-f:过滤镜像，例如dangling=true，代表没有被使用的镜像。<br>-q:只显示镜像的ID</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">docker images -a</span><br><span class="line">docker images -f dangling=true </span><br><span class="line">docker images -q</span><br></pre></td></tr></table></figure>
+<h4 id="添加标签"><a href="#添加标签" class="headerlink" title="添加标签"></a>添加标签</h4><p>先查看现有的镜像信息<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">root@ubuntu:~# docker images -a</span><br><span class="line">REPOSITORY                    TAG                 IMAGE ID            CREATED             SIZE</span><br><span class="line">ubuntu                        latest              adfebeb0ac91        3 weeks ago         111 MB</span><br><span class="line">ubuntu                        14.04               a35e70164dfb        3 weeks ago         222 MB</span><br><span class="line">hub.c.163.com/public/ubuntu   14.04               2fe5c4bba1f9        2 years ago         237 MB</span><br></pre></td></tr></table></figure></p>
+<p>可以使用docker tag来为本次镜像添加新的标签。例如，以标签为ubuntu:latest的镜像为基础，新建一个名为rexyan_ubuntu:v1的镜像。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker tag ubuntu:latest rexyan_ubuntu:v1</span><br></pre></td></tr></table></figure></p>
+<p>查看结果<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">root@ubuntu:~# docker images  </span><br><span class="line">REPOSITORY                    TAG                 IMAGE ID            CREATED             SIZE</span><br><span class="line">rexyan_ubuntu                 v1                  adfebeb0ac91        3 weeks ago         111 MB</span><br><span class="line">ubuntu                        latest              adfebeb0ac91        3 weeks ago         111 MB</span><br><span class="line">ubuntu                        14.04               a35e70164dfb        3 weeks ago         222 MB</span><br><span class="line">hub.c.163.com/public/ubuntu   14.04               2fe5c4bba1f9        2 years ago         237 MB</span><br></pre></td></tr></table></figure></p>
+<h4 id="查看镜像详情"><a href="#查看镜像详情" class="headerlink" title="查看镜像详情"></a>查看镜像详情</h4><p>例如：查看标签为ubuntu:14.04的镜像的信息<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker inspect ubuntu:14.04</span><br></pre></td></tr></table></figure></p>
+<p>输出<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br></pre></td><td class="code"><pre><span class="line">[</span><br><span class="line">    &#123;</span><br><span class="line">        &quot;Id&quot;: &quot;sha256:a35e70164dfb0dd7a9fec8be0b00017a2277c5a221dcab8ffa75f876ed0aae3d&quot;,</span><br><span class="line">        &quot;RepoTags&quot;: [</span><br><span class="line">            &quot;ubuntu:14.04&quot;</span><br><span class="line">        ],</span><br><span class="line">        &quot;RepoDigests&quot;: [</span><br><span class="line">            &quot;ubuntu@sha256:0661e2dbc6072eadfd48c0c972681ffc11ca8ea5d0a9f5f4227df7d653f649fd&quot;</span><br><span class="line">        ],</span><br><span class="line">        &quot;Parent&quot;: &quot;&quot;,</span><br><span class="line">        &quot;Comment&quot;: &quot;&quot;,</span><br><span class="line">        &quot;Created&quot;: &quot;2018-03-06T22:16:52.079792907Z&quot;,</span><br><span class="line">        &quot;Container&quot;: &quot;e2d9db43ceab9935f29c6147c73a164eaaf32aecc1b0cb3285255cc1c293ea78&quot;,</span><br><span class="line">        &quot;ContainerConfig&quot;: &#123;</span><br><span class="line">            &quot;Hostname&quot;: &quot;e2d9db43ceab&quot;,</span><br><span class="line">            &quot;Domainname&quot;: &quot;&quot;,</span><br><span class="line">            &quot;User&quot;: &quot;&quot;,</span><br><span class="line">            &quot;AttachStdin&quot;: false,</span><br><span class="line">            &quot;AttachStdout&quot;: false,</span><br><span class="line">            &quot;AttachStderr&quot;: false,</span><br><span class="line">            &quot;Tty&quot;: false,</span><br><span class="line">            &quot;OpenStdin&quot;: false,</span><br><span class="line">            &quot;StdinOnce&quot;: false,</span><br><span class="line">            &quot;Env&quot;: [</span><br><span class="line">                &quot;PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin&quot;</span><br><span class="line">            ],</span><br><span class="line">            &quot;Cmd&quot;: [</span><br><span class="line">                &quot;/bin/sh&quot;,</span><br><span class="line">                &quot;-c&quot;,</span><br><span class="line">                &quot;#(nop) &quot;,</span><br><span class="line">                &quot;CMD [\&quot;/bin/bash\&quot;]&quot;</span><br><span class="line">            ],</span><br><span class="line">            &quot;ArgsEscaped&quot;: true,</span><br><span class="line">            &quot;Image&quot;: &quot;sha256:b8c20fc2a0d0df0287d60b6d3065b10d91c200fa50309a0085c44ecc4e9faa22&quot;,</span><br><span class="line">            &quot;Volumes&quot;: null,</span><br><span class="line">            &quot;WorkingDir&quot;: &quot;&quot;,</span><br><span class="line">            &quot;Entrypoint&quot;: null,</span><br><span class="line">            &quot;OnBuild&quot;: null,</span><br><span class="line">            &quot;Labels&quot;: &#123;&#125;</span><br><span class="line">        &#125;,</span><br><span class="line">        &quot;DockerVersion&quot;: &quot;17.06.2-ce&quot;,</span><br><span class="line">        &quot;Author&quot;: &quot;&quot;,</span><br><span class="line">        &quot;Config&quot;: &#123;</span><br><span class="line">            &quot;Hostname&quot;: &quot;&quot;,</span><br><span class="line">            &quot;Domainname&quot;: &quot;&quot;,</span><br><span class="line">            &quot;User&quot;: &quot;&quot;,</span><br><span class="line">            &quot;AttachStdin&quot;: false,</span><br><span class="line">            &quot;AttachStdout&quot;: false,</span><br><span class="line">            &quot;AttachStderr&quot;: false,</span><br><span class="line">            &quot;Tty&quot;: false,</span><br><span class="line">            &quot;OpenStdin&quot;: false,</span><br><span class="line">            &quot;StdinOnce&quot;: false,</span><br><span class="line">            &quot;Env&quot;: [</span><br><span class="line">                &quot;PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin&quot;</span><br><span class="line">            ],</span><br><span class="line">            &quot;Cmd&quot;: [</span><br><span class="line">                &quot;/bin/bash&quot;</span><br><span class="line">            ],</span><br><span class="line">            &quot;ArgsEscaped&quot;: true,</span><br><span class="line">            &quot;Image&quot;: &quot;sha256:b8c20fc2a0d0df0287d60b6d3065b10d91c200fa50309a0085c44ecc4e9faa22&quot;,</span><br><span class="line">            &quot;Volumes&quot;: null,</span><br><span class="line">            &quot;WorkingDir&quot;: &quot;&quot;,</span><br><span class="line">            &quot;Entrypoint&quot;: null,</span><br><span class="line">            &quot;OnBuild&quot;: null,</span><br><span class="line">            &quot;Labels&quot;: null</span><br><span class="line">        &#125;,</span><br><span class="line">        &quot;Architecture&quot;: &quot;amd64&quot;,</span><br><span class="line">        &quot;Os&quot;: &quot;linux&quot;,</span><br><span class="line">        &quot;Size&quot;: 222372215,</span><br><span class="line">        &quot;VirtualSize&quot;: 222372215,</span><br><span class="line">        &quot;GraphDriver&quot;: &#123;</span><br><span class="line">            &quot;Name&quot;: &quot;aufs&quot;,</span><br><span class="line">            &quot;Data&quot;: null</span><br><span class="line">        &#125;,</span><br><span class="line">        &quot;RootFS&quot;: &#123;</span><br><span class="line">            &quot;Type&quot;: &quot;layers&quot;,</span><br><span class="line">            &quot;Layers&quot;: [</span><br><span class="line">                &quot;sha256:92fb50b4d953c72eb1d5c045bab47a78f5c02348d8f004f7229a7b8fef16608d&quot;,</span><br><span class="line">                &quot;sha256:e95051d9cb9b95bf46df6cf5affab21157019659b3405e9c69f1f4a8376b24e7&quot;,</span><br><span class="line">                &quot;sha256:3abb69fb15dc83c0bf7a562f7bda73844fd20ed8cc4aec7b28ebd4113797cd9a&quot;,</span><br><span class="line">                &quot;sha256:dd420adea0d3f9f9da8500d4a8ec542ae0a32e78de557c9ce3755bd416431b5a&quot;,</span><br><span class="line">                &quot;sha256:65262d4f5516e81457c1ad5e14da8fbf66a999557107bbc7c2a635cbf94e64d9&quot;</span><br><span class="line">            ]</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">]</span><br></pre></td></tr></table></figure></p>
+<p>这样列出的是全部的信息，如果我们只看一部分指定信息，可以使用下面命令。下面命令查看RootFS下的Type<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker inspect ubuntu:14.04  -f &#123;&#123;&quot;.RootFS&quot;.&quot;Type&quot;&#125;&#125;</span><br></pre></td></tr></table></figure></p>
+<h4 id="列出镜像文件层级信息"><a href="#列出镜像文件层级信息" class="headerlink" title="列出镜像文件层级信息"></a>列出镜像文件层级信息</h4><p>镜像都是由多个层组成，我们可以使用docker history来查看各层的信息<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker history ubuntu:14.04</span><br></pre></td></tr></table></figure></p>
+<h3 id="搜索镜像"><a href="#搜索镜像" class="headerlink" title="搜索镜像"></a>搜索镜像</h3><p>我们可以查询官方仓库的上的镜像<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker search nginx</span><br></pre></td></tr></table></figure></p>
+<p>结果<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">NAME                                                   DESCRIPTION                                     STARS     OFFICIAL   AUTOMATED</span><br><span class="line">nginx                                                  Official build of Nginx.                        8262      [OK]       </span><br><span class="line">jwilder/nginx-proxy                                    Automated Nginx reverse proxy for docker c...   1300                 [OK]</span><br><span class="line">richarvey/nginx-php-fpm                                Container running Nginx + PHP-FPM capable ...   540                  [OK]</span><br><span class="line">jrcs/letsencrypt-nginx-proxy-companion                 LetsEncrypt container to use with nginx as...   336                  [OK]</span><br><span class="line">kong                                                   Open-source Microservice &amp; API Management ...   170       [OK]       </span><br><span class="line">webdevops/php-nginx                                    Nginx with PHP-FPM                              97                   [OK]</span><br><span class="line">kitematic/hello-world-nginx                            A light-weight nginx container that demons...   95                   </span><br><span class="line">zabbix/zabbix-web-nginx-mysql                          Zabbix frontend based on Nginx web-server ...   48                   [OK]</span><br><span class="line">bitnami/nginx                                          Bitnami nginx Docker Image                      45                   [OK]</span><br><span class="line">linuxserver/nginx                                      An Nginx container, brought to you by Linu...   33                   </span><br><span class="line">1and1internet/ubuntu-16-nginx-php-phpmyadmin-mysql-5   ubuntu-16-nginx-php-phpmyadmin-mysql-5          31                   [OK]</span><br><span class="line">tobi312/rpi-nginx                                      NGINX on Raspberry Pi / armhf                   19                   [OK]</span><br><span class="line">wodby/drupal-nginx                                     Nginx for Drupal container image                9                    [OK]</span><br><span class="line">blacklabelops/nginx                                    Dockerized Nginx Reverse Proxy Server.          8                    [OK]</span><br><span class="line">nginxdemos/nginx-ingress                               NGINX Ingress Controller for Kubernetes         8                    </span><br><span class="line">webdevops/nginx                                        Nginx container                                 8                    [OK]</span><br><span class="line">centos/nginx-18-centos7                                Platform for running nginx 1.8 or building...   6                    </span><br><span class="line">nginxdemos/hello                                       NGINX webserver that serves a simple page ...   5                    [OK]</span><br><span class="line">1science/nginx                                         Nginx Docker images that include Consul Te...   4                    [OK]</span><br><span class="line">pebbletech/nginx-proxy                                 nginx-proxy sets up a container running ng...   2                    [OK]</span><br><span class="line">behance/docker-nginx                                   Provides base OS, patches and stable nginx...   2                    [OK]</span><br><span class="line">toccoag/openshift-nginx                                Nginx reverse proxy for Nice running on sa...   1                    [OK]</span><br><span class="line">travix/nginx                                           NGinx reverse proxy                             1                    [OK]</span><br><span class="line">mailu/nginx                                            Mailu nginx frontend                            0                    [OK]</span><br><span class="line">ansibleplaybookbundle/nginx-apb                        An APB to deploy NGINX                          0                    [OK]</span><br></pre></td></tr></table></figure></p>
+<p>其他参数<br>可以使用–filter 后跟条件来进行查询。【例如：查询nginx镜像，且只显示自动创建的镜像，其他的选项还有 is-official、stars，可以根据是否是官方的，以及评论的等级进行过滤】默认的查询结果是按照星级评价去排序的。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker search --filter is-automated=true nginx</span><br></pre></td></tr></table></figure></p>
+<h3 id="删除镜像"><a href="#删除镜像" class="headerlink" title="删除镜像"></a>删除镜像</h3><h4 id="使用标签删除"><a href="#使用标签删除" class="headerlink" title="使用标签删除"></a>使用标签删除</h4><p>查看所有的镜像<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">root@ubuntu:~# docker images </span><br><span class="line">REPOSITORY                    TAG                 IMAGE ID            CREATED             SIZE</span><br><span class="line">rexyan_ubuntu                 v1                  adfebeb0ac91        3 weeks ago         111 MB</span><br><span class="line">ubuntu                        latest              adfebeb0ac91        3 weeks ago         111 MB</span><br><span class="line">ubuntu                        14.04               a35e70164dfb        3 weeks ago         222 MB</span><br><span class="line">hub.c.163.com/public/ubuntu   14.04               2fe5c4bba1f9        2 years ago         237 MB</span><br></pre></td></tr></table></figure></p>
+<p>使用标签删除rexyan_ubuntu:v1的镜像：【这里注意，rexyan_ubuntu:v1和ubuntu：latest的IMAGE ID相同，也就是说他们指向的是同一个镜像。我们这时删除rexyan_ubuntu:v1它并不会将IMAGE ID为adfebeb0ac91的镜像删除，因为还有一个镜像】<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker rmi rexyan_ubuntu:v1</span><br></pre></td></tr></table></figure></p>
+<p>结果：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">root@ubuntu:~# docker images               </span><br><span class="line">REPOSITORY                    TAG                 IMAGE ID            CREATED             SIZE</span><br><span class="line">ubuntu                        latest              adfebeb0ac91        3 weeks ago         111 MB</span><br><span class="line">ubuntu                        14.04               a35e70164dfb        3 weeks ago         222 MB</span><br><span class="line">hub.c.163.com/public/ubuntu   14.04               2fe5c4bba1f9        2 years ago         237 MB</span><br></pre></td></tr></table></figure></p>
+<p>如果这个时候再将IMAGE ID为adfebeb0ac91的镜像删除，那么这个镜像就被真正的删除了。下面所示，删除了镜像文件的所有层。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">root@ubuntu:~# docker rmi ubuntu:latest </span><br><span class="line">Untagged: ubuntu:latest</span><br><span class="line">Untagged: ubuntu@sha256:e348fbbea0e0a0e73ab0370de151e7800684445c509d46195aef73e090a49bd6</span><br><span class="line">Deleted: sha256:adfebeb0ac9194caaa37b52b84e6ff09b858f8daacf19ed46eced547284fc82d</span><br><span class="line">Deleted: sha256:e366e66208ed5e77a9ed40bfc7b782bcdf30a52b40065104abfa0c818958b2fd</span><br><span class="line">Deleted: sha256:f768a58d55c43e1a30e5517565010c2f151bdae2ad50c015a3f0d703e36b711f</span><br><span class="line">Deleted: sha256:dbffe316628589cf9fdbeec1132a8e3e165667353c09184cf4835a375ff0bb92</span><br><span class="line">Deleted: sha256:3f9b143e33c3558e297033eaae7997e555a8c00664f198953048c8a6a57e745f</span><br><span class="line">Deleted: sha256:5c610defde1afc14c5049019cfdd7e34cbb8703d38e9001aaf1d595ba39430b1</span><br></pre></td></tr></table></figure></p>
+<p>再次查看结果：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">root@ubuntu:~# docker images </span><br><span class="line">REPOSITORY                    TAG                 IMAGE ID            CREATED             SIZE</span><br><span class="line">ubuntu                        14.04               a35e70164dfb        3 weeks ago         222 MB</span><br><span class="line">hub.c.163.com/public/ubuntu   14.04               2fe5c4bba1f9        2 years ago         237 MB</span><br></pre></td></tr></table></figure></p>
+<h4 id="使用镜像ID删除"><a href="#使用镜像ID删除" class="headerlink" title="使用镜像ID删除"></a>使用镜像ID删除</h4><p>当你删除的ID是被多个镜像指向的时候是无法删除的。还有就是当这个镜像已经被用来创建容器，那么也是不能删除的，需先使用docker rm删除容器，然后在使用dcker rmi 删除镜像</p>
+<p>先查看所有镜像<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">root@ubuntu:~# docker images</span><br><span class="line">REPOSITORY                    TAG                 IMAGE ID            CREATED             SIZE</span><br><span class="line">ubuntu                        16.04               f975c5035748        3 weeks ago         112 MB</span><br><span class="line">hub.c.163.com/public/ubuntu   14.04               2fe5c4bba1f9        2 years ago         237 MB</span><br><span class="line">rexyan                        v2                  2fe5c4bba1f9        2 years ago         237 MB</span><br><span class="line">rexyan                        v3                  2fe5c4bba1f9        2 years ago         237 MB</span><br></pre></td></tr></table></figure></p>
+<p>删除被多个指向的镜像,可以看见不能删除<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">root@ubuntu:~# docker rmi 2fe5c4bba1f9</span><br><span class="line">Error response from daemon: conflict: unable to delete 2fe5c4bba1f9 (must be forced) - image is referenced in multiple repositories</span><br></pre></td></tr></table></figure></p>
+<p>当删除只有一个指向的镜像,这样就不存在问题，可以直接删除<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">root@ubuntu:~# docker rmi f975c5035748</span><br><span class="line">Untagged: ubuntu:16.04</span><br><span class="line">Untagged: ubuntu@sha256:52286464db54577a128fa1b1aa3c115bd86721b490ff4cbd0cd14d190b66c570</span><br><span class="line">Deleted: sha256:f975c50357489439eb9145dbfa16bb7cd06c02c31aa4df45c77de4d2baa4e232</span><br><span class="line">Deleted: sha256:0bd983fc698ee9453dd7d21f8572ea1016ec9255346ceabb0f9e173b4348644f</span><br><span class="line">Deleted: sha256:08fe90e1a1644431accc00cc80f519f4628dbf06a653c76800b116d3333d2b6d</span><br><span class="line">Deleted: sha256:5dc5eef2b94edd185b4d39586e7beb385a54b6bac05d165c9d47494492448235</span><br><span class="line">Deleted: sha256:14a40a140881d18382e13b37588b3aa70097bb4f3fb44085bc95663bdc68fe20</span><br><span class="line">Deleted: sha256:a94e0d5a7c404d0e6fa15d8cd4010e69663bd8813b5117fbad71365a73656df9</span><br></pre></td></tr></table></figure></p>
+<p>创建一个容器<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">root@ubuntu:~# docker run ubuntu:16.04 echo &quot;test&quot;</span><br></pre></td></tr></table></figure></p>
+<p>查看所有容器<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">root@ubuntu:~# docker ps -a</span><br><span class="line">CONTAINER ID        IMAGE               COMMAND             CREATED              STATUS                          PORTS               NAMES</span><br><span class="line">72b4b205a190        ubuntu:16.04        &quot;echo test&quot;         About a minute ago   Exited (1) About a minute ago                       infallible_torvalds</span><br><span class="line">f3847498e33e        ubuntu:16.04        &quot;echo test&quot;         About a minute ago   Exited (1) About a minute ago                       angry_mahavira</span><br></pre></td></tr></table></figure></p>
+<p>尝试着删除用来用来创建容器的这个镜像，会看到提示被使用，应该停止这个容器<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">root@ubuntu:~# docker rmi f975c5035748 </span><br><span class="line">Error response from daemon: conflict: unable to delete f975c5035748 (must be forced) - image is being used by stopped container f3847498e33e</span><br></pre></td></tr></table></figure></p>
+<p>这时，我们有两个选择，使用-f参数强制删除【前面遇到的一个镜像被多个标签指向的情况也能用-f来强制删除】，或者先删除容器，后删除镜像<br>强制删除事例：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker rmi -f  f975c5035748</span><br></pre></td></tr></table></figure></p>
+<p>另一种先删除容器【创建了两个，所以两个都要删除】<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">root@ubuntu:~# docker rm 72b4b205a190</span><br><span class="line">72b4b205a190</span><br><span class="line">root@ubuntu:~# docker rm f3847498e33e</span><br><span class="line">f3847498e33e</span><br></pre></td></tr></table></figure></p>
+<p>在删除镜像，这样就成功删除了<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">root@ubuntu:~# docker rmi  f975c5035748</span><br><span class="line">Untagged: ubuntu:16.04</span><br><span class="line">Untagged: ubuntu@sha256:7d715ef7f37de67f7a6489e783fc3ab9dc64041f6926126073bf4d0e6590dbc2</span><br><span class="line">Deleted: sha256:f975c50357489439eb9145dbfa16bb7cd06c02c31aa4df45c77de4d2baa4e232</span><br><span class="line">Deleted: sha256:0bd983fc698ee9453dd7d21f8572ea1016ec9255346ceabb0f9e173b4348644f</span><br><span class="line">Deleted: sha256:08fe90e1a1644431accc00cc80f519f4628dbf06a653c76800b116d3333d2b6d</span><br><span class="line">Deleted: sha256:5dc5eef2b94edd185b4d39586e7beb385a54b6bac05d165c9d47494492448235</span><br><span class="line">Deleted: sha256:14a40a140881d18382e13b37588b3aa70097bb4f3fb44085bc95663bdc68fe20</span><br><span class="line">Deleted: sha256:a94e0d5a7c404d0e6fa15d8cd4010e69663bd8813b5117fbad71365a73656df9</span><br></pre></td></tr></table></figure></p>
+<h3 id="创建镜像"><a href="#创建镜像" class="headerlink" title="创建镜像"></a>创建镜像</h3><p>创建镜像的方法，除了这里介绍的这两种外，还有使用Dockerfile来创建的，后面再学习到。</p>
+<h4 id="基于已有镜像的容器创建"><a href="#基于已有镜像的容器创建" class="headerlink" title="基于已有镜像的容器创建"></a>基于已有镜像的容器创建</h4><p>新建一个容器，并进入bash，并新建一个文件<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">root@ubuntu:~# docker run -it ubuntu:16.04 /bin/bash</span><br><span class="line">root@943bd5b5f887:/# touch rexyan.text</span><br><span class="line">root@943bd5b5f887:/# exit</span><br></pre></td></tr></table></figure></p>
+<p>查看当前启动、并创建文件的docker，记下id<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">root@ubuntu:~# docker ps -a </span><br><span class="line">CONTAINER ID        IMAGE               COMMAND             CREATED              STATUS                          PORTS               NAMES</span><br><span class="line">943bd5b5f887        ubuntu:16.04        &quot;/bin/bash&quot;         About a minute ago   Exited (0) About a minute ago                       festive_meitner</span><br></pre></td></tr></table></figure></p>
+<p>提交一个新的镜像，-m是提交信息，-a是作者信息，943bd5b5f887是我们启动并修改文件的容器，rexyan:v1的新创建的镜像的标签<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker commit -m&quot;add new file&quot; -a&quot;rexyan&quot; 943bd5b5f887 rexyan:v1</span><br></pre></td></tr></table></figure></p>
+<p>查看镜像，会发现新增了一个，标签为rexyan:v1<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">root@ubuntu:~# docker images </span><br><span class="line">REPOSITORY          TAG                 IMAGE ID            CREATED              SIZE</span><br><span class="line">rexyan              v1                  cee5de10da32        About a minute ago   111 MB</span><br><span class="line">ubuntu              16.04               adfebeb0ac91        3 weeks ago          111 MB</span><br></pre></td></tr></table></figure></p>
+<p>参数：<br>-m：提交信息<br>-a：作者信息<br>-c：提交的时候执行Dockerfile指令<br>-p：提交时候暂停容器运行</p>
+<p>验证我们刚刚创建的镜像：使用刚刚创建的镜像来创建容器，看看里看看里面是否有rexyan.test这个文件即可。</p>
+<h4 id="基于本地模版导入"><a href="#基于本地模版导入" class="headerlink" title="基于本地模版导入"></a>基于本地模版导入</h4><p>示例：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">cat ubuntu-14.04-x86_64-minimal.tar.gz | docker import - ubuntu:14.04</span><br></pre></td></tr></table></figure></p>
+<h3 id="存出和载入镜像"><a href="#存出和载入镜像" class="headerlink" title="存出和载入镜像"></a>存出和载入镜像</h3><h4 id="存出"><a href="#存出" class="headerlink" title="存出"></a>存出</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">root@ubuntu:~# docker save -o ubuntu_export_file.tar.gz ubuntu:16.04 </span><br><span class="line">root@ubuntu:~# ll</span><br><span class="line">total 112320</span><br><span class="line">drwx------  2 root root      4096 Apr  1 04:03 ./</span><br><span class="line">drwxr-xr-x 21 root root      4096 Mar 31 23:52 ../</span><br><span class="line">-rw-------  1 root root       485 Apr  1 01:02 .bash_history</span><br><span class="line">-rw-r--r--  1 root root      3106 Oct 22  2015 .bashrc</span><br><span class="line">-rw-r--r--  1 root root       148 Aug 17  2015 .profile</span><br><span class="line">-rw-------  1 root root 114980352 Apr  1 04:03 ubuntu_export_file.tar.gz</span><br><span class="line">-rw-------  1 root root      5102 Apr  1 02:05 .viminfo</span><br></pre></td></tr></table></figure>
+<h4 id="载入"><a href="#载入" class="headerlink" title="载入"></a>载入</h4><p>删除所有的镜像，使得本地仓库为空<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">root@ubuntu:~# docker images </span><br><span class="line">REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE</span><br></pre></td></tr></table></figure></p>
+<p>将刚刚打包的文件加载到docker仓库<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">root@ubuntu:~# docker load --input ubuntu_export_file.tar.gz </span><br><span class="line">5c610defde1a: Loading layer [==================================================&gt;] 114.9 MB/114.9 MB</span><br><span class="line">1cb600ff8c94: Loading layer [==================================================&gt;] 15.87 kB/15.87 kB</span><br><span class="line">199a30dc6a17: Loading layer [==================================================&gt;] 13.82 kB/13.82 kB</span><br><span class="line">cec5d9e51cf1: Loading layer [==================================================&gt;] 5.632 kB/5.632 kB</span><br><span class="line">64e8d47e7876: Loading layer [==================================================&gt;] 3.072 kB/3.072 kB</span><br><span class="line">Loaded image: ubuntu:16.04</span><br></pre></td></tr></table></figure></p>
+<p>查看结果<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">root@ubuntu:~# docker images</span><br><span class="line">REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE</span><br><span class="line">ubuntu              16.04               adfebeb0ac91        3 weeks ago         111 MB</span><br></pre></td></tr></table></figure></p>
+<h3 id="上传镜像"><a href="#上传镜像" class="headerlink" title="上传镜像"></a>上传镜像</h3><p>上传之前得有一个<a href="https://hub.docker.com的帐号，并且新建一个REPOSITORY" target="_blank" rel="noopener">https://hub.docker.com的帐号，并且新建一个REPOSITORY</a><br>上传准备，修改tag信息。将本地仓库的ubuntu:16.04修改标签为yanrs/test:v1，其中yanrs是用户名，test是名称，v1是标签<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker tag ubuntu:16.04 yanrs/test:v1</span><br></pre></td></tr></table></figure></p>
+<p>推送<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">未成功</span><br></pre></td></tr></table></figure></p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">docker pull ubuntu:14.04   # pull ubuntu镜像，版本为14.04</span><br><span class="line">docker pull ubuntu   # pull ubuntu镜像，版本为最后一版</span><br><span class="line">docker pull hub.c.163.com/public/ubuntu:14.04  # pull ubuntu镜像，从其他仓库</span><br><span class="line">docker images   # 查看本地镜像</span><br><span class="line">docker tag ubuntu:latest rexyan_ubuntu:v1     # 修改标签信息</span><br><span class="line">docker inspect ubuntu:14.04    # 查看详细信息</span><br><span class="line">docker inspect ubuntu:14.04 -f &#123;&#123;&quot;.RootFS&quot;.&quot;Type&quot;&#125;&#125;   # 查看详细信息中的RootFS下的Type的内容</span><br><span class="line">docker history ubuntu:14.04      # 查看镜像的层级结构</span><br><span class="line">docker search nginx   # 查询nginx的镜像</span><br><span class="line">docker search --filter is-automated=true nginx  # 查询nginx的镜像，带条件</span><br><span class="line">docker rmi rexyan_ubuntu:v1    # 按照标签删除镜像</span><br><span class="line">docker run ubuntu:16.04 echo &quot;test&quot;    # 创建一个容器，并输出test</span><br><span class="line">docker ps -a      # 查看所有的容器</span><br><span class="line">docker rm 72b4b205a190  # 根据ID删除容器</span><br><span class="line">docker run -it ubuntu:16.04 /bin/bash  # 创建并运行容器</span><br><span class="line">docker commit -m&quot;add new file&quot; -a&quot;rexyan&quot; 943bd5b5f887 rexyan:v1   # 创建一个镜像</span><br><span class="line">cat ubuntu-14.04-x86_64-minimal.tar.gz | docker import - ubuntu:14.04  # 将模版文件导入到本地仓库</span><br><span class="line">docker save -o ubuntu_export_file.tar.gz ubuntu:16.04    # 将本地仓库的镜像存为文件</span><br><span class="line">docker load --input ubuntu_export_file.tar.gz  # 将本地文件导入到仓库</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Docker/" rel="tag"><i class="fa fa-tag"></i> Docker</a>
+              <a href="/tags/容器/" rel="tag"><i class="fa fa-tag"></i> 容器</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2018/04/01/Docker2 -- 安装/" rel="prev" title="Docker2 安装">
+      <i class="fa fa-chevron-left"></i> Docker2 安装
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2018/04/03/Docker4 -- 容器 /" rel="next" title="Docker4 容器">
+      Docker4 容器 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#更换Docker源"><span class="nav-number">1.</span> <span class="nav-text">更换Docker源</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#获取镜像"><span class="nav-number">2.</span> <span class="nav-text">获取镜像</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#查看镜像信息"><span class="nav-number">3.</span> <span class="nav-text">查看镜像信息</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#列出镜像"><span class="nav-number">3.1.</span> <span class="nav-text">列出镜像</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#添加标签"><span class="nav-number">3.2.</span> <span class="nav-text">添加标签</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#查看镜像详情"><span class="nav-number">3.3.</span> <span class="nav-text">查看镜像详情</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#列出镜像文件层级信息"><span class="nav-number">3.4.</span> <span class="nav-text">列出镜像文件层级信息</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#搜索镜像"><span class="nav-number">4.</span> <span class="nav-text">搜索镜像</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#删除镜像"><span class="nav-number">5.</span> <span class="nav-text">删除镜像</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#使用标签删除"><span class="nav-number">5.1.</span> <span class="nav-text">使用标签删除</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#使用镜像ID删除"><span class="nav-number">5.2.</span> <span class="nav-text">使用镜像ID删除</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#创建镜像"><span class="nav-number">6.</span> <span class="nav-text">创建镜像</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#基于已有镜像的容器创建"><span class="nav-number">6.1.</span> <span class="nav-text">基于已有镜像的容器创建</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#基于本地模版导入"><span class="nav-number">6.2.</span> <span class="nav-text">基于本地模版导入</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#存出和载入镜像"><span class="nav-number">7.</span> <span class="nav-text">存出和载入镜像</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#存出"><span class="nav-number">7.1.</span> <span class="nav-text">存出</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#载入"><span class="nav-number">7.2.</span> <span class="nav-text">载入</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#上传镜像"><span class="nav-number">8.</span> <span class="nav-text">上传镜像</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#总结"><span class="nav-number">9.</span> <span class="nav-text">总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

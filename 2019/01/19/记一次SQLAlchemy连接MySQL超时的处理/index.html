@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="问题描述：在公司有一个项目使用 MySQL，ORM 使用的 SQLAlchemy，但是一段时间后总后出现MySQL 2013，或者 2006 之类的错误，大致的意思的就是链接失效了，导致不能正确的连接MySQL，因为是线上环境，错误要很长时间才会出错，加上每次修改都需要上线，且测试环境不好复现，没办法，知道今天才把代码悄悄的拷回来研究。 使用 docker 启动 MySQL123docker pu">
+<meta name="keywords" content="博客">
+<meta property="og:type" content="article">
+<meta property="og:title" content="记一次SQLAlchemy连接MySQL超时的处理">
+<meta property="og:url" content="https://rexyan.github.io/2019/01/19/记一次SQLAlchemy连接MySQL超时的处理/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="问题描述：在公司有一个项目使用 MySQL，ORM 使用的 SQLAlchemy，但是一段时间后总后出现MySQL 2013，或者 2006 之类的错误，大致的意思的就是链接失效了，导致不能正确的连接MySQL，因为是线上环境，错误要很长时间才会出错，加上每次修改都需要上线，且测试环境不好复现，没办法，知道今天才把代码悄悄的拷回来研究。 使用 docker 启动 MySQL123docker pu">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.410Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="记一次SQLAlchemy连接MySQL超时的处理">
+<meta name="twitter:description" content="问题描述：在公司有一个项目使用 MySQL，ORM 使用的 SQLAlchemy，但是一段时间后总后出现MySQL 2013，或者 2006 之类的错误，大致的意思的就是链接失效了，导致不能正确的连接MySQL，因为是线上环境，错误要很长时间才会出错，加上每次修改都需要上线，且测试环境不好复现，没办法，知道今天才把代码悄悄的拷回来研究。 使用 docker 启动 MySQL123docker pu">
+
+<link rel="canonical" href="https://rexyan.github.io/2019/01/19/记一次SQLAlchemy连接MySQL超时的处理/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>记一次SQLAlchemy连接MySQL超时的处理 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2019/01/19/记一次SQLAlchemy连接MySQL超时的处理/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          记一次SQLAlchemy连接MySQL超时的处理
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-01-19 02:22:57" itemprop="dateCreated datePublished" datetime="2019-01-19T02:22:57+00:00">2019-01-19</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/博客/" itemprop="url" rel="index"><span itemprop="name">博客</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="问题描述："><a href="#问题描述：" class="headerlink" title="问题描述："></a>问题描述：</h3><p>在公司有一个项目使用 MySQL，ORM 使用的 SQLAlchemy，但是一段时间后总后出现MySQL 2013，或者 2006 之类的错误，大致的意思的就是链接失效了，导致不能正确的连接MySQL，因为是线上环境，错误要很长时间才会出错，加上每次修改都需要上线，且测试环境不好复现，没办法，知道今天才把代码悄悄的拷回来研究。</p>
+<h3 id="使用-docker-启动-MySQL"><a href="#使用-docker-启动-MySQL" class="headerlink" title="使用 docker 启动 MySQL"></a>使用 docker 启动 MySQL</h3><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">docker pull mysql </span><br><span class="line"></span><br><span class="line">docker run -itd  --name mysql8 -p 3306:3306 MYSQL_ROOT_PASSWORD=123456  mysql:latest</span><br></pre></td></tr></table></figure>
+<h3 id="Navicat-连接-MySQL"><a href="#Navicat-连接-MySQL" class="headerlink" title="Navicat 连接 MySQL"></a>Navicat 连接 MySQL</h3><p>因为拉取的是最新的 MySQL 镜像，即 MySQL8，所以默认不能使用 Navicat 连接，只需要修改即可。<br>进入docker 后，修改配置文件  /etc/my.cnf 下 在 [mysqld] 下新增 ( 因为我们要测试MySQL主动断开链接的情况，默认是 8 小时，是不能等8小时的 )<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">wait_timeout=20  </span><br><span class="line">interactive_timeout=20</span><br></pre></td></tr></table></figure></p>
+<p>也可以不使用修改配置文件的方式来改变wait_timeout，interactive_timeout等，我们也可以在交互式命令行中使用下面命令<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">msyql&gt; set global wait_timeout=28800;</span><br><span class="line">msyql&gt; set global interactive_timeout=28800;</span><br></pre></td></tr></table></figure></p>
+<p>查看设置的过期时间<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">show global variables like &apos;%timeout%&apos;;</span><br></pre></td></tr></table></figure></p>
+<p>设置允许远程连接，密码等<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">mysql -uroot -p</span><br><span class="line">grant all PRIVILEGES on *.* to root@&apos;%&apos; WITH GRANT OPTION;</span><br><span class="line">ALTER user &apos;root&apos;@&apos;%&apos; IDENTIFIED BY &apos;123456&apos; PASSWORD EXPIRE NEVER;</span><br><span class="line">ALTER user &apos;root&apos;@&apos;%&apos; IDENTIFIED WITH mysql_native_password BY &apos;123456&apos;;</span><br><span class="line">FLUSH PRIVILEGES;</span><br></pre></td></tr></table></figure></p>
+<p>最后成功的代码如下，大致就是使用请求上下文，不使用pool，每次操作前都去获取一个链接，并且添加监听，使用 MySQL 的 ping 让其保持有效</p>
+<h3 id="app-加载时-session-配置"><a href="#app-加载时-session-配置" class="headerlink" title="app 加载时 session 配置"></a>app 加载时 session 配置</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">checkout_listener</span><span class="params">(dbapi_con, con_record, con_proxy)</span>:</span></span><br><span class="line">    <span class="keyword">try</span>:</span><br><span class="line">        <span class="keyword">try</span>:</span><br><span class="line">            dbapi_con.ping(<span class="literal">False</span>)</span><br><span class="line">        <span class="keyword">except</span> TypeError <span class="keyword">as</span> e:</span><br><span class="line">            dbapi_con.ping()</span><br><span class="line">    <span class="keyword">except</span> dbapi_con.OperationalError <span class="keyword">as</span> exc:</span><br><span class="line">        <span class="keyword">if</span> exc.args[<span class="number">0</span>] <span class="keyword">in</span> (<span class="number">2006</span>, <span class="number">2013</span>, <span class="number">2014</span>, <span class="number">2045</span>, <span class="number">2055</span>):</span><br><span class="line">            <span class="keyword">raise</span> DisconnectionError()</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            <span class="keyword">raise</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">with</span> app.app_context():</span><br><span class="line">    engine = create_engine(app.config.get(<span class="string">'SQLALCHEMY_DATABASE_URI'</span>), pool_pre_ping=<span class="literal">True</span>, encoding=<span class="string">'utf-8'</span>,poolclass=NullPool, convert_unicode=<span class="literal">True</span>, echo=<span class="literal">True</span>)</span><br><span class="line">    event.listen(engine, <span class="string">'checkout'</span>, checkout_listener)</span><br><span class="line"></span><br><span class="line">session_factory = sessionmaker(bind=engine)</span><br><span class="line"></span><br><span class="line"><span class="meta">@contextmanager</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">session_scope</span><span class="params">()</span>:</span></span><br><span class="line">    session = session_factory()</span><br><span class="line">    <span class="keyword">try</span>:</span><br><span class="line">        <span class="keyword">yield</span> session</span><br><span class="line">        session.commit()</span><br><span class="line">    <span class="keyword">except</span>:</span><br><span class="line">        session.rollback()</span><br><span class="line">        <span class="keyword">raise</span></span><br><span class="line">    <span class="keyword">finally</span>:</span><br><span class="line">        <span class="keyword">pass</span></span><br></pre></td></tr></table></figure>
+<h3 id="dbUtils"><a href="#dbUtils" class="headerlink" title="dbUtils"></a>dbUtils</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> tool <span class="keyword">import</span> const</span><br><span class="line"><span class="keyword">from</span> tool.error <span class="keyword">import</span> CustomFlaskErr</span><br><span class="line"><span class="keyword">from</span> fishbase.fish_logger <span class="keyword">import</span> logger</span><br><span class="line"><span class="keyword">from</span> fishbase.fish_common <span class="keyword">import</span> SingleTon</span><br><span class="line"><span class="keyword">from</span> application <span class="keyword">import</span> session_scope</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">DBUtils</span><span class="params">(SingleTon)</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, db)</span>:</span></span><br><span class="line">        <span class="keyword">pass</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">add</span><span class="params">(self, table_object, *data_list, **data)</span>:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        新增数据</span></span><br><span class="line"><span class="string">        :param table_object: 表对象</span></span><br><span class="line"><span class="string">        :param data_list: list, 批量插入的数据</span></span><br><span class="line"><span class="string">        :param data: dict, 插入单条数据</span></span><br><span class="line"><span class="string">        :return:</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        <span class="keyword">with</span> session_scope() <span class="keyword">as</span> session:</span><br><span class="line">            <span class="keyword">try</span>:</span><br><span class="line">                <span class="keyword">if</span> data_list:  <span class="comment"># 批量插入</span></span><br><span class="line">                    table_object_list = []</span><br><span class="line">                    <span class="keyword">for</span> x <span class="keyword">in</span> data_list:</span><br><span class="line">                        table_object_list.append(table_object(**x))</span><br><span class="line">                    session.add_all(table_object_list)</span><br><span class="line">                <span class="keyword">elif</span> data:  <span class="comment"># 单条插入</span></span><br><span class="line">                    obj = table_object(**data)</span><br><span class="line">                    session.add(obj)</span><br><span class="line">                    session.commit()</span><br><span class="line">            <span class="keyword">except</span> Exception <span class="keyword">as</span> e:</span><br><span class="line">                session.rollback()</span><br><span class="line">                session.close()</span><br><span class="line">                logger.error(<span class="string">"数据库插入错误: &#123;0&#125;"</span>.format(str(e)))</span><br><span class="line">                <span class="keyword">raise</span> CustomFlaskErr(const.INSERT_DATA_TO_DB_ERROR.format(<span class="string">'插入'</span>))</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">delete</span><span class="params">(self, table_object, **filter_data)</span>:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        删除数据</span></span><br><span class="line"><span class="string">        :param table_object: 表对象</span></span><br><span class="line"><span class="string">        :param filter_data: dict, 删除条件</span></span><br><span class="line"><span class="string">        :return:</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        <span class="keyword">with</span> session_scope() <span class="keyword">as</span> session:</span><br><span class="line">            <span class="keyword">try</span>:</span><br><span class="line">                session.query(table_object).filter_by(**filter_data).delete()</span><br><span class="line">                session.commit()</span><br><span class="line">            <span class="keyword">except</span> Exception <span class="keyword">as</span> e:</span><br><span class="line">                session.rollback()</span><br><span class="line">                session.close()</span><br><span class="line">                logger.error(<span class="string">"数据库删除错误: &#123;0&#125;"</span>.format(str(e)))</span><br><span class="line">                <span class="keyword">raise</span> CustomFlaskErr(const.INSERT_DATA_TO_DB_ERROR.format(<span class="string">'删除'</span>))</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">modify</span><span class="params">(self, table_object, filter_dict, update_dict)</span>:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        修改操作</span></span><br><span class="line"><span class="string">        :param table_object: 表对象</span></span><br><span class="line"><span class="string">        :param filter_dict: dict, 修改条件</span></span><br><span class="line"><span class="string">        :param update_dict: dict, 修改的值</span></span><br><span class="line"><span class="string">        :return:</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        <span class="keyword">with</span> session_scope() <span class="keyword">as</span> session:</span><br><span class="line">            <span class="keyword">try</span>:</span><br><span class="line">                logger.info(<span class="string">"开始更新数据库数据"</span>)</span><br><span class="line">                session.query(table_object).filter_by(**filter_dict).update(update_dict, synchronize_session=<span class="string">'fetch'</span>)</span><br><span class="line">                logger.info(<span class="string">"update 结束"</span>)</span><br><span class="line">                session.commit()</span><br><span class="line">                logger.info(<span class="string">"commit 结束"</span>)</span><br><span class="line">            <span class="keyword">except</span> Exception <span class="keyword">as</span> e:</span><br><span class="line">                logger.info(<span class="string">"出现错误！"</span>)</span><br><span class="line">                session.rollback()</span><br><span class="line">                logger.error(<span class="string">"数据库修改错误: &#123;0&#125;"</span>.format(str(e)))</span><br><span class="line">                session.close()</span><br><span class="line">                <span class="keyword">raise</span> CustomFlaskErr(const.INSERT_DATA_TO_DB_ERROR.format(<span class="string">'修改'</span>))</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">search</span><span class="params">(self, table_object, result_range=<span class="string">'all'</span>, start=None, end=None, **filter_dict)</span>:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        简单条件查询, 支持查询所有数据, 第一条, 最后一条和切片操作</span></span><br><span class="line"><span class="string">        :param table_object: 表对象</span></span><br><span class="line"><span class="string">        :param result_range: 结果范围</span></span><br><span class="line"><span class="string">        :param start: 开始截取位置</span></span><br><span class="line"><span class="string">        :param end: 结束位置</span></span><br><span class="line"><span class="string">        :param filter_dict: 过滤条件</span></span><br><span class="line"><span class="string">        :return:</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        ret = <span class="literal">None</span></span><br><span class="line">        <span class="keyword">with</span> session_scope() <span class="keyword">as</span> session:</span><br><span class="line">            <span class="keyword">try</span>:</span><br><span class="line">                <span class="keyword">if</span> result_range == <span class="string">'all'</span>:</span><br><span class="line">                    ret = session.query(table_object).filter_by(**filter_dict).all()</span><br><span class="line">                <span class="keyword">elif</span> result_range == <span class="string">'first'</span>:</span><br><span class="line">                    ret = session.query(table_object).filter_by(**filter_dict)[:<span class="number">1</span>]</span><br><span class="line">                <span class="keyword">elif</span> result_range == <span class="string">'last'</span>:</span><br><span class="line">                    ret = session.query(table_object).filter_by(**filter_dict)[<span class="number">-1</span>:]</span><br><span class="line">                <span class="keyword">elif</span> start <span class="keyword">and</span> end:</span><br><span class="line">                    ret = session.query(table_object).filter_by(**filter_dict).all()[start:end]</span><br><span class="line">                session.commit()</span><br><span class="line">            <span class="keyword">except</span> Exception <span class="keyword">as</span> e:</span><br><span class="line">                session.close()</span><br><span class="line">                logger.error(<span class="string">"数据库查询错误: &#123;0&#125;"</span>.format(str(e)))</span><br><span class="line">            <span class="keyword">return</span> ret</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">create_table</span><span class="params">(self, all_table=False, table_name=None)</span>:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        创建表</span></span><br><span class="line"><span class="string">        :param all_table:  创建所有表</span></span><br><span class="line"><span class="string">        :param table_name:  创建指定表</span></span><br><span class="line"><span class="string">        :return:</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        <span class="keyword">with</span> session_scope() <span class="keyword">as</span> session:</span><br><span class="line">            <span class="keyword">if</span> all_table:</span><br><span class="line">                session.create_all()</span><br><span class="line">            <span class="keyword">elif</span> table_name:</span><br><span class="line">                <span class="keyword">pass</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">delete_table</span><span class="params">(self, all_table=False, table_name=None)</span>:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        删除表</span></span><br><span class="line"><span class="string">        :param all_table: 删除所有的表</span></span><br><span class="line"><span class="string">        :param table_name:  删除指定表</span></span><br><span class="line"><span class="string">        :return:</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        <span class="keyword">with</span> session_scope() <span class="keyword">as</span> session:</span><br><span class="line">            <span class="keyword">if</span> all_table:</span><br><span class="line">                session.drop_all()</span><br><span class="line">            <span class="keyword">elif</span> table_name:</span><br><span class="line">                <span class="keyword">pass</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">like</span><span class="params">(self, table_object, lick_obj, result_range=<span class="string">'all'</span>, start=None, end=None)</span>:</span></span><br><span class="line">        <span class="keyword">with</span> session_scope() <span class="keyword">as</span> session:</span><br><span class="line">            ret = <span class="literal">None</span></span><br><span class="line">            <span class="keyword">try</span>:</span><br><span class="line">                <span class="keyword">if</span> result_range == <span class="string">'all'</span>:</span><br><span class="line">                    ret = session.query(table_object).filter(lick_obj).all()</span><br><span class="line">                <span class="keyword">elif</span> result_range == <span class="string">'first'</span>:</span><br><span class="line">                    ret = session.query(table_object).filter_by(lick_obj)[:<span class="number">1</span>]</span><br><span class="line">                <span class="keyword">elif</span> result_range == <span class="string">'last'</span>:</span><br><span class="line">                    ret = session.query(table_object).filter_by(lick_obj)[<span class="number">-1</span>:]</span><br><span class="line">                <span class="keyword">elif</span> start <span class="keyword">and</span> end:</span><br><span class="line">                    ret = session.query(table_object).filter_by(lick_obj).all()[start:end]</span><br><span class="line">            <span class="keyword">except</span> Exception <span class="keyword">as</span> e:</span><br><span class="line">                logger.error(<span class="string">"数据库查询错误: &#123;0&#125;"</span>.format(str(e)))</span><br><span class="line">                session.close()</span><br><span class="line">            <span class="keyword">return</span> ret</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">object_search</span><span class="params">(self, table_object, filter_object)</span>:</span></span><br><span class="line">        <span class="keyword">with</span> session_scope() <span class="keyword">as</span> session:</span><br><span class="line">            ret = <span class="literal">None</span></span><br><span class="line">            <span class="keyword">try</span>:</span><br><span class="line">                ret = session.query(table_object).filter(filter_object)</span><br><span class="line">            <span class="keyword">except</span> Exception <span class="keyword">as</span> e:</span><br><span class="line">                logger.error(<span class="string">"数据库查询错误: &#123;0&#125;"</span>.format(str(e)))</span><br><span class="line">                session.close()</span><br><span class="line">            <span class="keyword">return</span> ret</span><br><span class="line"></span><br><span class="line">    <span class="comment"># TODO 待完善like, and, or, 排序, 分组等</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># if __name__ == '__main__':</span></span><br><span class="line">    <span class="keyword">pass</span></span><br></pre></td></tr></table></figure>
+<h3 id="BaseModel"><a href="#BaseModel" class="headerlink" title="BaseModel"></a>BaseModel</h3><p>20191209 更新，上述 dbUtils 在使用中存在缺陷。改进后如下：</p>
+<p>application -&gt; model -&gt; baseModel</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> datetime</span><br><span class="line"></span><br><span class="line"><span class="keyword">from</span> application <span class="keyword">import</span> session_scope</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">BaseModel</span>:</span></span><br><span class="line">    DB_ERROR = <span class="string">"DB Error: &#123;error&#125;"</span></span><br><span class="line"></span><br><span class="line">    <span class="string">"""</span></span><br><span class="line"><span class="string">    ********************* 通用查询方法 *********************</span></span><br><span class="line"><span class="string">    """</span></span><br><span class="line"></span><br><span class="line"><span class="meta">    @classmethod</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">row_to_dict</span><span class="params">(cls, row)</span>:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        数据转换为字典</span></span><br><span class="line"><span class="string">        :param row:</span></span><br><span class="line"><span class="string">        :return:</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        <span class="keyword">if</span> row <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">None</span></span><br><span class="line">        d = &#123;&#125;</span><br><span class="line">        <span class="keyword">for</span> column <span class="keyword">in</span> row.__table__.columns:</span><br><span class="line">            <span class="comment"># 时间类型格式化</span></span><br><span class="line">            <span class="keyword">if</span> column.type.python_type == datetime.datetime:</span><br><span class="line">                column_value = getattr(row, column.name)</span><br><span class="line">                <span class="keyword">if</span> column_value:</span><br><span class="line">                    d[column.name] = column_value.strftime(<span class="string">"%Y-%m-%d %H:%M:%S"</span>)</span><br><span class="line">            <span class="keyword">else</span>:</span><br><span class="line">                d[column.name] = getattr(row, column.name)</span><br><span class="line">        <span class="keyword">return</span> d</span><br><span class="line"></span><br><span class="line"><span class="meta">    @classmethod</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">get_condition_data_count</span><span class="params">(cls, condition)</span>:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        获取符合条件的数据的条数</span></span><br><span class="line"><span class="string">        :param condition:</span></span><br><span class="line"><span class="string">        :return:</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        <span class="keyword">with</span> session_scope() <span class="keyword">as</span> session:</span><br><span class="line">            <span class="keyword">try</span>:</span><br><span class="line">                rows = session.query(cls).filter_by(**condition).count()</span><br><span class="line">            <span class="keyword">except</span> Exception <span class="keyword">as</span> e:</span><br><span class="line">                <span class="keyword">raise</span> Exception(BaseModel.DB_ERROR.format(error=e))</span><br><span class="line">            <span class="keyword">return</span> rows</span><br><span class="line"></span><br><span class="line"><span class="meta">    @classmethod</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">get_all_data</span><span class="params">(cls)</span> -&gt; list:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        获取所有数据</span></span><br><span class="line"><span class="string">        :return:</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        <span class="keyword">with</span> session_scope() <span class="keyword">as</span> session:</span><br><span class="line">            <span class="keyword">try</span>:</span><br><span class="line">                rows = session.query(cls).all()</span><br><span class="line">            <span class="keyword">except</span> Exception <span class="keyword">as</span> e:</span><br><span class="line">                <span class="keyword">raise</span> Exception(BaseModel.DB_ERROR.format(error=e))</span><br><span class="line">            <span class="keyword">return</span> [BaseModel.row_to_dict(row) <span class="keyword">for</span> row <span class="keyword">in</span> rows]</span><br><span class="line"></span><br><span class="line"><span class="meta">    @classmethod</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">get_data_by_id</span><span class="params">(cls, idd: int)</span> -&gt; list:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        根据 ID 查询数据</span></span><br><span class="line"><span class="string">        :param idd:</span></span><br><span class="line"><span class="string">        :return:</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        <span class="keyword">with</span> session_scope() <span class="keyword">as</span> session:</span><br><span class="line">            <span class="keyword">try</span>:</span><br><span class="line">                rows = session.query(cls).filter_by(**&#123;<span class="string">"id"</span>: idd&#125;).all()</span><br><span class="line">            <span class="keyword">except</span> Exception <span class="keyword">as</span> e:</span><br><span class="line">                <span class="keyword">raise</span> Exception(BaseModel.DB_ERROR.format(error=e))</span><br><span class="line">            <span class="keyword">return</span> [BaseModel.row_to_dict(row) <span class="keyword">for</span> row <span class="keyword">in</span> rows]</span><br><span class="line"></span><br><span class="line"><span class="meta">    @classmethod</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">get_data_by_field</span><span class="params">(cls, field_name: str, field_value: str or int)</span> -&gt; list:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        根据某字段查询数据</span></span><br><span class="line"><span class="string">        :param field_name:</span></span><br><span class="line"><span class="string">        :param field_value:</span></span><br><span class="line"><span class="string">        :return:</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        <span class="keyword">with</span> session_scope() <span class="keyword">as</span> session:</span><br><span class="line">            <span class="keyword">try</span>:</span><br><span class="line">                rows = session.query(cls).filter_by(**&#123;field_name: field_value&#125;).all()</span><br><span class="line">            <span class="keyword">except</span> Exception <span class="keyword">as</span> e:</span><br><span class="line">                <span class="keyword">raise</span> Exception(BaseModel.DB_ERROR.format(error=e))</span><br><span class="line">            <span class="keyword">return</span> [BaseModel.row_to_dict(row) <span class="keyword">for</span> row <span class="keyword">in</span> rows]</span><br><span class="line"></span><br><span class="line"><span class="meta">    @classmethod</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">get_data_by_multiple_condition</span><span class="params">(cls, condition)</span>:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        自定义多条件查询</span></span><br><span class="line"><span class="string">        :param condition:</span></span><br><span class="line"><span class="string">        :return:</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        <span class="keyword">with</span> session_scope() <span class="keyword">as</span> session:</span><br><span class="line">            <span class="keyword">try</span>:</span><br><span class="line">                rows = session.query(cls).filter_by(**condition).all()</span><br><span class="line">            <span class="keyword">except</span> Exception <span class="keyword">as</span> e:</span><br><span class="line">                <span class="keyword">raise</span> Exception(BaseModel.DB_ERROR.format(error=e))</span><br><span class="line">            <span class="keyword">return</span> [BaseModel.row_to_dict(row) <span class="keyword">for</span> row <span class="keyword">in</span> rows]</span><br><span class="line"></span><br><span class="line">    <span class="string">"""</span></span><br><span class="line"><span class="string">    ********************* 通用新增方法 *********************</span></span><br><span class="line"><span class="string">    """</span></span><br><span class="line"></span><br><span class="line"><span class="meta">    @classmethod</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">add_data</span><span class="params">(cls, data: dict)</span> -&gt; int:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        新增数据，返回新增 ID</span></span><br><span class="line"><span class="string">        :param data:</span></span><br><span class="line"><span class="string">        :return:</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        <span class="keyword">with</span> session_scope() <span class="keyword">as</span> session:</span><br><span class="line">            <span class="keyword">try</span>:</span><br><span class="line">                runtime_object = cls(**data)</span><br><span class="line">                session.add(runtime_object)</span><br><span class="line">                <span class="comment"># flush 后才能获取到本次新增的 id</span></span><br><span class="line">                session.flush()</span><br><span class="line">            <span class="keyword">except</span> Exception <span class="keyword">as</span> e:</span><br><span class="line">                <span class="keyword">raise</span> Exception(BaseModel.DB_ERROR.format(error=e))</span><br><span class="line">            <span class="keyword">return</span> runtime_object.__getattribute__(<span class="string">"id"</span>)</span><br><span class="line"></span><br><span class="line"><span class="meta">    @classmethod</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">add_multiple_data</span><span class="params">(cls, data_list)</span> -&gt; [int]:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        新增多组数据</span></span><br><span class="line"><span class="string">        :param data_list:</span></span><br><span class="line"><span class="string">        :return:</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        <span class="keyword">with</span> session_scope() <span class="keyword">as</span> session:</span><br><span class="line">            <span class="keyword">try</span>:</span><br><span class="line">                instance_list = []</span><br><span class="line">                <span class="keyword">for</span> data <span class="keyword">in</span> data_list:</span><br><span class="line">                    runtime_object = cls(**data)</span><br><span class="line">                    instance_list.append(runtime_object)</span><br><span class="line"></span><br><span class="line">                session.add_all(instance_list)</span><br><span class="line">                <span class="comment"># flush 后才能获取到本次新增的 id</span></span><br><span class="line">                session.flush()</span><br><span class="line">            <span class="keyword">except</span> Exception <span class="keyword">as</span> e:</span><br><span class="line">                <span class="keyword">raise</span> Exception(BaseModel.DB_ERROR.format(error=e))</span><br><span class="line">            <span class="keyword">return</span> [x.__getattribute__(<span class="string">"id"</span>) <span class="keyword">for</span> x <span class="keyword">in</span> instance_list]</span><br><span class="line"></span><br><span class="line">    <span class="string">"""</span></span><br><span class="line"><span class="string">    ********************* 通用新增方法 *********************</span></span><br><span class="line"><span class="string">    """</span></span><br><span class="line"></span><br><span class="line"><span class="meta">    @classmethod</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">update_data</span><span class="params">(cls, condition: dict, data: dict)</span> -&gt; int:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        更新数据，返回影响条数</span></span><br><span class="line"><span class="string">        :param condition:</span></span><br><span class="line"><span class="string">        :param data:</span></span><br><span class="line"><span class="string">        :return:</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line"></span><br><span class="line">        <span class="keyword">with</span> session_scope() <span class="keyword">as</span> session:</span><br><span class="line">            <span class="keyword">try</span>:</span><br><span class="line">                <span class="keyword">return</span> session.query(cls).filter_by(**condition).update(data)</span><br><span class="line">            <span class="keyword">except</span> Exception <span class="keyword">as</span> e:</span><br><span class="line">                <span class="keyword">raise</span> Exception(BaseModel.DB_ERROR.format(error=e))</span><br><span class="line"></span><br><span class="line">    <span class="string">"""</span></span><br><span class="line"><span class="string">    ********************* 通用删除方法 *********************</span></span><br><span class="line"><span class="string">    """</span></span><br><span class="line"></span><br><span class="line"><span class="meta">    @classmethod</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">delete_data_by_id</span><span class="params">(cls, idd)</span> -&gt; int:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        根据 id 删除数据</span></span><br><span class="line"><span class="string">        :param idd:</span></span><br><span class="line"><span class="string">        :return:</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        <span class="keyword">with</span> session_scope() <span class="keyword">as</span> session:</span><br><span class="line">            <span class="keyword">try</span>:</span><br><span class="line">                <span class="keyword">return</span> session.query(cls).filter_by(**&#123;<span class="string">"id"</span>: idd&#125;).delete()</span><br><span class="line">            <span class="keyword">except</span> Exception <span class="keyword">as</span> e:</span><br><span class="line">                <span class="keyword">raise</span> Exception(BaseModel.DB_ERROR.format(error=e))</span><br><span class="line"></span><br><span class="line"><span class="meta">    @classmethod</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">delete_data</span><span class="params">(cls, condition: dict)</span> -&gt; int:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        删除数据</span></span><br><span class="line"><span class="string">        :param condition:</span></span><br><span class="line"><span class="string">        :return:</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        <span class="keyword">with</span> session_scope() <span class="keyword">as</span> session:</span><br><span class="line">            <span class="keyword">try</span>:</span><br><span class="line">                <span class="keyword">return</span> session.query(cls).filter_by(**condition).delete()</span><br><span class="line">            <span class="keyword">except</span> Exception <span class="keyword">as</span> e:</span><br><span class="line">                <span class="keyword">raise</span> Exception(BaseModel.DB_ERROR.format(error=e))</span><br></pre></td></tr></table></figure>
+<p>其余 model 只需要继承 BaseModel 就有了这些公共的方法，如果这些常用的方法不满足需求，那么就可以在自己 model 中进行操作。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/博客/" rel="tag"><i class="fa fa-tag"></i> 博客</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/01/03/9.Map/" rel="prev" title="Map">
+      <i class="fa fa-chevron-left"></i> Map
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/02/18/Python 3des加密/" rel="next" title="Python 3des 加密">
+      Python 3des 加密 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#问题描述："><span class="nav-number">1.</span> <span class="nav-text">问题描述：</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#使用-docker-启动-MySQL"><span class="nav-number">2.</span> <span class="nav-text">使用 docker 启动 MySQL</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Navicat-连接-MySQL"><span class="nav-number">3.</span> <span class="nav-text">Navicat 连接 MySQL</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#app-加载时-session-配置"><span class="nav-number">4.</span> <span class="nav-text">app 加载时 session 配置</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#dbUtils"><span class="nav-number">5.</span> <span class="nav-text">dbUtils</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#BaseModel"><span class="nav-number">6.</span> <span class="nav-text">BaseModel</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

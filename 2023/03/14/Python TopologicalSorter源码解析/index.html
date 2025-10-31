@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="TopologicalSorter 常用于工作流中，用于定义每个节点的执行顺序。  例如上图中，定义了5个任务，希望在 HTTP Activate 执行结束后，能获取到下一次要执行的节点，Command Activate 和 Download Activate。这样既保证了调用顺序，同时也可以将 Command Activate 和 Download Activate 同时执行，以提高整个流程的执">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Python TopologicalSorter源码解析">
+<meta property="og:url" content="https://rexyan.github.io/2023/03/14/Python TopologicalSorter源码解析/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="TopologicalSorter 常用于工作流中，用于定义每个节点的执行顺序。  例如上图中，定义了5个任务，希望在 HTTP Activate 执行结束后，能获取到下一次要执行的节点，Command Activate 和 Download Activate。这样既保证了调用顺序，同时也可以将 Command Activate 和 Download Activate 同时执行，以提高整个流程的执">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230314190132.png">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.398Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Python TopologicalSorter源码解析">
+<meta name="twitter:description" content="TopologicalSorter 常用于工作流中，用于定义每个节点的执行顺序。  例如上图中，定义了5个任务，希望在 HTTP Activate 执行结束后，能获取到下一次要执行的节点，Command Activate 和 Download Activate。这样既保证了调用顺序，同时也可以将 Command Activate 和 Download Activate 同时执行，以提高整个流程的执">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230314190132.png">
+
+<link rel="canonical" href="https://rexyan.github.io/2023/03/14/Python TopologicalSorter源码解析/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Python TopologicalSorter源码解析 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2023/03/14/Python TopologicalSorter源码解析/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Python TopologicalSorter源码解析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2023-03-14 19:55:57" itemprop="dateCreated datePublished" datetime="2023-03-14T19:55:57+00:00">2023-03-14</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Python/" itemprop="url" rel="index"><span itemprop="name">Python</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>TopologicalSorter 常用于工作流中，用于定义每个节点的执行顺序。</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230314190132.png" alt></p>
+<p>例如上图中，定义了5个任务，希望在 HTTP Activate 执行结束后，能获取到下一次要执行的节点，Command Activate 和 Download Activate。这样既保证了调用顺序，同时也可以将 Command Activate 和 Download Activate 同时执行，以提高整个流程的执行效率。</p>
+<h3 id="Python-实现"><a href="#Python-实现" class="headerlink" title="Python 实现"></a>Python 实现</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br><span class="line">193</span><br><span class="line">194</span><br><span class="line">195</span><br><span class="line">196</span><br><span class="line">197</span><br><span class="line">198</span><br><span class="line">199</span><br><span class="line">200</span><br><span class="line">201</span><br><span class="line">202</span><br><span class="line">203</span><br><span class="line">204</span><br><span class="line">205</span><br><span class="line">206</span><br><span class="line">207</span><br><span class="line">208</span><br><span class="line">209</span><br><span class="line">210</span><br><span class="line">211</span><br><span class="line">212</span><br><span class="line">213</span><br><span class="line">214</span><br><span class="line">215</span><br><span class="line">216</span><br><span class="line">217</span><br><span class="line">218</span><br></pre></td><td class="code"><pre><span class="line">__all__ = [<span class="string">"TopologicalSorter"</span>, <span class="string">"CycleError"</span>]</span><br><span class="line"></span><br><span class="line">_NODE_OUT = <span class="number">-1</span></span><br><span class="line">_NODE_DONE = <span class="number">-2</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">_NodeInfo</span>:</span></span><br><span class="line">    __slots__ = <span class="string">"node"</span>, <span class="string">"npredecessors"</span>, <span class="string">"successors"</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, node)</span>:</span></span><br><span class="line">        self.node = node</span><br><span class="line"></span><br><span class="line">        <span class="comment"># Number of predecessors, generally &gt;= 0. When this value falls to 0,</span></span><br><span class="line">        <span class="comment"># and is returned by get_ready(), this is set to _NODE_OUT and when the</span></span><br><span class="line">        <span class="comment"># node is marked done by a call to done(), set to _NODE_DONE.</span></span><br><span class="line">        self.npredecessors = <span class="number">0</span></span><br><span class="line"></span><br><span class="line">        <span class="comment"># List of successor nodes. The list can contain duplicated elements as</span></span><br><span class="line">        <span class="comment"># long as they're all reflected in the successor's npredecessors attribute.</span></span><br><span class="line">        self.successors = []</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">CycleError</span><span class="params">(ValueError)</span>:</span></span><br><span class="line">    <span class="keyword">pass</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">TopologicalSorter</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, graph=None)</span>:</span></span><br><span class="line">        <span class="comment"># 节点映射map</span></span><br><span class="line">        self._node2info = &#123;&#125;</span><br><span class="line">        <span class="comment"># 就绪节点列表</span></span><br><span class="line">        self._ready_nodes = <span class="literal">None</span></span><br><span class="line">        <span class="comment">#</span></span><br><span class="line">        self._npassedout = <span class="number">0</span></span><br><span class="line">        self._nfinished = <span class="number">0</span></span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> graph <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span>:</span><br><span class="line">            <span class="keyword">for</span> node, predecessors <span class="keyword">in</span> graph.items():</span><br><span class="line">                self.add(node, *predecessors)</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">_get_nodeinfo</span><span class="params">(self, node)</span>:</span></span><br><span class="line">        <span class="keyword">if</span> (result := self._node2info.get(node)) <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">            self._node2info[node] = result = _NodeInfo(node)</span><br><span class="line">        <span class="keyword">return</span> result</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">add</span><span class="params">(self, node, *predecessors)</span>:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        node：当前节点</span></span><br><span class="line"><span class="string">        predecessors：依赖的节点</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        <span class="keyword">if</span> self._ready_nodes <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span>:</span><br><span class="line">            <span class="keyword">raise</span> ValueError(<span class="string">"Nodes cannot be added after a call to prepare()"</span>)</span><br><span class="line"></span><br><span class="line">        <span class="comment"># 获取节点信息</span></span><br><span class="line">        nodeinfo = self._get_nodeinfo(node)</span><br><span class="line">        <span class="comment"># 更新节点依赖的节点数量</span></span><br><span class="line">        nodeinfo.npredecessors += len(predecessors)</span><br><span class="line"></span><br><span class="line">        <span class="comment"># 创建依赖节点，并绑定到当前节点的 successors 列表中</span></span><br><span class="line">        <span class="keyword">for</span> pred <span class="keyword">in</span> predecessors:</span><br><span class="line">            pred_info = self._get_nodeinfo(pred)</span><br><span class="line">            pred_info.successors.append(node)</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">prepare</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">if</span> self._ready_nodes <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span>:</span><br><span class="line">            <span class="keyword">raise</span> ValueError(<span class="string">"cannot prepare() more than once"</span>)</span><br><span class="line"></span><br><span class="line">        <span class="comment"># 获取就绪节点：在节点 map 中遍历所有节点。将所有节点中 npredecessors 为 0 的节点的 node 取出。</span></span><br><span class="line">        self._ready_nodes = [</span><br><span class="line">            i.node <span class="keyword">for</span> i <span class="keyword">in</span> self._node2info.values() <span class="keyword">if</span> i.npredecessors == <span class="number">0</span></span><br><span class="line">        ]</span><br><span class="line">        <span class="comment"># 判断是否成环</span></span><br><span class="line">        cycle = self._find_cycle()</span><br><span class="line">        <span class="keyword">if</span> cycle:</span><br><span class="line">            <span class="keyword">raise</span> CycleError(<span class="string">f"nodes are in a cycle"</span>, cycle)</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">get_ready</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">if</span> self._ready_nodes <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">            <span class="keyword">raise</span> ValueError(<span class="string">"prepare() must be called first"</span>)</span><br><span class="line"></span><br><span class="line">        <span class="comment"># 获取就绪节点</span></span><br><span class="line">        result = tuple(self._ready_nodes)</span><br><span class="line">        n2i = self._node2info</span><br><span class="line">        <span class="comment"># 将当前就绪节点的 npredecessors 的值设置为 -1</span></span><br><span class="line">        <span class="keyword">for</span> node <span class="keyword">in</span> result:</span><br><span class="line">            n2i[node].npredecessors = _NODE_OUT</span><br><span class="line"></span><br><span class="line">        <span class="comment"># 清除就绪节点列表，方便下次在塞入就绪节点</span></span><br><span class="line">        self._ready_nodes.clear()</span><br><span class="line">        <span class="comment"># _npassedout 计数添加当前就绪节点数量</span></span><br><span class="line">        self._npassedout += len(result)</span><br><span class="line">        <span class="comment"># 返回就绪节点</span></span><br><span class="line">        <span class="keyword">return</span> result</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">is_active</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="string">"""如果可以取得更多进展，则返回' True '，否则返回' False '。</span></span><br><span class="line"><span class="string">        如果循环没有阻塞分辨率，或者仍然有节点准备就绪，“get_ready”还没有返回，</span></span><br><span class="line"><span class="string">        或者标记为“done”的节点数量小于“get_ready”返回的节点数量，则可以取得进展。</span></span><br><span class="line"><span class="string">        如果之前没有调用“prepare”而被调用，将引发ValueError。</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        <span class="keyword">if</span> self._ready_nodes <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">            <span class="keyword">raise</span> ValueError(<span class="string">"prepare() must be called first"</span>)</span><br><span class="line">        <span class="keyword">return</span> self._nfinished &lt; self._npassedout <span class="keyword">or</span> bool(self._ready_nodes)</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__bool__</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">return</span> self.is_active()</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">done</span><span class="params">(self, *nodes)</span>:</span></span><br><span class="line">        <span class="keyword">if</span> self._ready_nodes <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">            <span class="keyword">raise</span> ValueError(<span class="string">"prepare() must be called first"</span>)</span><br><span class="line"></span><br><span class="line">        n2i = self._node2info</span><br><span class="line"></span><br><span class="line">        <span class="comment"># 遍历传入要 done 的节点列表</span></span><br><span class="line">        <span class="keyword">for</span> node <span class="keyword">in</span> nodes:</span><br><span class="line"></span><br><span class="line">            <span class="comment"># 判断节点是否存在</span></span><br><span class="line">            <span class="keyword">if</span> (nodeinfo := n2i.get(node)) <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">                <span class="keyword">raise</span> ValueError(<span class="string">f"node <span class="subst">&#123;node!r&#125;</span> was not added using add()"</span>)</span><br><span class="line"></span><br><span class="line">            <span class="comment"># 确保当前要被 done 的节点已经被标记为 _NODE_OUT（-1） 了。</span></span><br><span class="line">            stat = nodeinfo.npredecessors</span><br><span class="line">            <span class="keyword">if</span> stat != _NODE_OUT:</span><br><span class="line">                <span class="keyword">if</span> stat &gt;= <span class="number">0</span>:</span><br><span class="line">                    <span class="keyword">raise</span> ValueError(</span><br><span class="line">                        <span class="string">f"node <span class="subst">&#123;node!r&#125;</span> was not passed out (still not ready)"</span></span><br><span class="line">                    )</span><br><span class="line">                <span class="comment"># 标记为 -2 的表示已经 done 过了</span></span><br><span class="line">                <span class="keyword">elif</span> stat == _NODE_DONE:</span><br><span class="line">                    <span class="keyword">raise</span> ValueError(<span class="string">f"node <span class="subst">&#123;node!r&#125;</span> was already marked done"</span>)</span><br><span class="line">                <span class="keyword">else</span>:</span><br><span class="line">                    <span class="keyword">assert</span> <span class="literal">False</span>, <span class="string">f"node <span class="subst">&#123;node!r&#125;</span>: unknown status <span class="subst">&#123;stat&#125;</span>"</span></span><br><span class="line"></span><br><span class="line">            <span class="comment"># 将当前节点 npredecessors 标为 _NODE_DONE -2，表示已经被 done 了</span></span><br><span class="line">            nodeinfo.npredecessors = _NODE_DONE</span><br><span class="line"></span><br><span class="line">            <span class="comment"># 获取当前被 done 节点的依赖的节点的列表</span></span><br><span class="line">            <span class="keyword">for</span> successor <span class="keyword">in</span> nodeinfo.successors:</span><br><span class="line">                <span class="comment"># 依赖节点的信息</span></span><br><span class="line">                successor_info = n2i[successor]</span><br><span class="line">                <span class="comment"># 当前节点被 done 了，所以，所有依赖当前节点的  npredecessors 要 -1</span></span><br><span class="line">                successor_info.npredecessors -= <span class="number">1</span></span><br><span class="line">                <span class="keyword">if</span> successor_info.npredecessors == <span class="number">0</span>:</span><br><span class="line">                    <span class="comment"># 如果减到0了，就将节点添加到 就绪节点列表中。表示这个节点没有依赖的节点了。下次 get_ready 可以返回了</span></span><br><span class="line">                    self._ready_nodes.append(successor)</span><br><span class="line">            <span class="comment"># 节点 done 计数 +1</span></span><br><span class="line">            self._nfinished += <span class="number">1</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">_find_cycle</span><span class="params">(self)</span>:</span></span><br><span class="line">        n2i = self._node2info  <span class="comment"># 所有节点的 map</span></span><br><span class="line">        stack = []</span><br><span class="line">        itstack = []</span><br><span class="line">        seen = set()</span><br><span class="line">        node2stacki = &#123;&#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment"># 遍历所有节点</span></span><br><span class="line">        <span class="keyword">for</span> node <span class="keyword">in</span> n2i:</span><br><span class="line">            <span class="keyword">if</span> node <span class="keyword">in</span> seen:</span><br><span class="line">                <span class="keyword">continue</span></span><br><span class="line"></span><br><span class="line">            <span class="keyword">while</span> <span class="literal">True</span>:</span><br><span class="line">                <span class="keyword">if</span> node <span class="keyword">in</span> seen:</span><br><span class="line">                    <span class="comment"># If we have seen already the node and is in the</span></span><br><span class="line">                    <span class="comment"># current stack we have found a cycle.</span></span><br><span class="line">                    <span class="keyword">if</span> node <span class="keyword">in</span> node2stacki:</span><br><span class="line">                        <span class="keyword">return</span> stack[node2stacki[node] :] + [node]</span><br><span class="line">                    <span class="comment"># else go on to get next successor</span></span><br><span class="line">                <span class="keyword">else</span>:</span><br><span class="line">                    seen.add(node)</span><br><span class="line">                    itstack.append(iter(n2i[node].successors).__next__)</span><br><span class="line">                    node2stacki[node] = len(stack)</span><br><span class="line">                    stack.append(node)</span><br><span class="line"></span><br><span class="line">                <span class="comment"># Backtrack to the topmost stack entry with</span></span><br><span class="line">                <span class="comment"># at least another successor.</span></span><br><span class="line">                <span class="keyword">while</span> stack:</span><br><span class="line">                    <span class="keyword">try</span>:</span><br><span class="line">                        print(itstack[<span class="number">-1</span>])</span><br><span class="line">                        node = itstack[<span class="number">-1</span>]()</span><br><span class="line">                        <span class="keyword">break</span></span><br><span class="line">                    <span class="keyword">except</span> StopIteration:</span><br><span class="line">                        <span class="keyword">del</span> node2stacki[stack.pop()]</span><br><span class="line">                        itstack.pop()</span><br><span class="line">                <span class="keyword">else</span>:</span><br><span class="line">                    <span class="keyword">break</span></span><br><span class="line">        <span class="keyword">return</span> <span class="literal">None</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">static_order</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        按拓扑顺序返回节点的迭代对象</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        self.prepare()</span><br><span class="line">        <span class="keyword">while</span> self.is_active():</span><br><span class="line">            node_group = self.get_ready()</span><br><span class="line">            <span class="keyword">yield</span> <span class="keyword">from</span> node_group</span><br><span class="line">            self.done(*node_group)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</span><br><span class="line">    graph = &#123;</span><br><span class="line">        <span class="string">"C"</span>: [<span class="string">"A"</span>],</span><br><span class="line">        <span class="string">"B"</span>: [<span class="string">"A"</span>, <span class="string">"1"</span>],</span><br><span class="line">        <span class="string">"D"</span>: [<span class="string">"B"</span>, <span class="string">"C"</span>],</span><br><span class="line">        <span class="string">"E"</span>: [<span class="string">"B"</span>],</span><br><span class="line">        <span class="string">"F"</span>: [<span class="string">"D"</span>, <span class="string">"E"</span>],</span><br><span class="line">    &#125;</span><br><span class="line">    ts = TopologicalSorter(graph)</span><br><span class="line">    ts.prepare()</span><br><span class="line"></span><br><span class="line">    read_node_flag = <span class="literal">True</span></span><br><span class="line">    <span class="keyword">while</span> read_node_flag:</span><br><span class="line">        read_node = ts.get_ready()</span><br><span class="line">        <span class="keyword">if</span> <span class="keyword">not</span> read_node:</span><br><span class="line">            read_node_flag = <span class="literal">False</span></span><br><span class="line">            <span class="keyword">break</span></span><br><span class="line">        print(read_node)</span><br><span class="line">        <span class="keyword">for</span> x <span class="keyword">in</span> read_node:</span><br><span class="line">            ts.done(x)</span><br></pre></td></tr></table></figure>
+<h3 id="Go-实现"><a href="#Go-实现" class="headerlink" title="Go 实现"></a>Go 实现</h3><p>在 Python 的基础上，模仿了一个 Go 语言的版本</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> utility</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">"errors"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> (</span><br><span class="line">	NodeOut  = <span class="number">-1</span></span><br><span class="line">	NodeDone = <span class="number">-2</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> TopologicalNode <span class="keyword">struct</span> &#123;</span><br><span class="line">	N            ActivateInterface   <span class="comment">// 节点实例</span></span><br><span class="line">	Predecessors <span class="keyword">int</span>                 <span class="comment">// 依赖节点的数量，只有为 0 才能被 getReady 获取到</span></span><br><span class="line">	Successors   []ActivateInterface <span class="comment">// 依赖节点的列表</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> TopologicalSorter <span class="keyword">struct</span> &#123;</span><br><span class="line">	ReadyNodes []ActivateInterface                    <span class="comment">// 就绪 nodes</span></span><br><span class="line">	NodeMap    <span class="keyword">map</span>[ActivateInterface]*TopologicalNode <span class="comment">// Node Map</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(t *TopologicalSorter)</span> <span class="title">hasCycle</span><span class="params">(graph <span class="keyword">map</span>[ActivateInterface][]ActivateInterface)</span> <span class="title">bool</span></span> &#123;</span><br><span class="line">	visited := <span class="built_in">make</span>(<span class="keyword">map</span>[ActivateInterface]<span class="keyword">bool</span>)</span><br><span class="line">	stack := <span class="built_in">make</span>(<span class="keyword">map</span>[ActivateInterface]<span class="keyword">bool</span>)</span><br><span class="line"></span><br><span class="line">	<span class="keyword">var</span> dfs <span class="function"><span class="keyword">func</span><span class="params">(node ActivateInterface)</span> <span class="title">bool</span></span></span><br><span class="line">	dfs = <span class="function"><span class="keyword">func</span><span class="params">(node ActivateInterface)</span> <span class="title">bool</span></span> &#123;</span><br><span class="line">		visited[node] = <span class="literal">true</span></span><br><span class="line">		stack[node] = <span class="literal">true</span></span><br><span class="line"></span><br><span class="line">		<span class="keyword">for</span> _, neighbor := <span class="keyword">range</span> graph[node] &#123;</span><br><span class="line">			<span class="keyword">if</span> !visited[neighbor] &#123;</span><br><span class="line">				<span class="keyword">if</span> dfs(neighbor) &#123;</span><br><span class="line">					<span class="keyword">return</span> <span class="literal">true</span></span><br><span class="line">				&#125;</span><br><span class="line">			&#125; <span class="keyword">else</span> <span class="keyword">if</span> stack[neighbor] &#123;</span><br><span class="line">				<span class="keyword">return</span> <span class="literal">true</span></span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		stack[node] = <span class="literal">false</span></span><br><span class="line">		<span class="keyword">return</span> <span class="literal">false</span></span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">for</span> node := <span class="keyword">range</span> graph &#123;</span><br><span class="line">		<span class="keyword">if</span> !visited[node] &#123;</span><br><span class="line">			<span class="keyword">if</span> dfs(node) &#123;</span><br><span class="line">				<span class="keyword">return</span> <span class="literal">true</span></span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> <span class="literal">false</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(t *TopologicalSorter)</span> <span class="title">New</span><span class="params">(graph <span class="keyword">map</span>[ActivateInterface][]ActivateInterface)</span> <span class="title">error</span></span> &#123;</span><br><span class="line">	<span class="keyword">if</span> <span class="built_in">len</span>(t.ReadyNodes) &gt; <span class="number">0</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> errors.New(<span class="string">"nodes cannot be added after a call to Prepare()"</span>)</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">for</span> node, predecessors := <span class="keyword">range</span> graph &#123;</span><br><span class="line">		t.addNode(node, predecessors...)</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">if</span> t.hasCycle(graph) &#123;</span><br><span class="line">		<span class="keyword">return</span> errors.New(<span class="string">"nodes are in a cycle"</span>)</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Done 处理完成后需要调用 Done 方法，将其从就绪中移除</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(t *TopologicalSorter)</span> <span class="title">Done</span><span class="params">(node ActivateInterface)</span> <span class="title">error</span></span> &#123;</span><br><span class="line">	n := t.getNode(node)</span><br><span class="line"></span><br><span class="line">	<span class="comment">//确保当前要被 done 的节点已经被标记为 _NODE_OUT（-1） 了。</span></span><br><span class="line">	<span class="keyword">if</span> n.Predecessors != NodeOut &#123;</span><br><span class="line">		<span class="keyword">if</span> n.Predecessors &gt;= <span class="number">0</span> &#123;</span><br><span class="line">			<span class="keyword">return</span> errors.New(<span class="string">"node was not passed out (still not ready)"</span>)</span><br><span class="line">		&#125; <span class="keyword">else</span> <span class="keyword">if</span> n.Predecessors == NodeDone &#123;</span><br><span class="line">			<span class="keyword">return</span> errors.New(<span class="string">"node was already marked done"</span>)</span><br><span class="line">		&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">			<span class="keyword">return</span> errors.New(<span class="string">"unknown status"</span>)</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// 将本身置为过期</span></span><br><span class="line">	n.Predecessors = NodeDone</span><br><span class="line">	<span class="keyword">for</span> _, successor := <span class="keyword">range</span> n.Successors &#123;</span><br><span class="line">		successorNode := t.getNode(successor)</span><br><span class="line">		<span class="comment">// 依赖减-1</span></span><br><span class="line">		successorNode.Predecessors -= <span class="number">1</span></span><br><span class="line">		<span class="keyword">if</span> successorNode.Predecessors == <span class="number">0</span> &#123;</span><br><span class="line">			<span class="comment">// 没有依赖的节点，加入 ReadyNodes</span></span><br><span class="line">			t.ReadyNodes = <span class="built_in">append</span>(t.ReadyNodes, successor)</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Prepare 运行 GetRead 前需要运行 Prepare。Prepare 添加就绪节点</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(t *TopologicalSorter)</span> <span class="title">Prepare</span><span class="params">()</span> <span class="title">error</span></span> &#123;</span><br><span class="line">	<span class="keyword">if</span> <span class="built_in">len</span>(t.ReadyNodes) &gt; <span class="number">0</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> errors.New(<span class="string">"cannot prepare() more than once"</span>)</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">for</span> _, v := <span class="keyword">range</span> t.NodeMap &#123;</span><br><span class="line">		<span class="comment">// 等于0才加入就绪列表，小于0说明过期了。大于0说明还有前置依赖节点没有执行。</span></span><br><span class="line">		<span class="keyword">if</span> v.Predecessors == <span class="number">0</span> &#123;</span><br><span class="line">			t.ReadyNodes = <span class="built_in">append</span>(t.ReadyNodes, v.N)</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// GetReady 获取就绪节点</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(t *TopologicalSorter)</span> <span class="title">GetReady</span><span class="params">()</span> <span class="params">(data []ActivateInterface)</span></span> &#123;</span><br><span class="line">	data = t.ReadyNodes</span><br><span class="line">	<span class="comment">// 将当前就绪节点的 Predecessors 的值设置为 -1</span></span><br><span class="line">	<span class="keyword">for</span> _, d := <span class="keyword">range</span> data &#123;</span><br><span class="line">		t.NodeMap[d].Predecessors = NodeOut</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// 每次获取 Read 节点后，需要清除 ReadyNodes</span></span><br><span class="line">	t.ReadyNodes = t.ReadyNodes[:<span class="number">0</span>:<span class="number">0</span>]</span><br><span class="line">	<span class="keyword">return</span> data</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 获取节点，有缓存则直接返回。没有则创建一个新的</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(t *TopologicalSorter)</span> <span class="title">getNode</span><span class="params">(node ActivateInterface)</span> <span class="params">(n *TopologicalNode)</span></span> &#123;</span><br><span class="line">	n, ok := t.NodeMap[node]</span><br><span class="line">	<span class="keyword">if</span> !ok &#123;</span><br><span class="line">		n = &amp;TopologicalNode&#123;N: node, Predecessors: <span class="number">0</span>, Successors: []ActivateInterface&#123;&#125;&#125;</span><br><span class="line">		t.NodeMap[node] = n</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> n</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 新增节点，并设置节点的 Predecessors 和 Successors</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(t *TopologicalSorter)</span> <span class="title">addNode</span><span class="params">(node ActivateInterface, predecessors ...ActivateInterface)</span></span> &#123;</span><br><span class="line">	nodeInfo := t.getNode(node)</span><br><span class="line">	nodeInfo.Predecessors += <span class="built_in">len</span>(predecessors)</span><br><span class="line">	<span class="keyword">for</span> _, p := <span class="keyword">range</span> predecessors &#123;</span><br><span class="line">		cacheNodeInfo := t.getNode(p)</span><br><span class="line">		cacheNodeInfo.Successors = <span class="built_in">append</span>(cacheNodeInfo.Successors, node)</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2023/03/14/Go 并发编程-3.Mutex使用陷阱/" rel="prev" title="Go 并发编程-3.Mutex使用陷阱">
+      <i class="fa fa-chevron-left"></i> Go 并发编程-3.Mutex使用陷阱
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2023/03/14/Go 并发编程-3.Mutex拓展/" rel="next" title="Go 并发编程-3.Mutex拓展">
+      Go 并发编程-3.Mutex拓展 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#Python-实现"><span class="nav-number">1.</span> <span class="nav-text">Python 实现</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Go-实现"><span class="nav-number">2.</span> <span class="nav-text">Go 实现</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

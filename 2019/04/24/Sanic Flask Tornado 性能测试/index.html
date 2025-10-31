@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="这其实是公司安排的一个任务，对 Sanic 框架进行简单的研究，并对比一下目前的性能。例子中我们使用 wrk 进行简单的压力测试，对简单的 HTTP 请求进行分析。">
+<meta name="keywords" content="Python">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Sanic Flask Tornado 性能测试">
+<meta property="og:url" content="https://rexyan.github.io/2019/04/24/Sanic Flask Tornado 性能测试/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="这其实是公司安排的一个任务，对 Sanic 框架进行简单的研究，并对比一下目前的性能。例子中我们使用 wrk 进行简单的压力测试，对简单的 HTTP 请求进行分析。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.401Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Sanic Flask Tornado 性能测试">
+<meta name="twitter:description" content="这其实是公司安排的一个任务，对 Sanic 框架进行简单的研究，并对比一下目前的性能。例子中我们使用 wrk 进行简单的压力测试，对简单的 HTTP 请求进行分析。">
+
+<link rel="canonical" href="https://rexyan.github.io/2019/04/24/Sanic Flask Tornado 性能测试/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Sanic Flask Tornado 性能测试 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2019/04/24/Sanic Flask Tornado 性能测试/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Sanic Flask Tornado 性能测试
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-04-24 17:55:57" itemprop="dateCreated datePublished" datetime="2019-04-24T17:55:57+00:00">2019-04-24</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Python/" itemprop="url" rel="index"><span itemprop="name">Python</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>这其实是公司安排的一个任务，对 Sanic 框架进行简单的研究，并对比一下目前的性能。例子中我们使用 wrk 进行简单的压力测试，对简单的 HTTP 请求进行分析。<a id="more"></a></p>
+<h3 id="Sanic"><a href="#Sanic" class="headerlink" title="Sanic"></a>Sanic</h3><h4 id="安装-Sanic"><a href="#安装-Sanic" class="headerlink" title="安装 Sanic"></a>安装 Sanic</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pip install sanic</span><br></pre></td></tr></table></figure>
+<h4 id="编写简单的-Sanic-异步-view"><a href="#编写简单的-Sanic-异步-view" class="headerlink" title="编写简单的 Sanic 异步 view"></a>编写简单的 Sanic 异步 view</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> sanic <span class="keyword">import</span> Sanic</span><br><span class="line"><span class="keyword">from</span> sanic.views <span class="keyword">import</span> HTTPMethodView</span><br><span class="line"><span class="keyword">from</span> sanic.response <span class="keyword">import</span> text</span><br><span class="line"></span><br><span class="line">app = Sanic(<span class="string">'sanic_demo'</span>)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">SimpleAsyncView</span><span class="params">(HTTPMethodView)</span>:</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">get</span><span class="params">(self, request)</span>:</span></span><br><span class="line">        <span class="keyword">return</span> text(<span class="string">'I am async get method'</span>)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">post</span><span class="params">(self, request)</span>:</span></span><br><span class="line">        <span class="keyword">return</span> text(<span class="string">'I am async post method'</span>)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">put</span><span class="params">(self, request)</span>:</span></span><br><span class="line">        <span class="keyword">return</span> text(<span class="string">'I am async put method'</span>)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">app.add_route(SimpleAsyncView.as_view(), <span class="string">'/async'</span>)</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</span><br><span class="line">    app.run(host=<span class="string">"0.0.0.0"</span>, port=<span class="number">8673</span>)</span><br></pre></td></tr></table></figure>
+<h4 id="测试"><a href="#测试" class="headerlink" title="测试"></a>测试</h4><h5 id="介绍"><a href="#介绍" class="headerlink" title="介绍"></a>介绍</h5><p>这里的 web 压力测试使用 wrk,  具体使用方法可参考 <a href="https://github.com/wg/wrk" target="_blank" rel="noopener">wrk</a> 。另外因为每个 web 框架都自带 Server（Sanci， Tornado 二者本身可以作为 Web Server，Flask 自带 WSGI 服务），为了保证每个 web 框架的统一性，这里都统一使用 Gunicorn 部署服务，并且 worker 数量统一为16。另外也保证环境的统一，我们使用同一个镜像来进行测试。</p>
+<p>gunicorn 配置大致如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">bind = &apos;0.0.0.0:8673&apos;</span><br><span class="line">workers = 16</span><br><span class="line">backlog = 2048</span><br><span class="line">#worker_class = &quot;gevent&quot;</span><br><span class="line">debug = False</span><br><span class="line">proc_name = &apos;gunicorn.pid&apos;</span><br><span class="line">pidfile = &apos;gunicorn.pid&apos;</span><br><span class="line">logfile = &apos;debug.log&apos;</span><br><span class="line">loglevel=&apos;debug&apos;</span><br></pre></td></tr></table></figure>
+<h5 id="镜像"><a href="#镜像" class="headerlink" title="镜像"></a>镜像</h5><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker pull python-3.6</span><br></pre></td></tr></table></figure>
+<h5 id="发布脚本"><a href="#发布脚本" class="headerlink" title="发布脚本"></a>发布脚本</h5><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash">!/bin/sh</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 启动类型，支持uwsgi 或 gunicorn</span></span><br><span class="line">start_type="gunicorn"</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 容器名称</span></span><br><span class="line">container_name="sanic_demo"</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 运行端口</span></span><br><span class="line">run_port="8673"</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 容器内部运行端口</span></span><br><span class="line">container_run_port="8673"</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash">宿主机代码地址</span></span><br><span class="line">code_path="/Users/rex/Documents/Projects/Python/sanic_demo/sanic_part/"</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 映射到容器内部的代码地址</span></span><br><span class="line">container_code_path="/app/docker/www/sanic_demo/"</span><br><span class="line"></span><br><span class="line"><span class="meta">#</span><span class="bash"> 镜像名称</span></span><br><span class="line">image="sanic_demo:3.6"</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">kill_container()&#123;</span><br><span class="line"><span class="meta">	#</span><span class="bash"> 停止并且删除待发布正在运行的容器</span></span><br><span class="line">	echo "**INFO**: " 停止旧服务: $container_name</span><br><span class="line">	docker rm -f $container_name</span><br><span class="line">	echo "**INFO**: " 停止 $container_name 服务成功！: </span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">pull_new_image()&#123;</span><br><span class="line"><span class="meta">	#</span><span class="bash"> 拉取本次最新的镜像</span></span><br><span class="line">	echo "**INFO**: " 拉取所需镜像: $image</span><br><span class="line">	docker pull $image</span><br><span class="line">	echo "**INFO**: " 拉取镜像 $image 成功！ </span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">publish()&#123;</span><br><span class="line"><span class="meta">	#</span><span class="bash"> 启动服务</span></span><br><span class="line">	echo "**INFO**: " 启动服务, 运行类型为 $start_type:</span><br><span class="line"></span><br><span class="line">	if [ "$start_type" == "uwsgi" ]</span><br><span class="line">		then</span><br><span class="line">			docker run -d -p $run_port:$container_run_port -v $code_path:$container_code_path -e SERVICE_NAME=$container_name -e SERVICE_TAGS=$container_name -w $container_code_path --name=$container_name $image nohup uwsgi --ini uwsgi.ini --wsgi-disable-file-wrapper</span><br><span class="line">	elif [ "$start_type" == "gunicorn" ]</span><br><span class="line">		then</span><br><span class="line">			docker run -d -p $run_port:$container_run_port -v $code_path:$container_code_path -e SERVICE_NAME=$container_name -e SERVICE_TAGS=$container_name -w $container_code_path --name=$container_name $image nohup gunicorn -c gunicorn.conf -t 60 server:app</span><br><span class="line">	else</span><br><span class="line">		echo "**INFO**: " 目前只支持 uwsgi 或 gunicorn 发布 Python 项目！</span><br><span class="line">	fi</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">get_publish_status()&#123;</span><br><span class="line"><span class="meta">	#</span><span class="bash"> 获取本次发布状态:</span></span><br><span class="line">	grep_container_name=`docker ps --format "&#123;&#123;.Names&#125;&#125;" | grep $container_name` </span><br><span class="line">	if [ "$grep_container_name" == "$container_name" ]</span><br><span class="line">		then</span><br><span class="line">			echo "**INFO**: " $container_name 发布成功！！！</span><br><span class="line">	else</span><br><span class="line">		echo "**INFO**: " $container_name 发布失败！！！</span><br><span class="line">	fi</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">get_all_container_status()&#123;</span><br><span class="line"><span class="meta">	#</span><span class="bash"> 查看所有容器状态</span></span><br><span class="line">	docker ps</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">main()&#123;</span><br><span class="line">	kill_container</span><br><span class="line">	pull_new_image</span><br><span class="line">	publish</span><br><span class="line">	get_publish_status</span><br><span class="line"><span class="meta">	#</span><span class="bash"> get_all_container_status</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">main</span><br></pre></td></tr></table></figure>
+<h5 id="启动"><a href="#启动" class="headerlink" title="启动"></a>启动</h5><p>输出日志如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">192:docker rex$ sh publish.sh </span><br><span class="line">**INFO**:  停止旧服务: sanic_demo</span><br><span class="line">sanic_demo</span><br><span class="line">**INFO**:  停止 sanic_demo 服务成功！:</span><br><span class="line">**INFO**:  拉取所需镜像: sanic_demo:3.6</span><br><span class="line">Error response from daemon: pull access denied for sanic_demo, repository does not exist or may require &apos;docker login&apos;</span><br><span class="line">**INFO**:  拉取镜像 sanic_demo:3.6 成功！</span><br><span class="line">**INFO**:  启动服务, 运行类型为 gunicorn:</span><br><span class="line">2a2ce354f08b4d62d86f600f19f691ff8062798d00308cd0e7abb683010b77ae</span><br><span class="line">**INFO**:  sanic_demo 发布成功！！！</span><br></pre></td></tr></table></figure>
+<p>查看容器状态：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">192:~ rex$ docker ps </span><br><span class="line">CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS                    NAMES</span><br><span class="line">2a2ce354f08b        sanic_demo:3.6      &quot;nohup gunicorn -c g…&quot;   5 seconds ago       Up 3 seconds        0.0.0.0:8673-&gt;8673/tcp   sanic_demo</span><br></pre></td></tr></table></figure>
+<p>访问 <a href="http://127.0.0.1:8673/async" target="_blank" rel="noopener">http://127.0.0.1:8673/async</a> 却得到一个 <strong>Internal Server Error</strong> 后来查询官方文档，才知道若 sanic 使用 gunicorn 启动，那么需要加上  –worker-class sanic.worker.GunicornWorker 参数。加上后正常启动，访问页面，就能看到返回的内容了。</p>
+<h5 id="压力测试"><a href="#压力测试" class="headerlink" title="压力测试"></a>压力测试</h5><p>安装 wrk</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">brew install wrk</span><br></pre></td></tr></table></figure>
+<p>并发测试</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">wrk -t4 -c1000 -d30s -T30s --latency http://127.0.0.1:8673/async</span><br></pre></td></tr></table></figure>
+<p>这条命令的意思是用4个线程来模拟 1000 个并发连接，整个测试持续 30 秒，连接超时 30 秒，打印出请求的延迟统计信息。需要注意的是 wrk 使用异步非阻塞的 io，并不是用线程去模拟并发连接，因此不需要设置很多的线程，一般根据 CPU 的核心数量设置即可。另外 -c 参数设置的值必须大于 -t 参数的值。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">192:~ rex$ wrk -t4 -c1000 -d30s -T30s --latency http://127.0.0.1:8673/async</span><br><span class="line">Running 30s test @ http://127.0.0.1:8673/async</span><br><span class="line">  4 threads and 1000 connections</span><br><span class="line">  Thread Stats   Avg      Stdev     Max   +/- Stdev</span><br><span class="line">    Latency   190.17ms  137.14ms   1.31s    78.88%</span><br><span class="line">    Req/Sec   311.78     97.57   700.00     69.82%</span><br><span class="line">  Latency Distribution</span><br><span class="line">     50%  163.99ms</span><br><span class="line">     75%  248.01ms</span><br><span class="line">     90%  336.62ms</span><br><span class="line">     99%  646.97ms</span><br><span class="line">  37275 requests in 30.05s, 4.98MB read</span><br><span class="line">  Socket errors: connect 751, read 361, write 1, timeout 0</span><br><span class="line">Requests/sec:   1240.28</span><br><span class="line">Transfer/sec:    169.57KB</span><br></pre></td></tr></table></figure>
+<p>主要关注的几个数据是</p>
+<ul>
+<li><code>Socket errors</code> socket 错误的数量</li>
+<li><code>Requests/sec</code> 每秒请求数量，也就是并发能力</li>
+<li><code>Latency</code> 延迟情况及其分布</li>
+</ul>
+<p><strong>由此可以看到使用 gunicorn 部署 Requests/sec 为 1240.28</strong>。</p>
+<p>若不使用 gunicorn 部署，而是直接启动 server.py, 测试结果如下:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">192:~ rex$ wrk -t4 -c1000 -d30s -T30s --latency http://127.0.0.1:8673/async</span><br><span class="line">Running 30s test @ http://127.0.0.1:8673/async</span><br><span class="line">  4 threads and 1000 connections</span><br><span class="line">  Thread Stats   Avg      Stdev     Max   +/- Stdev</span><br><span class="line">    Latency    25.00ms    9.13ms  43.74ms   61.46%</span><br><span class="line">    Req/Sec     2.41k   289.07     4.85k    74.20%</span><br><span class="line">  Latency Distribution</span><br><span class="line">     50%   19.40ms</span><br><span class="line">     75%   34.88ms</span><br><span class="line">     90%   36.38ms</span><br><span class="line">     99%   39.80ms</span><br><span class="line">  288839 requests in 30.10s, 38.56MB read</span><br><span class="line">  Socket errors: connect 751, read 222, write 0, timeout 0</span><br><span class="line">Requests/sec:   9595.17</span><br><span class="line">Transfer/sec:      1.28MB</span><br></pre></td></tr></table></figure>
+<p><strong>由此可以看到不使用 gunicorn 部署 Requests/sec 为 9595.17</strong> 刚开始我也不相信，所以这里做了两遍的测试，结果出来结果都是一样。特意去官网上查了一下，sanic 官方说明了两种部署方式，一种是直接运行，另一种使用时 gunicorn，但是并没有说明两种方式在性能上的差异性。</p>
+<p>接下来我们可以对 Flask 进行测试</p>
+<h3 id="Flask"><a href="#Flask" class="headerlink" title="Flask"></a>Flask</h3><h4 id="安装-Flask"><a href="#安装-Flask" class="headerlink" title="安装 Flask"></a>安装 Flask</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pip install flask</span><br></pre></td></tr></table></figure>
+<h4 id="编写简单的-Flask-view"><a href="#编写简单的-Flask-view" class="headerlink" title="编写简单的 Flask view"></a>编写简单的 Flask view</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> flask <span class="keyword">import</span> Flask</span><br><span class="line"></span><br><span class="line">app = Flask(__name__)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="meta">@app.route("/flask")</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">hello</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="keyword">return</span> <span class="string">"I am flask get method"</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">"__main__"</span>:</span><br><span class="line">    app.run(host=<span class="string">"127.0.0.1"</span>, port=<span class="string">"8673"</span>)</span><br></pre></td></tr></table></figure>
+<p>有了 Sanic 的部署和设置，Flask 部署起来很轻松。只需将 publish.sh 中的宿主机代码地址改为 /Users/rex/Documents/Projects/Python/sanic_demo/sanic_part/ 即可。同时去除 –worker-class sanic.worker.GunicornWorker 参数。容器启动之后就能通过浏览器访问到页面了。</p>
+<h4 id="测试-1"><a href="#测试-1" class="headerlink" title="测试"></a>测试</h4><p>其余准备工作和测试 Sanic 差不对，这里就直接进行压力测试了。</p>
+<h5 id="压力测试-1"><a href="#压力测试-1" class="headerlink" title="压力测试"></a>压力测试</h5><p>并发测试</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">wrk -t4 -c1000 -d30s -T30s --latency http://127.0.0.1:8673/flask</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">192:~ rex$ wrk -t4 -c1000 -d30s -T30s --latency http://127.0.0.1:8673/flask</span><br><span class="line">Running 30s test @ http://127.0.0.1:8673/flask</span><br><span class="line">  4 threads and 1000 connections</span><br><span class="line">  Thread Stats   Avg      Stdev     Max   +/- Stdev</span><br><span class="line">    Latency   398.12ms  833.40ms  20.42s    91.13%</span><br><span class="line">    Req/Sec   156.88     38.44   306.00     73.70%</span><br><span class="line">  Latency Distribution</span><br><span class="line">     50%  225.86ms</span><br><span class="line">     75%  242.44ms</span><br><span class="line">     90%  302.70ms</span><br><span class="line">     99%    3.90s </span><br><span class="line">  16589 requests in 30.10s, 2.86MB read</span><br><span class="line">  Socket errors: connect 751, read 446, write 2, timeout 0</span><br><span class="line">Requests/sec:    551.04</span><br><span class="line">Transfer/sec:     97.40KB</span><br></pre></td></tr></table></figure>
+<p><strong>由此可以看到使用 gunicorn 部署  Requests/sec 为 551.04</strong> 比sanci 低了一倍多。</p>
+<p>若不使用 gunicorn 部署，而是直接启动 server.py, 测试结果如下:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">192:~ rex$ wrk -t4 -c1000 -d30s -T30s --latency http://127.0.0.1:8673/flask</span><br><span class="line">Running 30s test @ http://127.0.0.1:8673/flask</span><br><span class="line">  4 threads and 1000 connections</span><br><span class="line">  Thread Stats   Avg      Stdev     Max   +/- Stdev</span><br><span class="line">    Latency    63.42ms   10.12ms  93.95ms   92.39%</span><br><span class="line">    Req/Sec   470.13    147.27   777.00     77.49%</span><br><span class="line">  Latency Distribution</span><br><span class="line">     50%   65.15ms</span><br><span class="line">     75%   65.61ms</span><br><span class="line">     90%   66.20ms</span><br><span class="line">     99%   79.72ms</span><br><span class="line">  16574 requests in 30.05s, 2.77MB read</span><br><span class="line">  Socket errors: connect 763, read 833, write 9, timeout 0</span><br><span class="line">Requests/sec:    551.48</span><br><span class="line">Transfer/sec:     94.25KB</span><br></pre></td></tr></table></figure>
+<p><strong>由此可以看到不使用 gunicorn 部署 Requests/sec 为 551.48</strong> 二者方式却别不大。</p>
+<h3 id="Tronado"><a href="#Tronado" class="headerlink" title="Tronado"></a>Tronado</h3><h4 id="安装-Tornado"><a href="#安装-Tornado" class="headerlink" title="安装 Tornado"></a>安装 Tornado</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pip install tornado</span><br></pre></td></tr></table></figure>
+<h5 id="编写简单的-Tornado-view"><a href="#编写简单的-Tornado-view" class="headerlink" title="编写简单的 Tornado view"></a>编写简单的 Tornado view</h5><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> tornado.ioloop</span><br><span class="line"><span class="keyword">import</span> tornado.web</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">MainHandler</span><span class="params">(tornado.web.RequestHandler)</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">get</span><span class="params">(self)</span>:</span></span><br><span class="line">        self.write(<span class="string">"I am tornado get method"</span>)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">make_app</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="keyword">return</span> tornado.web.Application([</span><br><span class="line">        (<span class="string">r"/tornado"</span>, MainHandler),</span><br><span class="line">    ])</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">"__main__"</span>:</span><br><span class="line">    app = make_app()</span><br><span class="line">    app.listen(<span class="number">8673</span>)</span><br><span class="line">    tornado.ioloop.IOLoop.current().start()</span><br></pre></td></tr></table></figure>
+<p>因为 Tornado 不使用 gunicorn 启动，Tornado 本身就是一个 HTTP Server，所以我们直接运行 server.py 进行测试就行。</p>
+<h4 id="测试-2"><a href="#测试-2" class="headerlink" title="测试"></a>测试</h4><p>其余准备工作和测试 Sanic 差不对，这里就直接进行压力测试了。</p>
+<h5 id="压力测试-2"><a href="#压力测试-2" class="headerlink" title="压力测试"></a>压力测试</h5><p>并发测试</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">wrk -t4 -c1000 -d30s -T30s --latency http://127.0.0.1:8673/tornado</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">192:~ rex$ wrk -t4 -c1000 -d30s -T30s --latency http://127.0.0.1:8673/tornado</span><br><span class="line">Running 30s test @ http://127.0.0.1:8673/tornado</span><br><span class="line">  4 threads and 1000 connections</span><br><span class="line">  Thread Stats   Avg      Stdev     Max   +/- Stdev</span><br><span class="line">    Latency    78.63ms    4.31ms  88.15ms   91.13%</span><br><span class="line">    Req/Sec   785.93    179.12     1.19k    60.40%</span><br><span class="line">  Latency Distribution</span><br><span class="line">     50%   79.25ms</span><br><span class="line">     75%   79.93ms</span><br><span class="line">     90%   80.71ms</span><br><span class="line">     99%   85.43ms</span><br><span class="line">  93959 requests in 30.07s, 19.53MB read</span><br><span class="line">  Socket errors: connect 751, read 181, write 0, timeout 0</span><br><span class="line">Requests/sec:   3124.51</span><br><span class="line">Transfer/sec:    665.18KB</span><br></pre></td></tr></table></figure>
+<p><strong>由此可以看到不使用 gunicorn 部署  Requests/sec 为 3124.51</strong> 比 Flask 高很多，比 Sanic 低很多。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Python/" rel="tag"><i class="fa fa-tag"></i> Python</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/04/24/Sanic 维护及使用情况分析/" rel="prev" title="Sanic 维护及使用情况分析">
+      <i class="fa fa-chevron-left"></i> Sanic 维护及使用情况分析
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/04/24/Flask Sanic 数据库操作对比/" rel="next" title="Flask Sanic 数据库操作对比">
+      Flask Sanic 数据库操作对比 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#Sanic"><span class="nav-number">1.</span> <span class="nav-text">Sanic</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#安装-Sanic"><span class="nav-number">1.1.</span> <span class="nav-text">安装 Sanic</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#编写简单的-Sanic-异步-view"><span class="nav-number">1.2.</span> <span class="nav-text">编写简单的 Sanic 异步 view</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#测试"><span class="nav-number">1.3.</span> <span class="nav-text">测试</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#介绍"><span class="nav-number">1.3.1.</span> <span class="nav-text">介绍</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#镜像"><span class="nav-number">1.3.2.</span> <span class="nav-text">镜像</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#发布脚本"><span class="nav-number">1.3.3.</span> <span class="nav-text">发布脚本</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#启动"><span class="nav-number">1.3.4.</span> <span class="nav-text">启动</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#压力测试"><span class="nav-number">1.3.5.</span> <span class="nav-text">压力测试</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Flask"><span class="nav-number">2.</span> <span class="nav-text">Flask</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#安装-Flask"><span class="nav-number">2.1.</span> <span class="nav-text">安装 Flask</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#编写简单的-Flask-view"><span class="nav-number">2.2.</span> <span class="nav-text">编写简单的 Flask view</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#测试-1"><span class="nav-number">2.3.</span> <span class="nav-text">测试</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#压力测试-1"><span class="nav-number">2.3.1.</span> <span class="nav-text">压力测试</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Tronado"><span class="nav-number">3.</span> <span class="nav-text">Tronado</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#安装-Tornado"><span class="nav-number">3.1.</span> <span class="nav-text">安装 Tornado</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#编写简单的-Tornado-view"><span class="nav-number">3.1.1.</span> <span class="nav-text">编写简单的 Tornado view</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#测试-2"><span class="nav-number">3.2.</span> <span class="nav-text">测试</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#压力测试-2"><span class="nav-number">3.2.1.</span> <span class="nav-text">压力测试</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

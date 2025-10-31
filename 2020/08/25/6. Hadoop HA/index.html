@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="Zookeeper 集群搭建ZK 的写流程，客户端可以连接任意的 zkserver 实例，向 server 发送写请求命令，如果当前连接的 server 不是Leader，server 会将写命令发送给 Leader，Leader 将写操作命令广播到集群的其他节点，所有节点都执行写操作命令，一旦集群中半数以上的节点写数据成功，Leader 会响应当前 Server，让当前 Server 响应客户端">
+<meta name="keywords" content="Hadoop">
+<meta property="og:type" content="article">
+<meta property="og:title" content="6. Hadoop HA">
+<meta property="og:url" content="https://rexyan.github.io/2020/08/25/6. Hadoop HA/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="Zookeeper 集群搭建ZK 的写流程，客户端可以连接任意的 zkserver 实例，向 server 发送写请求命令，如果当前连接的 server 不是Leader，server 会将写命令发送给 Leader，Leader 将写操作命令广播到集群的其他节点，所有节点都执行写操作命令，一旦集群中半数以上的节点写数据成功，Leader 会响应当前 Server，让当前 Server 响应客户端">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5qsTQQsLBSMU0hVtZ0NriXvfEXN0lE3YJe24RDltJhO2nKAF2rNND4YYXjAxxMQTPgkzdtc4lgJ2w6FG2s7J72c!/mnull&bo=XQRFAV0ERQEDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5uNtjh*JxaaNbSl..AmdW2sBk*HkFPzqVNBpZqsydmd*XbeKDsshTZgnIE7drEKKddeZJa94l2Q3VCvnyyeq0vs!/mnull&bo=CglEAQoJRAEDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5udfkVQUBwgzgTu1XQuDOdxVJWEqBSr.2P6sfDnP83gDddRrnsG6hchztNIoDp7neSiksyLf7fGVuCxE9YWQHog!/mnull&bo=zAeAAsoMGgQDCb0!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.388Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="6. Hadoop HA">
+<meta name="twitter:description" content="Zookeeper 集群搭建ZK 的写流程，客户端可以连接任意的 zkserver 实例，向 server 发送写请求命令，如果当前连接的 server 不是Leader，server 会将写命令发送给 Leader，Leader 将写操作命令广播到集群的其他节点，所有节点都执行写操作命令，一旦集群中半数以上的节点写数据成功，Leader 会响应当前 Server，让当前 Server 响应客户端">
+<meta name="twitter:image" content="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5qsTQQsLBSMU0hVtZ0NriXvfEXN0lE3YJe24RDltJhO2nKAF2rNND4YYXjAxxMQTPgkzdtc4lgJ2w6FG2s7J72c!/mnull&bo=XQRFAV0ERQEDCSw!&rf=photolist&t=5/r/_yake_qzoneimgout.png">
+
+<link rel="canonical" href="https://rexyan.github.io/2020/08/25/6. Hadoop HA/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>6. Hadoop HA | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2020/08/25/6. Hadoop HA/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          6. Hadoop HA
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-08-25 16:44:57" itemprop="dateCreated datePublished" datetime="2020-08-25T16:44:57+00:00">2020-08-25</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Java-大数据进阶/" itemprop="url" rel="index"><span itemprop="name">Java 大数据进阶</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="Zookeeper-集群搭建"><a href="#Zookeeper-集群搭建" class="headerlink" title="Zookeeper 集群搭建"></a>Zookeeper 集群搭建</h3><p>ZK 的写流程，客户端可以连接任意的 zkserver 实例，向 server 发送写请求命令，如果当前连接的 server 不是Leader，server 会将写命令发送给 Leader，Leader 将写操作命令广播到集群的其他节点，所有节点都执行写操作命令，一旦集群中半数以上的节点写数据成功，Leader 会响应当前 Server，让当前 Server 响应客户端，写操作完成。</p>
+<p>集群搭建流程可参考之前 <a href="[https://yanrs.me/2020/05/19/55.%20Zookeeper/](https://yanrs.me/2020/05/19/55. Zookeeper/">文章</a>), 启动后效果如下：</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5qsTQQsLBSMU0hVtZ0NriXvfEXN0lE3YJe24RDltJhO2nKAF2rNND4YYXjAxxMQTPgkzdtc4lgJ2w6FG2s7J72c!/mnull&amp;bo=XQRFAV0ERQEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<h3 id="Hadoop-HA"><a href="#Hadoop-HA" class="headerlink" title="Hadoop HA"></a>Hadoop HA</h3><p>之前搭建 hadoop 集群的时候，NN 和 RM 都只有一个节点，那么实现 hadoop 的 HA，必须保证在 NN 和 RM 故障时，采取容错机制，可以让集群继续使用。</p>
+<h4 id="HDFS-HA"><a href="#HDFS-HA" class="headerlink" title="HDFS HA"></a>HDFS HA</h4><h5 id="元数据同步过程"><a href="#元数据同步过程" class="headerlink" title="元数据同步过程"></a>元数据同步过程</h5><p>NN 的高可用中元数据的同步过程为，在 active【使用 active 状态来标记主节点，使用 standby 状态标记备用节点】的 NN 格式化后，将空白的 fsimage 文件拷贝到所有的 NN 的机器上，active 的 NN 在启动后，将 edits 文件中的内容发送给 Journalnode 进程，standby 状态的 NN 主动从 Journalnode 进程拷贝数据，保证元数据的同步。Journalnode 在设计时，采用 paxos 协议, Journalnode 适合在奇数台机器上启动，在 hadoop 中，要求至少需要3个 Journalnode 进程，如果开启了 hdfs 的 ha, 就不能再启动 2NN。在同一时刻，最多只能有一个 NN 作为主节点，对外提供服务，其余的 NN，都作为备用节点，不对外提供服务。</p>
+<h5 id="搭建过程"><a href="#搭建过程" class="headerlink" title="搭建过程"></a>搭建过程</h5><p><strong>1. 修改 core-site.xml 中的 fs.defaultFS 地址</strong></p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">   <span class="tag">&lt;<span class="name">name</span>&gt;</span>fs.defaultFS<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">   <span class="tag">&lt;<span class="name">value</span>&gt;</span>hdfs://mycluster<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p>mycluster 是自定义的集群名称</p>
+<p><strong>2. 修改 hdfs-site.xml 文件，配置 N 个 NN 运行的主机和端口。配置 JournalNode</strong></p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">&lt;!-- 完全分布式集群名称 --&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">		<span class="tag">&lt;<span class="name">name</span>&gt;</span>dfs.nameservices<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">		<span class="tag">&lt;<span class="name">value</span>&gt;</span>mycluster<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">&lt;!-- 集群中NameNode节点都有哪些 --&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">		<span class="tag">&lt;<span class="name">name</span>&gt;</span>dfs.ha.namenodes.mycluster<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">		<span class="tag">&lt;<span class="name">value</span>&gt;</span>nn1,nn2<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">&lt;!-- nn1的RPC通信地址 --&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">		<span class="tag">&lt;<span class="name">name</span>&gt;</span>dfs.namenode.rpc-address.mycluster.nn1<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">		<span class="tag">&lt;<span class="name">value</span>&gt;</span>hadoop10:9000<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">&lt;!-- nn2的RPC通信地址 --&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">		<span class="tag">&lt;<span class="name">name</span>&gt;</span>dfs.namenode.rpc-address.mycluster.nn2<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">		<span class="tag">&lt;<span class="name">value</span>&gt;</span>hadoop11:9000<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">&lt;!-- nn1的http通信地址 --&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">		<span class="tag">&lt;<span class="name">name</span>&gt;</span>dfs.namenode.http-address.mycluster.nn1<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">		<span class="tag">&lt;<span class="name">value</span>&gt;</span>hadoop10:50070<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">&lt;!-- nn2的http通信地址 --&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">		<span class="tag">&lt;<span class="name">name</span>&gt;</span>dfs.namenode.http-address.mycluster.nn2<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">		<span class="tag">&lt;<span class="name">value</span>&gt;</span>hadoop11:50070<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">&lt;!-- 指定NameNode元数据在JournalNode上的存放位置(JournalNode 至少三个) --&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">		<span class="tag">&lt;<span class="name">name</span>&gt;</span>dfs.namenode.shared.edits.dir<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">value</span>&gt;</span>qjournal://hadoop10:8485;hadoop11:8485;hadoop12:8485/mycluster<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">&lt;!-- 配置隔离机制，即同一时刻只能有一台服务器对外响应。当发生自动故障转移的时候，使用 ssh 发送命令的方式来杀死之前的服务，防止脑裂的情况 --&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">		<span class="tag">&lt;<span class="name">name</span>&gt;</span>dfs.ha.fencing.methods<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">		<span class="tag">&lt;<span class="name">value</span>&gt;</span>sshfence<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">&lt;!-- 使用隔离机制时需要ssh无秘钥登录 --&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">		<span class="tag">&lt;<span class="name">name</span>&gt;</span>dfs.ha.fencing.ssh.private-key-files<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">		<span class="tag">&lt;<span class="name">value</span>&gt;</span>/home/rexyan/.ssh/id_rsa<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">&lt;!-- 声明journalnode服务器存储目录--&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">		<span class="tag">&lt;<span class="name">name</span>&gt;</span>dfs.journalnode.edits.dir<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">		<span class="tag">&lt;<span class="name">value</span>&gt;</span>/opt/module/hadoop-2.7.2/data/jn<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">&lt;!-- 关闭权限检查--&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">		<span class="tag">&lt;<span class="name">name</span>&gt;</span>dfs.permissions.enable<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">		<span class="tag">&lt;<span class="name">value</span>&gt;</span>false<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"></span><br><span class="line">	<span class="comment">&lt;!-- 访问代理类：client，mycluster，active配置失败自动切换实现方式--&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">  		<span class="tag">&lt;<span class="name">name</span>&gt;</span>dfs.client.failover.proxy.provider.mycluster<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">value</span>&gt;</span>org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p>上面配置中配置了两个NN 节点，分别在 hadoop10 和 hadoop11 机器上，分别配置了两个节点的 RPC 地址和 HTTP 地址，配置了 Journal 服务所在的位置等。</p>
+<h5 id="启动过程"><a href="#启动过程" class="headerlink" title="启动过程"></a>启动过程</h5><p><strong>1. 在所有机器上启动 JournalNode</strong></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sh xcall hadoop-daemons.sh start journalnode</span><br></pre></td></tr></table></figure>
+<p>查看状态</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sh xcall jps</span><br></pre></td></tr></table></figure>
+<p><strong>2. 格式化 NN，将格式化后的 fsimage 文件同步到其他 NN 节点，启动所有 NN，将其中一个 NN 的状态转换为 active 状态</strong></p>
+<p>上面配置了两个 NN，格式化 hadoop10 上的 NN 并格式化</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">hadoop namenode -format  <span class="comment"># 格式化 hadoop 10 上的 NN</span></span><br><span class="line">hadoop-daemon.sh start namenode   <span class="comment"># 启动 hadoop 10 上的 NN</span></span><br></pre></td></tr></table></figure>
+<p>在 hadoop11 上同步 hadoop 10 上的数据，包括 fsimage 文件等</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">hdfs namenode -bootstrapStandby   <span class="comment"># 在 hadoop11 上同步 hadoop 10 上的数据</span></span><br><span class="line">hadoop-daemon.sh start namenode   <span class="comment"># 启动 hadoop11 上的 namenode</span></span><br></pre></td></tr></table></figure>
+<p>启动 nn1 和 nn2 的 datanode</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sh xcall hadoop-daemons.sh start datanode</span><br></pre></td></tr></table></figure>
+<p>访问 <a href="http://hadoop11:50070/" target="_blank" rel="noopener">http://hadoop11:50070/</a> 和 <a href="http://hadoop10:50070/" target="_blank" rel="noopener">http://hadoop10:50070/</a> 两个 nn 的 namenode web 地址，两者都显示为 standby</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5uNtjh*JxaaNbSl..AmdW2sBk*HkFPzqVNBpZqsydmd*XbeKDsshTZgnIE7drEKKddeZJa94l2Q3VCvnyyeq0vs!/mnull&amp;bo=CglEAQoJRAEDCSw!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>手动将某个 nn 节点修改为 active 状态</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hdfs haadmin -transitionToActive nn1  <span class="comment"># 手动将 nn1 节点状态改为 active</span></span><br></pre></td></tr></table></figure>
+<p>再次访问 <a href="http://hadoop10:50070/" target="_blank" rel="noopener">http://hadoop10:50070/</a> 就能看到状态从 standby 变成了 active。</p>
+<p><strong>3. 文件上传测试</strong></p>
+<p>上传一个文件到 hdfs 中，因为只有 nn1 是 active 的，所以只有 nn1 提供服务。在 web 页面中只有 nn1 可以看到上传的文件信息。如果手动将 nn1 状态修改为 standby，将 nn2 状态修改为 active，那么就只有 nn2 可以看到上传的文件信息而 nn1 则不可以。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">hdfs haadmin -transitionToStandby nn1  <span class="comment"># 将 nn1 切换为 Standby</span></span><br><span class="line">hdfs haadmin -transitionToActive nn2   <span class="comment"># 将 nn2 切换为 Active</span></span><br></pre></td></tr></table></figure>
+<h5 id="手动故障转移"><a href="#手动故障转移" class="headerlink" title="手动故障转移"></a>手动故障转移</h5><p>在上面的过程中 nn2 已经成为了 active 的状态，现在手动杀死 nn2 的 namenode 进程。因为 nn2 是 actice，且已经被杀死了，所以现在是无法正常提供服务的。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">jps  <span class="comment"># 先获取 namenode 进程号</span></span><br><span class="line"><span class="built_in">kill</span> -9 3596   <span class="comment"># 结束 namenode 进程</span></span><br></pre></td></tr></table></figure>
+<p>强制将 nn1 的状态修改为 Active</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hdfs haadmin -transitionToActive --forceactive nn1  <span class="comment"># 强制将 nn1 修改为 Active</span></span><br></pre></td></tr></table></figure>
+<p>修改成功后 hdfs 就能正常的提供服务了</p>
+<h5 id="自动故障转移"><a href="#自动故障转移" class="headerlink" title="自动故障转移"></a>自动故障转移</h5><p>自动故障转移为 HDFS 部署增加了两个新组件：ZooKeeper 和 ZKFailoverController（ZKFC）进程。ZKFC 使用一个健康检查命令定期地 ping 与之在相同主机的 NameNode，只要该 NameNode 及时地回复健康状态，ZKFC认为该节点是健康的。如果该节点崩溃，冻结或进入不健康状态，健康监测器标识该节点为非健康的。并且其他 NameNode 的 ZKFC 进程在 ZooKeeper 抢夺分布式锁，抢到的则成为 Active 状态。</p>
+<p>为了防止脑裂情况的发生，hadoop HDFS 提供了两种解决方法，一种是配置 ssh 发送 kill 命令，即其他机器会通过 ssh 的方式来给你发送 kill 命令，防止你是假死。另外一种是自己配置一个脚本，当自己的 ZKFC 进程检测到自己处于不健康的状态时，那么就调用最的脚本将自己杀死。</p>
+<h5 id="自动故障转移配置"><a href="#自动故障转移配置" class="headerlink" title="自动故障转移配置"></a>自动故障转移配置</h5><p>在 hdfs-site.xml 中配置自动故障转移</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">name</span>&gt;</span>dfs.ha.automatic-failover.enabled<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">value</span>&gt;</span>true<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p>在 core-site.xml 中配置 zk 的集群地址信息</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">name</span>&gt;</span>ha.zookeeper.quorum<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">value</span>&gt;</span>hadoop10:2181,hadoop11:2181,hadoop12:2181<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p>分发修改的两个文件，然后启动 zk 服务</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">sh xcall /opt/module/apache-zookeeper-3.6.1-bin/bin/zkServer.sh start   <span class="comment"># 启动</span></span><br><span class="line">sh xcall /opt/module/apache-zookeeper-3.6.1-bin/bin/zkServer.sh status  <span class="comment"># 查看状态</span></span><br></pre></td></tr></table></figure>
+<p>初始化 HA 在 Zookeeper 中状态(其实就是在 zk 中新增一个 znode 信息，下面存放 hadoop ha 的信息)</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hdfs zkfc -formatZK</span><br></pre></td></tr></table></figure>
+<p>启动 hdfs 服务</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">start-dfs.sh</span><br></pre></td></tr></table></figure>
+<p>查看 <a href="http://hadoop11:50070/" target="_blank" rel="noopener">http://hadoop11:50070/</a> 和 <a href="http://hadoop10:50070/" target="_blank" rel="noopener">http://hadoop10:50070/</a> 发现 hadoop11 成为了active</p>
+<p><img src="https://r.photo.store.qq.com/psc?/V12EvAd609VbnF/ruAMsa53pVQWN7FLK88i5udfkVQUBwgzgTu1XQuDOdxVJWEqBSr.2P6sfDnP83gDddRrnsG6hchztNIoDp7neSiksyLf7fGVuCxE9YWQHog!/mnull&amp;bo=zAeAAsoMGgQDCb0!&amp;rf=photolist&amp;t=5/r/_yake_qzoneimgout.png" alt></p>
+<p>模拟故障，将 hadoop11 namenode 进程杀死，然后发现 hadoop10 自动成为了 active 状态。</p>
+<h4 id="YARN-HA"><a href="#YARN-HA" class="headerlink" title="YARN HA"></a>YARN HA</h4><p>在 yarn-site.xml 中增加下面配置</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line">    <span class="comment">&lt;!--启用resourcemanager ha--&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">name</span>&gt;</span>yarn.resourcemanager.ha.enabled<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">value</span>&gt;</span>true<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"> </span><br><span class="line">    <span class="comment">&lt;!--声明两台resourcemanager的地址--&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">name</span>&gt;</span>yarn.resourcemanager.cluster-id<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">value</span>&gt;</span>cluster-yarn1<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"></span><br><span class="line">    <span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">name</span>&gt;</span>yarn.resourcemanager.ha.rm-ids<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">value</span>&gt;</span>rm1,rm2<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"></span><br><span class="line">    <span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">name</span>&gt;</span>yarn.resourcemanager.hostname.rm1<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">value</span>&gt;</span>hadoop10<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"></span><br><span class="line">    <span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">name</span>&gt;</span>yarn.resourcemanager.hostname.rm2<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">value</span>&gt;</span>hadoop11<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"> </span><br><span class="line">    <span class="comment">&lt;!--指定zookeeper集群的地址--&gt;</span> </span><br><span class="line">    <span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">name</span>&gt;</span>yarn.resourcemanager.zk-address<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">value</span>&gt;</span>hadoop10:2181,hadoop11:2181,hadoop12:2181<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">&lt;!--启用自动恢复--&gt;</span> </span><br><span class="line">    <span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">name</span>&gt;</span>yarn.resourcemanager.recovery.enabled<span class="tag">&lt;/<span class="name">name</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">value</span>&gt;</span>true<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br><span class="line"> </span><br><span class="line">    <span class="comment">&lt;!--指定resourcemanager的状态信息存储在zookeeper集群--&gt;</span> </span><br><span class="line">    <span class="tag">&lt;<span class="name">property</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">name</span>&gt;</span>yarn.resourcemanager.store.class<span class="tag">&lt;/<span class="name">name</span>&gt;</span>     <span class="tag">&lt;<span class="name">value</span>&gt;</span>org.apache.hadoop.yarn.server.resourcemanager.recovery.ZKRMStateStore<span class="tag">&lt;/<span class="name">value</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">property</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p>上面配置中声明了两台 resourcemanager 的地址分别是 hadoop10 和 hadoop11。还配置了 zookeeper 集群的地址，配置了自动恢复等。</p>
+<p>在 hadoop10 和 hadoop11 上启动 rm</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">yarn-daemon.sh start resourcemanager  <span class="comment"># hadoop10 上执行</span></span><br><span class="line">yarn-daemon.sh start resourcemanager  <span class="comment"># hadoop11 上执行</span></span><br></pre></td></tr></table></figure>
+<p>访问 <a href="http://hadoop10:8088" target="_blank" rel="noopener">http://hadoop10:8088</a> 和 <a href="http://hadoop11:8088" target="_blank" rel="noopener">http://hadoop11:8088</a> 会发现 <a href="http://hadoop11:8088" target="_blank" rel="noopener">http://hadoop11:8088</a> 会跳转到  <a href="http://hadoop10:8088。所以" target="_blank" rel="noopener">http://hadoop10:8088。所以</a> hadoop10 上的 Yarn 就变成了 active 对外服务。</p>
+<p>将 hadoop10 上的 Yarn 进程杀死会发现只有访问 <a href="http://hadoop11:8088" target="_blank" rel="noopener">http://hadoop11:8088</a> 才能成功，因为 <a href="http://hadoop11:8088" target="_blank" rel="noopener">http://hadoop11:8088</a> 成为了 active。若再次将 hadoop10 上的 yarn 重新启动后，访问 hadoop10 会跳转到 hadoop11.</p>
+<h3 id="压缩"><a href="#压缩" class="headerlink" title="压缩"></a>压缩</h3><h4 id="目的和原则"><a href="#目的和原则" class="headerlink" title="目的和原则"></a>目的和原则</h4><p>压缩的目的：压缩的目的是在 MR 运行期间，提高 MR 运行的效率，压缩可以减少 MR 运行期间的磁盘IO 和网络IO。</p>
+<p>压缩的原则：IO 密集型，多用压缩。计算密集型，CPU 负载过重，少用压缩。</p>
+<p>Hadoop 默认支持的压缩格式有 deflate, bzip2, gzip。需要额外安装的有 lzo, snappy。特点是 bzip2 压缩比最高，压缩速度最慢。snappy 压缩速度最快，压缩比凑合。deflate，gzip 折中。</p>
+<h4 id="常用配置"><a href="#常用配置" class="headerlink" title="常用配置"></a>常用配置</h4><p>压缩常用配置项如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">io.compression.codecs: 代表整个Job运行期间，可以使用哪些压缩格式,配置这个参数后，配置的压缩格式会被自动初始化,默认值 deflate,gzip,bzip2</span><br><span class="line">mapreduce.map.output.compress: map阶段输出的key-value是否采用压缩,默认值 false</span><br><span class="line">mapreduce.map.output.compress.codec: map阶段输出的key-value采用何种压缩,默认值 deflate</span><br><span class="line">mapreduce.output.fileoutputformat.compress: job在reduce阶段最终的输出是否采用压缩, 默认值 false</span><br><span class="line">mapreduce.output.fileoutputformat.compress.codec: job在reduce阶段最终的输出采用何种压缩,默认值deflate</span><br><span class="line">mapreduce.output.fileoutputformat.compress.type: 如果Job输出的文件以SequenceFile格式，SequenceFile 中的数据，要以何种形式进行压缩。NONE：是否压缩及如何压缩取决于操作系统，RECORD(默认)：每个key-value对作为一个单位，压缩一次。BLOCK：SequenceFile中的block，SequenceFile中的block默认为64K,每个block压缩一次！</span><br></pre></td></tr></table></figure>
+<h4 id="压缩场景"><a href="#压缩场景" class="headerlink" title="压缩场景"></a>压缩场景</h4><p>什么时候需要考虑压缩：</p>
+<ol>
+<li>Mapper 的输入: 主要考虑每个文件的大小，如果文件过大，需要使用可以切片的压缩格式。</li>
+<li>Reducer 的输出： reducer 的输出主要考虑，输出之后，是否需要下一个 Job 继续处理，如果需要被下个 Job 继续处理，且单个文件过大，也要使用可以切片的压缩格式。</li>
+<li>shuffle阶段：能加速即可</li>
+</ol>
+<h3 id="调度器"><a href="#调度器" class="headerlink" title="调度器"></a>调度器</h3><h4 id="FIFO调度器"><a href="#FIFO调度器" class="headerlink" title="FIFO调度器"></a>FIFO调度器</h4><p>FIFO 调度器的特点就是单队列，所有的 Job 按照客户端提交的先后顺序，先到先服务。弊端是如果当前队列中有一个大的 Job，非常消耗资源，那么这个 Job 之后的其他 Job 都需要付额外的等待时间。造成集群的资源利用率不足。</p>
+<h4 id="容量调度器"><a href="#容量调度器" class="headerlink" title="容量调度器"></a>容量调度器</h4><p>容量调度器的本质是多个 FIFO 的队列组成，Hadoop 默认使用就是容量调度器。</p>
+<p>特点是每个队列可以配置一定的容量，空闲的资源可以匀给其他队列临时使用。可以配置每个job使用的容量的限制，防止一个大的 job 独占所有资源。可以配置每个用户可以使用的容量限制，防止当个用户占用所有资源。</p>
+<h4 id="公平调度器"><a href="#公平调度器" class="headerlink" title="公平调度器"></a>公平调度器</h4><p>公平调度器的设置和容量调度器大致相同，也是多条队列，每天队列都可以设置一定的容量，每个 Job，用户可以设置容量。区别在于公平调度器在调度策略上，采用最大最小公平算法，来调度 Job，这个算法会保证同一个队列中，所有已经提交，未运行结束的 Job，获取到队列中的资源是平等的。</p>
+<h3 id="Hadoop的优化"><a href="#Hadoop的优化" class="headerlink" title="Hadoop的优化"></a>Hadoop的优化</h3><h4 id="小文件的优化"><a href="#小文件的优化" class="headerlink" title="小文件的优化"></a>小文件的优化</h4><p>源头上处理，在上传到集群之前，提前处理小文件<br>小文件已经在 HDFS 存在，可以使用 hadoop archieve 进行归档<br>在运行 MR 时，可以使用 CombineTextInputFormat 将多个小文件规划到一个切片中<br>小文件过多，可以开启 JVM 重用</p>
+<h4 id="MR-的优化"><a href="#MR-的优化" class="headerlink" title="MR 的优化"></a>MR 的优化</h4><p>合理设置 MapTask 和 ReduceTask 的数量</p>
+<p>避免数据倾斜。如果 Map 端的数据发生倾斜，那么在切片时，注意每片数据尽量均匀，防止有些不可切片的数据。Reduce 端的数据倾斜，提前对数据进行抽样调查，统计出大致的分布范围，根据分布范围，合理编写Partitioner，让每个分区的数据尽量均衡。</p>
+<p>优化磁盘 IO 和网络 IO。可以启用 combiner。启动压缩。调大 MapTask 缓冲区的大小，减少溢写次数。调大MapTask 中 merge 阶段一次合并的片段数，减少合并花费的时间。调大 reduceTask 中 shuffle 线程可以使用的内存，减少溢写次数。调大 reduceTask 中，input.buffer 的大小，提前缓存部分数据到 buffer 中。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Hadoop/" rel="tag"><i class="fa fa-tag"></i> Hadoop</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/08/20/5. MapReduce-2/" rel="prev" title="5. MapReduce-2">
+      <i class="fa fa-chevron-left"></i> 5. MapReduce-2
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020/08/25/7. Hive-1/" rel="next" title="7. Hive-1">
+      7. Hive-1 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#Zookeeper-集群搭建"><span class="nav-number">1.</span> <span class="nav-text">Zookeeper 集群搭建</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Hadoop-HA"><span class="nav-number">2.</span> <span class="nav-text">Hadoop HA</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#HDFS-HA"><span class="nav-number">2.1.</span> <span class="nav-text">HDFS HA</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#元数据同步过程"><span class="nav-number">2.1.1.</span> <span class="nav-text">元数据同步过程</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#搭建过程"><span class="nav-number">2.1.2.</span> <span class="nav-text">搭建过程</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#启动过程"><span class="nav-number">2.1.3.</span> <span class="nav-text">启动过程</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#手动故障转移"><span class="nav-number">2.1.4.</span> <span class="nav-text">手动故障转移</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#自动故障转移"><span class="nav-number">2.1.5.</span> <span class="nav-text">自动故障转移</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#自动故障转移配置"><span class="nav-number">2.1.6.</span> <span class="nav-text">自动故障转移配置</span></a></li></ol></li><li class="nav-item nav-level-4"><a class="nav-link" href="#YARN-HA"><span class="nav-number">2.2.</span> <span class="nav-text">YARN HA</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#压缩"><span class="nav-number">3.</span> <span class="nav-text">压缩</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#目的和原则"><span class="nav-number">3.1.</span> <span class="nav-text">目的和原则</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#常用配置"><span class="nav-number">3.2.</span> <span class="nav-text">常用配置</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#压缩场景"><span class="nav-number">3.3.</span> <span class="nav-text">压缩场景</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#调度器"><span class="nav-number">4.</span> <span class="nav-text">调度器</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#FIFO调度器"><span class="nav-number">4.1.</span> <span class="nav-text">FIFO调度器</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#容量调度器"><span class="nav-number">4.2.</span> <span class="nav-text">容量调度器</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#公平调度器"><span class="nav-number">4.3.</span> <span class="nav-text">公平调度器</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Hadoop的优化"><span class="nav-number">5.</span> <span class="nav-text">Hadoop的优化</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#小文件的优化"><span class="nav-number">5.1.</span> <span class="nav-text">小文件的优化</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#MR-的优化"><span class="nav-number">5.2.</span> <span class="nav-text">MR 的优化</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

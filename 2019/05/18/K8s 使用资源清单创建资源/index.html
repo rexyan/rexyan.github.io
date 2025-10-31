@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="以命令的方式创建资源，命令很多，且很容易忘记。K8s 支持以配置清单（文件）的方式来创建，使用中支持 json 格式和 yaml 格式的方式创建资源清单，但是 yaml 有更好的可读性，所以我们都使用 yaml 进行资源清单的配置，在执行 kubectl create … 的时候，会将提交的 yaml 转换成 json 格式的数据提交给 api server。相比于命令，配置清单更有逻辑和可读性，">
+<meta name="keywords" content="Kubernetes">
+<meta property="og:type" content="article">
+<meta property="og:title" content="K8s 使用资源清单创建资源">
+<meta property="og:url" content="https://rexyan.github.io/2019/05/18/K8s 使用资源清单创建资源/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="以命令的方式创建资源，命令很多，且很容易忘记。K8s 支持以配置清单（文件）的方式来创建，使用中支持 json 格式和 yaml 格式的方式创建资源清单，但是 yaml 有更好的可读性，所以我们都使用 yaml 进行资源清单的配置，在执行 kubectl create … 的时候，会将提交的 yaml 转换成 json 格式的数据提交给 api server。相比于命令，配置清单更有逻辑和可读性，">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.395Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="K8s 使用资源清单创建资源">
+<meta name="twitter:description" content="以命令的方式创建资源，命令很多，且很容易忘记。K8s 支持以配置清单（文件）的方式来创建，使用中支持 json 格式和 yaml 格式的方式创建资源清单，但是 yaml 有更好的可读性，所以我们都使用 yaml 进行资源清单的配置，在执行 kubectl create … 的时候，会将提交的 yaml 转换成 json 格式的数据提交给 api server。相比于命令，配置清单更有逻辑和可读性，">
+
+<link rel="canonical" href="https://rexyan.github.io/2019/05/18/K8s 使用资源清单创建资源/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>K8s 使用资源清单创建资源 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2019/05/18/K8s 使用资源清单创建资源/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          K8s 使用资源清单创建资源
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-05-18 16:35:57" itemprop="dateCreated datePublished" datetime="2019-05-18T16:35:57+00:00">2019-05-18</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Kubernetes/" itemprop="url" rel="index"><span itemprop="name">Kubernetes</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>以命令的方式创建资源，命令很多，且很容易忘记。K8s 支持以配置清单（文件）的方式来创建，使用中支持 json 格式和 yaml 格式的方式创建资源清单，但是 yaml 有更好的可读性，所以我们都使用 yaml 进行资源清单的配置，在执行 kubectl create … 的时候，会将提交的 yaml 转换成 json 格式的数据提交给 api server。相比于命令，配置清单更有逻辑和可读性，而且便于存储，下次可以直接使用。</p>
+<h3 id="创建资源方法"><a href="#创建资源方法" class="headerlink" title="创建资源方法"></a>创建资源方法</h3><p>​    apiserver 仅接受 json 格式的资源定义；<br>​    yaml 格式提供的配置清单，apiserver 可自动将其转换为 json 格式，然后在提交</p>
+<h3 id="资源的组成"><a href="#资源的组成" class="headerlink" title="资源的组成"></a>资源的组成</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">大部分资源的配置清单都有五个资源组成：</span><br><span class="line">	apiVersion：标识方法为 group/version 的方式，如果没有group，则表示核心组。查看目前有哪些组可以用命令，kubuctl api-version 查看</span><br><span class="line">	kind：资源类型</span><br><span class="line">	metadata：元数据</span><br><span class="line">		name 名称需要唯一</span><br><span class="line">		namespace 命名空间</span><br><span class="line">		labels 标签</span><br><span class="line">		annotations 元数据  </span><br><span class="line">	spec：不同资源的 spec 值不同，用来表示资源的期待状态。</span><br><span class="line">	status：当前资源的当前状态。（k8s 运行的目的就是将当前状态无限向期待状态靠近的过程）</span><br></pre></td></tr></table></figure>
+<p>资源太多，记不住怎么配置，我们可以使用 kubectl explain + 资源名称进行查看<br>例如，查看 pods 怎么配置就可以使用  kubectl explain pods。查看 pods 中 spce 怎么定义就可以使用，kubectl explain pods.spec</p>
+<h3 id="控制资源的命令"><a href="#控制资源的命令" class="headerlink" title="控制资源的命令"></a>控制资源的命令</h3><h4 id="yaml-配置格式"><a href="#yaml-配置格式" class="headerlink" title="yaml 配置格式"></a>yaml 配置格式</h4><p>将当前 pods 的配置已 yaml 格式查看</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get pods nginx-deploy-5c9b546997-nv2xp -o yaml</span><br></pre></td></tr></table></figure>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span> <span class="comment"># apiVersion 格式为 group/version，group 如果没有，则代表核心组。查看系统目前的所有组可以使用 kubectl api-versions</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span> <span class="comment"># 资源类别(例如: Pod，ReplicaSet, Deployment, StatefulSet【资源为有状态时使用】, DaemonSet【资源以系统守护进程方式运行】, Job【任务】等)</span></span><br><span class="line"><span class="attr">metadata:</span> <span class="comment"># 元数据(主要包含几个字段，name，namespace，labels，annotations)</span></span><br><span class="line">  <span class="attr">creationTimestamp:</span> <span class="string">"2019-05-18T06:12:22Z"</span></span><br><span class="line">  <span class="attr">generateName:</span> <span class="string">nginx-deploy-5c9b546997-</span></span><br><span class="line">  <span class="attr">labels:</span> </span><br><span class="line">    <span class="attr">pod-template-hash:</span> <span class="string">5c9b546997</span></span><br><span class="line">    <span class="attr">run:</span> <span class="string">nginx-deploy</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">nginx-deploy-5c9b546997-nv2xp</span>  <span class="comment"># 同一 namespace 下的名称应该是唯一的。</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span> </span><br><span class="line">  <span class="attr">ownerReferences:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line">    <span class="attr">blockOwnerDeletion:</span> <span class="literal">true</span></span><br><span class="line">    <span class="attr">controller:</span> <span class="literal">true</span></span><br><span class="line">    <span class="attr">kind:</span> <span class="string">ReplicaSet</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">nginx-deploy-5c9b546997</span></span><br><span class="line">    <span class="attr">uid:</span> <span class="string">e6370699-7933-11e9-938b-00163e00a5a9</span></span><br><span class="line">  <span class="attr">resourceVersion:</span> <span class="string">"1384"</span></span><br><span class="line">  <span class="attr">selfLink:</span> <span class="string">/api/v1/namespaces/default/pods/nginx-deploy-5c9b546997-nv2xp</span></span><br><span class="line">  <span class="attr">uid:</span> <span class="string">e63921c9-7933-11e9-938b-00163e00a5a9</span></span><br><span class="line"><span class="attr">spec:</span> <span class="comment"># 要创建的资源对象的规则，用来定义一个我们所期待的资源所拥有的特性，依靠控制器确保这些特性得以满足。(不同的资源类型，字段不同。可以使用 kubectl explain 查看，其中 required 表示这个字段是必须的)</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">image:</span> <span class="string">nginx</span></span><br><span class="line">    <span class="attr">imagePullPolicy:</span> <span class="string">Always</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">nginx-deploy</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">containerPort:</span> <span class="number">80</span></span><br><span class="line">      <span class="attr">protocol:</span> <span class="string">TCP</span></span><br><span class="line">    <span class="attr">resources:</span> <span class="string">&#123;&#125;</span></span><br><span class="line">    <span class="attr">terminationMessagePath:</span> <span class="string">/dev/termination-log</span></span><br><span class="line">    <span class="attr">terminationMessagePolicy:</span> <span class="string">File</span></span><br><span class="line">    <span class="attr">volumeMounts:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">mountPath:</span> <span class="string">/var/run/secrets/kubernetes.io/serviceaccount</span></span><br><span class="line">      <span class="attr">name:</span> <span class="string">default-token-8dmfd</span></span><br><span class="line">      <span class="attr">readOnly:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">dnsPolicy:</span> <span class="string">ClusterFirst</span></span><br><span class="line">  <span class="attr">enableServiceLinks:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">nodeName:</span> <span class="string">izrj94q5l72imm6kxm11qxz</span></span><br><span class="line">  <span class="attr">priority:</span> <span class="number">0</span></span><br><span class="line">  <span class="attr">restartPolicy:</span> <span class="string">Always</span></span><br><span class="line">  <span class="attr">schedulerName:</span> <span class="string">default-scheduler</span></span><br><span class="line">  <span class="attr">securityContext:</span> <span class="string">&#123;&#125;</span></span><br><span class="line">  <span class="attr">serviceAccount:</span> <span class="string">default</span></span><br><span class="line">  <span class="attr">serviceAccountName:</span> <span class="string">default</span></span><br><span class="line">  <span class="attr">terminationGracePeriodSeconds:</span> <span class="number">30</span></span><br><span class="line">  <span class="attr">tolerations:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">effect:</span> <span class="string">NoExecute</span></span><br><span class="line">    <span class="attr">key:</span> <span class="string">node.kubernetes.io/not-ready</span></span><br><span class="line">    <span class="attr">operator:</span> <span class="string">Exists</span></span><br><span class="line">    <span class="attr">tolerationSeconds:</span> <span class="number">300</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">effect:</span> <span class="string">NoExecute</span></span><br><span class="line">    <span class="attr">key:</span> <span class="string">node.kubernetes.io/unreachable</span></span><br><span class="line">    <span class="attr">operator:</span> <span class="string">Exists</span></span><br><span class="line">    <span class="attr">tolerationSeconds:</span> <span class="number">300</span></span><br><span class="line">  <span class="attr">volumes:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">default-token-8dmfd</span></span><br><span class="line">    <span class="attr">secret:</span></span><br><span class="line">      <span class="attr">defaultMode:</span> <span class="number">420</span></span><br><span class="line">      <span class="attr">secretName:</span> <span class="string">default-token-8dmfd</span></span><br><span class="line"><span class="attr">status:</span> <span class="comment"># 显示当前资源的当前状态，只读(由集群维护，我们不能定义)</span></span><br><span class="line">  <span class="attr">conditions:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">lastProbeTime:</span> <span class="literal">null</span></span><br><span class="line">    <span class="attr">lastTransitionTime:</span> <span class="string">"2019-05-18T06:12:22Z"</span></span><br><span class="line">    <span class="attr">status:</span> <span class="string">"True"</span></span><br><span class="line">    <span class="attr">type:</span> <span class="string">Initialized</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">lastProbeTime:</span> <span class="literal">null</span></span><br><span class="line">    <span class="attr">lastTransitionTime:</span> <span class="string">"2019-05-18T06:12:30Z"</span></span><br><span class="line">    <span class="attr">status:</span> <span class="string">"True"</span></span><br><span class="line">    <span class="attr">type:</span> <span class="string">Ready</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">lastProbeTime:</span> <span class="literal">null</span></span><br><span class="line">    <span class="attr">lastTransitionTime:</span> <span class="string">"2019-05-18T06:12:30Z"</span></span><br><span class="line">    <span class="attr">status:</span> <span class="string">"True"</span></span><br><span class="line">    <span class="attr">type:</span> <span class="string">ContainersReady</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">lastProbeTime:</span> <span class="literal">null</span></span><br><span class="line">    <span class="attr">lastTransitionTime:</span> <span class="string">"2019-05-18T06:12:22Z"</span></span><br><span class="line">    <span class="attr">status:</span> <span class="string">"True"</span></span><br><span class="line">    <span class="attr">type:</span> <span class="string">PodScheduled</span></span><br><span class="line">  <span class="attr">containerStatuses:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">containerID:</span> <span class="string">docker://ed801af51ea71b2538175f7814e7c3651e2121c498c6c12e2b912b868177762d</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">docker.io/nginx:latest</span></span><br><span class="line">    <span class="attr">imageID:</span> <span class="string">docker-pullable://docker.io/nginx@sha256:23b4dcdf0d34d4a129755fc6f52e1c6e23bb34ea011b315d87e193033bcd1b68</span></span><br><span class="line">    <span class="attr">lastState:</span> <span class="string">&#123;&#125;</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">nginx-deploy</span></span><br><span class="line">    <span class="attr">ready:</span> <span class="literal">true</span></span><br><span class="line">    <span class="attr">restartCount:</span> <span class="number">0</span></span><br><span class="line">    <span class="attr">state:</span></span><br><span class="line">      <span class="attr">running:</span></span><br><span class="line">        <span class="attr">startedAt:</span> <span class="string">"2019-05-18T06:12:29Z"</span></span><br><span class="line">  <span class="attr">hostIP:</span> <span class="number">172.20</span><span class="number">.245</span><span class="number">.188</span></span><br><span class="line">  <span class="attr">phase:</span> <span class="string">Running</span></span><br><span class="line">  <span class="attr">podIP:</span> <span class="number">10.244</span><span class="number">.1</span><span class="number">.2</span></span><br><span class="line">  <span class="attr">qosClass:</span> <span class="string">BestEffort</span></span><br><span class="line">  <span class="attr">startTime:</span> <span class="string">"2019-05-18T06:12:22Z"</span></span><br></pre></td></tr></table></figure>
+<h4 id="获取-API-的分组信息"><a href="#获取-API-的分组信息" class="headerlink" title="获取 API 的分组信息"></a>获取 API 的分组信息</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl api-versions</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line">admissionregistration.k8s.io/v1beta1</span><br><span class="line">apiextensions.k8s.io/v1beta1</span><br><span class="line">apiregistration.k8s.io/v1</span><br><span class="line">apiregistration.k8s.io/v1beta1</span><br><span class="line">apps/v1</span><br><span class="line">apps/v1beta1</span><br><span class="line">apps/v1beta2</span><br><span class="line">authentication.k8s.io/v1</span><br><span class="line">authentication.k8s.io/v1beta1</span><br><span class="line">authorization.k8s.io/v1</span><br><span class="line">authorization.k8s.io/v1beta1</span><br><span class="line">autoscaling/v1</span><br><span class="line">autoscaling/v2beta1</span><br><span class="line">autoscaling/v2beta2</span><br><span class="line">batch/v1</span><br><span class="line">batch/v1beta1</span><br><span class="line">certificates.k8s.io/v1beta1</span><br><span class="line">coordination.k8s.io/v1</span><br><span class="line">coordination.k8s.io/v1beta1</span><br><span class="line">events.k8s.io/v1beta1</span><br><span class="line">extensions/v1beta1</span><br><span class="line">networking.k8s.io/v1</span><br><span class="line">networking.k8s.io/v1beta1</span><br><span class="line">node.k8s.io/v1beta1</span><br><span class="line">policy/v1beta1</span><br><span class="line">rbac.authorization.k8s.io/v1</span><br><span class="line">rbac.authorization.k8s.io/v1beta1</span><br><span class="line">scheduling.k8s.io/v1</span><br><span class="line">scheduling.k8s.io/v1beta1</span><br><span class="line">storage.k8s.io/v1</span><br><span class="line">storage.k8s.io/v1beta1</span><br><span class="line">v1</span><br></pre></td></tr></table></figure>
+<h4 id="查看资源支持的字段"><a href="#查看资源支持的字段" class="headerlink" title="查看资源支持的字段"></a>查看资源支持的字段</h4><p>查看资源支持的字段类型, 可以使用  kubectl explain + 资源名称 进行查看</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl explain pods</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line">KIND:     Pod</span><br><span class="line">VERSION:  v1</span><br><span class="line"></span><br><span class="line">DESCRIPTION:</span><br><span class="line">     Pod is a collection of containers that can run on a host. This resource is</span><br><span class="line">     created by clients and scheduled onto hosts.</span><br><span class="line"></span><br><span class="line">FIELDS:</span><br><span class="line">   apiVersion	&lt;string&gt;</span><br><span class="line">     APIVersion defines the versioned schema of this representation of an</span><br><span class="line">     object. Servers should convert recognized schemas to the latest internal</span><br><span class="line">     value, and may reject unrecognized values. More info:</span><br><span class="line">     https://git.k8s.io/community/contributors/devel/api-conventions.md#resources</span><br><span class="line"></span><br><span class="line">   kind	&lt;string&gt;</span><br><span class="line">     Kind is a string value representing the REST resource this object</span><br><span class="line">     represents. Servers may infer this from the endpoint the client submits</span><br><span class="line">     requests to. Cannot be updated. In CamelCase. More info:</span><br><span class="line">     https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds</span><br><span class="line"></span><br><span class="line">   metadata	&lt;Object&gt;</span><br><span class="line">     Standard object's metadata. More info:</span><br><span class="line">     https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata</span><br><span class="line"></span><br><span class="line">   spec	&lt;Object&gt;</span><br><span class="line">     Specification of the desired behavior of the pod. More info:</span><br><span class="line">     https://git.k8s.io/community/contributors/devel/api-conventions.md#spec-and-status</span><br><span class="line"></span><br><span class="line">   status	&lt;Object&gt;</span><br><span class="line">     Most recently observed status of the pod. This data may not be up to date.</span><br><span class="line">     Populated by the system. Read-only. More info:</span><br><span class="line">     https://git.k8s.io/community/contributors/devel/api-conventions.md#spec-and-status</span><br></pre></td></tr></table></figure>
+<h3 id="创建资源"><a href="#创建资源" class="headerlink" title="创建资源"></a>创建资源</h3><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">[root@iZrj94q5l72imm6kxm11qvZ ~]# mkdir rexyan </span><br><span class="line">[root@iZrj94q5l72imm6kxm11qvZ ~]# cd rexyan </span><br><span class="line">[root@iZrj94q5l72imm6kxm11qvZ rexyan]# vim pod-demo.yaml</span><br></pre></td></tr></table></figure>
+<p>内容如下：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">pod-demo</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">default</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="attr">app:</span> <span class="string">myapp</span></span><br><span class="line">    <span class="attr">author:</span> <span class="string">rexyan</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">myapp</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">ikubernetes/myapp:v1</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">busybox</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">busybox</span></span><br><span class="line">    <span class="attr">command:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">"/bin/sh"</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">"-c"</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">"sleep 3600"</span></span><br></pre></td></tr></table></figure>
+<h4 id="创建资源-1"><a href="#创建资源-1" class="headerlink" title="创建资源"></a>创建资源</h4><p><strong>上面的资源清单是没有配置控制器的，pod 资源删除后就不会重新启动了，原因是没有控制器进行管理。</strong></p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create -f pod-demo.yaml</span><br></pre></td></tr></table></figure>
+<p>查看信息, 可以看到名称叫做 pod-demo 的 pod 中，两个容器都处于 ready 状态了。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[root@iZrj94q5l72imm6kxm11qvZ rexyan]# kubectl get pods </span><br><span class="line">NAME                            READY   STATUS    RESTARTS   AGE</span><br><span class="line">nginx-deploy-5c9b546997-nv2xp   1/1     Running   0          123m</span><br><span class="line">pod-demo                        2/2     Running   0          12s</span><br></pre></td></tr></table></figure>
+<h4 id="删除资源"><a href="#删除资源" class="headerlink" title="删除资源"></a>删除资源</h4><p>可以使用 <code>kubectl delete pods + pod</code> 名称进行 pod 的删除</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl delete pods pod-demo</span><br></pre></td></tr></table></figure>
+<p>或者可以使用 <code>kubectl delete -f 资源文件</code> 进行操作</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl delete -f pod-demo.yaml</span><br></pre></td></tr></table></figure>
+<h4 id="查看日志"><a href="#查看日志" class="headerlink" title="查看日志"></a>查看日志</h4><p>如果 pod 中只有一个容器，那么可以使用 <code>kubectl logs + Pod名称</code>命令查看日志</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">[root@iZrj94q5l72imm6kxm11qvZ rexyan]# kubectl get pods </span><br><span class="line">NAME                            READY   STATUS    RESTARTS   AGE</span><br><span class="line">nginx-deploy-5c9b546997-nv2xp   1/1     Running   0          130m</span><br><span class="line">pod-demo                        2/2     Running   0          6m39s</span><br><span class="line">[root@iZrj94q5l72imm6kxm11qvZ rexyan]# kubectl logs nginx-deploy-5c9b546997-nv2xp</span><br><span class="line">10.244.0.0 - - [18/May/2019:06:13:18 +0000] "GET / HTTP/1.1" 200 612 "-" "curl/7.29.0" "-"</span><br><span class="line">10.244.0.0 - - [18/May/2019:06:22:16 +0000] "GET / HTTP/1.1" 200 612 "-" "curl/7.29.0" "-"</span><br></pre></td></tr></table></figure>
+<p>如果 pod 中不止一个容器，那么就还需要使用  <code>kubectl logs + Pod名称 + 容器名称</code> 命令查看日志</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">[root@iZrj94q5l72imm6kxm11qvZ rexyan]# kubectl logs pod-demo</span><br><span class="line">Error from server (BadRequest): a container name must be specified for pod pod-demo, choose one of: [myapp busybox]</span><br><span class="line">[root@iZrj94q5l72imm6kxm11qvZ rexyan]# kubectl logs pod-demo myapp</span><br></pre></td></tr></table></figure>
+<h4 id="查看详细信息"><a href="#查看详细信息" class="headerlink" title="查看详细信息"></a>查看详细信息</h4><p>可以使用 <code>kubectl describe + 资源类型 + 资源名称</code> 查看资源的详细信息</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl describe pods pod-demo</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br></pre></td><td class="code"><pre><span class="line">ame:               pod-demo</span><br><span class="line">Namespace:          default</span><br><span class="line">Priority:           0</span><br><span class="line">PriorityClassName:  &lt;none&gt;</span><br><span class="line">Node:               izrj94q5l72imm6kxm11qwz/172.20.245.187</span><br><span class="line">Start Time:         Sat, 18 May 2019 16:15:43 +0800</span><br><span class="line">Labels:             app=myapp</span><br><span class="line">                    author=rexyan</span><br><span class="line">Annotations:        &lt;none&gt;</span><br><span class="line">Status:             Running</span><br><span class="line">IP:                 10.244.2.2</span><br><span class="line">Containers:</span><br><span class="line">  myapp:</span><br><span class="line">    Container ID:   docker://e6ea6ad778a56370635c90df49708e2607ec44effee0bc5ad40184693090d64c</span><br><span class="line">    Image:          ikubernetes/myapp:v1</span><br><span class="line">    Image ID:       docker-pullable://docker.io/ikubernetes/myapp@sha256:9c3dc30b5219788b2b8a4b065f548b922a34479577befb54b03330999d30d513</span><br><span class="line">    Port:           &lt;none&gt;</span><br><span class="line">    Host Port:      &lt;none&gt;</span><br><span class="line">    State:          Running</span><br><span class="line">      Started:      Sat, 18 May 2019 16:15:46 +0800</span><br><span class="line">    Ready:          True</span><br><span class="line">    Restart Count:  0</span><br><span class="line">    Environment:    &lt;none&gt;</span><br><span class="line">    Mounts:</span><br><span class="line">      /var/run/secrets/kubernetes.io/serviceaccount from default-token-8dmfd (ro)</span><br><span class="line">  busybox:</span><br><span class="line">    Container ID:  docker://d4739ba88b3f00290f7b7dc6ddbfc74062b1fb8906fea0612339135609f2443f</span><br><span class="line">    Image:         busybox</span><br><span class="line">    Image ID:      docker-pullable://docker.io/busybox@sha256:4b6ad3a68d34da29bf7c8ccb5d355ba8b4babcad1f99798204e7abb43e54ee3d</span><br><span class="line">    Port:          &lt;none&gt;</span><br><span class="line">    Host Port:     &lt;none&gt;</span><br><span class="line">    Command:</span><br><span class="line">      /bin/sh</span><br><span class="line">      -c</span><br><span class="line">      sleep 3600</span><br><span class="line">    State:          Running</span><br><span class="line">      Started:      Sat, 18 May 2019 16:15:48 +0800</span><br><span class="line">    Ready:          True</span><br><span class="line">    Restart Count:  0</span><br><span class="line">    Environment:    &lt;none&gt;</span><br><span class="line">    Mounts:</span><br><span class="line">      /var/run/secrets/kubernetes.io/serviceaccount from default-token-8dmfd (ro)</span><br><span class="line">Conditions:</span><br><span class="line">  Type              Status</span><br><span class="line">  Initialized       True </span><br><span class="line">  Ready             True </span><br><span class="line">  ContainersReady   True </span><br><span class="line">  PodScheduled      True </span><br><span class="line">Volumes:</span><br><span class="line">  default-token-8dmfd:</span><br><span class="line">    Type:        Secret (a volume populated by a Secret)</span><br><span class="line">    SecretName:  default-token-8dmfd</span><br><span class="line">    Optional:    false</span><br><span class="line">QoS Class:       BestEffort</span><br><span class="line">Node-Selectors:  &lt;none&gt;</span><br><span class="line">Tolerations:     node.kubernetes.io/not-ready:NoExecute for 300s</span><br><span class="line">                 node.kubernetes.io/unreachable:NoExecute for 300s</span><br><span class="line">Events:</span><br><span class="line">  Type    Reason     Age    From                              Message</span><br><span class="line">  ----    ------     ----   ----                              -------</span><br><span class="line">  Normal  Scheduled  9m44s  default-scheduler                 Successfully assigned default/pod-demo to izrj94q5l72imm6kxm11qwz</span><br><span class="line">  Normal  Pulling    9m43s  kubelet, izrj94q5l72imm6kxm11qwz  Pulling image "ikubernetes/myapp:v1"</span><br><span class="line">  Normal  Pulled     9m41s  kubelet, izrj94q5l72imm6kxm11qwz  Successfully pulled image "ikubernetes/myapp:v1"</span><br><span class="line">  Normal  Created    9m41s  kubelet, izrj94q5l72imm6kxm11qwz  Created container myapp</span><br><span class="line">  Normal  Started    9m41s  kubelet, izrj94q5l72imm6kxm11qwz  Started container myapp</span><br><span class="line">  Normal  Pulling    9m41s  kubelet, izrj94q5l72imm6kxm11qwz  Pulling image "busybox"</span><br><span class="line">  Normal  Pulled     9m39s  kubelet, izrj94q5l72imm6kxm11qwz  Successfully pulled image "busybox"</span><br><span class="line">  Normal  Created    9m39s  kubelet, izrj94q5l72imm6kxm11qwz  Created container busybox</span><br><span class="line">  Normal  Started    9m39s  kubelet, izrj94q5l72imm6kxm11qwz  Started container busybox</span><br></pre></td></tr></table></figure>
+<h4 id="进入-pod-中的容器"><a href="#进入-pod-中的容器" class="headerlink" title="进入 pod 中的容器"></a>进入 pod 中的容器</h4><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl exec -it pod-demo -c myapp -- /bin/sh</span><br></pre></td></tr></table></figure>
+<p>上面命令表示进入名字为 pod-demo 的 pod，容器名称为 myapp 的容器中。</p>
+<h4 id="快速创建-deployment"><a href="#快速创建-deployment" class="headerlink" title="快速创建 deployment"></a>快速创建 deployment</h4><p>快速创建示例或者简单的 deployment 文件</p>
+<figure class="highlight cmd"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">k create deployment nginx --image=nginx --dry-run -o yaml &gt; deployment.yaml</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Kubernetes/" rel="tag"><i class="fa fa-tag"></i> Kubernetes</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/05/13/20190513无题/" rel="prev" title="20190513无题">
+      <i class="fa fa-chevron-left"></i> 20190513无题
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/05/18/K8s 使用资源清单创建资源 (二)/" rel="next" title="K8s 使用资源清单创建资源 (二)">
+      K8s 使用资源清单创建资源 (二) <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#创建资源方法"><span class="nav-number">1.</span> <span class="nav-text">创建资源方法</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#资源的组成"><span class="nav-number">2.</span> <span class="nav-text">资源的组成</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#控制资源的命令"><span class="nav-number">3.</span> <span class="nav-text">控制资源的命令</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#yaml-配置格式"><span class="nav-number">3.1.</span> <span class="nav-text">yaml 配置格式</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#获取-API-的分组信息"><span class="nav-number">3.2.</span> <span class="nav-text">获取 API 的分组信息</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#查看资源支持的字段"><span class="nav-number">3.3.</span> <span class="nav-text">查看资源支持的字段</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#创建资源"><span class="nav-number">4.</span> <span class="nav-text">创建资源</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#创建资源-1"><span class="nav-number">4.1.</span> <span class="nav-text">创建资源</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#删除资源"><span class="nav-number">4.2.</span> <span class="nav-text">删除资源</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#查看日志"><span class="nav-number">4.3.</span> <span class="nav-text">查看日志</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#查看详细信息"><span class="nav-number">4.4.</span> <span class="nav-text">查看详细信息</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#进入-pod-中的容器"><span class="nav-number">4.5.</span> <span class="nav-text">进入 pod 中的容器</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#快速创建-deployment"><span class="nav-number">4.6.</span> <span class="nav-text">快速创建 deployment</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="需求需要实现一个请求级线程安全的缓存，例如在一个请求中，会对反复使用到某个数据库的值，或者文件中的值，这时我们可以使用 ContextVar 来创建一个全局变量对改值进行缓存。但也会出现一些问题。 问题使用 gunicorn 部署的 Flask/Django/FastAPI 应用，工作模式为 sync 或 gevent（尤其是启用了 threads &amp;gt; 1），使用 ContextVar 来存">
+<meta property="og:type" content="article">
+<meta property="og:title" content="如何实现一个请求级线程安全的缓存">
+<meta property="og:url" content="https://rexyan.github.io/2025/09/05/ContextVar在线程复用场景(Gunicorn)中值重复的问题/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="需求需要实现一个请求级线程安全的缓存，例如在一个请求中，会对反复使用到某个数据库的值，或者文件中的值，这时我们可以使用 ContextVar 来创建一个全局变量对改值进行缓存。但也会出现一些问题。 问题使用 gunicorn 部署的 Flask/Django/FastAPI 应用，工作模式为 sync 或 gevent（尤其是启用了 threads &amp;gt; 1），使用 ContextVar 来存">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.390Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="如何实现一个请求级线程安全的缓存">
+<meta name="twitter:description" content="需求需要实现一个请求级线程安全的缓存，例如在一个请求中，会对反复使用到某个数据库的值，或者文件中的值，这时我们可以使用 ContextVar 来创建一个全局变量对改值进行缓存。但也会出现一些问题。 问题使用 gunicorn 部署的 Flask/Django/FastAPI 应用，工作模式为 sync 或 gevent（尤其是启用了 threads &amp;gt; 1），使用 ContextVar 来存">
+
+<link rel="canonical" href="https://rexyan.github.io/2025/09/05/ContextVar在线程复用场景(Gunicorn)中值重复的问题/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>如何实现一个请求级线程安全的缓存 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2025/09/05/ContextVar在线程复用场景(Gunicorn)中值重复的问题/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          如何实现一个请求级线程安全的缓存
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2025-09-05 22:55:57" itemprop="dateCreated datePublished" datetime="2025-09-05T22:55:57+00:00">2025-09-05</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/博客/" itemprop="url" rel="index"><span itemprop="name">博客</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="需求"><a href="#需求" class="headerlink" title="需求"></a>需求</h3><p>需要实现一个请求级线程安全的缓存，例如在一个请求中，会对反复使用到某个数据库的值，或者文件中的值，这时我们可以使用 ContextVar 来创建一个全局变量对改值进行缓存。但也会出现一些问题。</p>
+<h3 id="问题"><a href="#问题" class="headerlink" title="问题"></a>问题</h3><p>使用 <strong>gunicorn</strong> 部署的 Flask/Django/FastAPI 应用，工作模式为 <code>sync</code> 或 <code>gevent</code>（尤其是启用了 <code>threads &gt; 1</code>），使用 <code>ContextVar</code> 来存储请求级别的上下文，就可能出现<strong>线程复用导致的数据污染</strong>。</p>
+<blockquote>
+<p>在 <strong>gunicorn 等 WSGI 服务器中使用多线程时</strong>，线程会被<strong>复用（回收）</strong> 来处理多个请求。而 <code>ContextVar</code> 是绑定在线程上的，如果一个线程被回收后继续使用旧的上下文变量，就可能导致<strong>前一个请求的数据“泄露”到下一个请求中</strong>。</p>
+<p>例如：用户 A 的身份信息出现在用户 B 的请求中、上一个请求的日志上下文污染了当前请求</p>
+</blockquote>
+<h3 id="如何解决"><a href="#如何解决" class="headerlink" title="如何解决"></a>如何解决</h3><ol>
+<li>需要一个全局的 <code>_thread_recycles: ContextVar[int]</code> 用来标记 <strong>当前线程被“重新投入使用”的次数</strong>（即：开始处理一个新请求的次数）</li>
+<li>需要自定义一个<code>RecyclableContextVar</code> (需要实现的类) 的成员变量  <code>self._updates: ContextVar[int]</code> 用来记录自己“更新”过多少次</li>
+<li>当调用 <code>RecyclableContextVar</code>  的 get 方法时，对比上述两者的值，若<code>_thread_recycles&gt; _updates</code>（线程被重复复用的次数大于当前变量的次数，有可能发生数据污染），说明是旧上下文，这时可以拒绝使用。</li>
+<li>当调用 <code>RecyclableContextVar</code>  的 set 方法时，若<code>_thread_recycles&gt; _updates</code>，需要将 _updates 计数更新为 _thread_recycles，确保值的正确插入。若 <code>_thread_recycles = _updates</code> 则更新 _updates</li>
+</ol>
+<h3 id="代码实现"><a href="#代码实现" class="headerlink" title="代码实现"></a>代码实现</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> contextvars <span class="keyword">import</span> ContextVar  <span class="comment"># [CALUDE-GEN] Python 3.7+引入的上下文变量，用于在异步环境中传递数据</span></span><br><span class="line"><span class="keyword">from</span> typing <span class="keyword">import</span> Generic, TypeVar  <span class="comment"># [CALUDE-GEN] 泛型类型支持，用于创建类型安全的容器</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># [CALUDE-GEN] 定义泛型类型变量T，用于RecyclableContextVar的类型参数</span></span><br><span class="line">T = TypeVar(<span class="string">"T"</span>)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">HiddenValue</span>:</span></span><br><span class="line">    <span class="string">"""</span></span><br><span class="line"><span class="string">    [CALUDE-GEN] 隐藏值标记类</span></span><br><span class="line"><span class="string">    用作内部标记，表示某个值不应该被外部直接使用或访问</span></span><br><span class="line"><span class="string">    在默认参数中使用，以区分None值和未提供值的情况</span></span><br><span class="line"><span class="string">    """</span></span><br><span class="line">    <span class="keyword">pass</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># [CALUDE-GEN] 创建默认的隐藏值实例，用于函数参数的默认值</span></span><br><span class="line">_default = HiddenValue()</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">RecyclableContextVar</span><span class="params">(Generic[T])</span>:</span></span><br><span class="line">    <span class="string">"""</span></span><br><span class="line"><span class="string">    [CALUDE-GEN] 可回收上下文变量包装类</span></span><br><span class="line"><span class="string">    </span></span><br><span class="line"><span class="string">    这是一个ContextVar的安全包装器，解决了在gunicorn线程池回收机制下的竞态条件问题。</span></span><br><span class="line"><span class="string">    在gunicorn多线程环境中，线程会被循环使用，导致ContextVar中的旧数据可能被遗留。</span></span><br><span class="line"><span class="string">    该类通过跟踪线程回收次数，确保数据的一致性和安全性。</span></span><br><span class="line"><span class="string">    </span></span><br><span class="line"><span class="string">    注意：在处理请求之前需要调用 `increment_thread_recycles` 方法</span></span><br><span class="line"><span class="string">    目前不支持 `reset` 功能</span></span><br><span class="line"><span class="string">    """</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># [CALUDE-GEN] 类级别的上下文变量，记录当前线程的回收次数</span></span><br><span class="line">    _thread_recycles: ContextVar[int] = ContextVar(<span class="string">"thread_recycles"</span>)</span><br><span class="line"></span><br><span class="line"><span class="meta">    @classmethod</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">increment_thread_recycles</span><span class="params">(cls)</span>:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        [CALUDE-GEN] 增加线程回收计数器</span></span><br><span class="line"><span class="string">        </span></span><br><span class="line"><span class="string">        在每个新请求开始时调用此方法，用于标记线程已被回收并重新使用。</span></span><br><span class="line"><span class="string">        这个机制能够检测到线程池中的线程是否被回收，从而避免使用过期的上下文数据。</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        <span class="keyword">try</span>:</span><br><span class="line">            <span class="comment"># [CALUDE-GEN] 尝试获取当前线程的回收次数</span></span><br><span class="line">            recycles = cls._thread_recycles.get()</span><br><span class="line">            <span class="comment"># [CALUDE-GEN] 将回收次数加一</span></span><br><span class="line">            cls._thread_recycles.set(recycles + <span class="number">1</span>)</span><br><span class="line">        <span class="keyword">except</span> LookupError:</span><br><span class="line">            <span class="comment"># [CALUDE-GEN] 如果是第一次访问，初始化为0</span></span><br><span class="line">            cls._thread_recycles.set(<span class="number">0</span>)</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, context_var: ContextVar[T])</span>:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        [CALUDE-GEN] 初始化可回收上下文变量</span></span><br><span class="line"><span class="string">        </span></span><br><span class="line"><span class="string">        Args:</span></span><br><span class="line"><span class="string">            context_var: 要包装的原始 ContextVar 实例</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        <span class="comment"># [CALUDE-GEN] 保存原始ContextVar的引用</span></span><br><span class="line">        self._context_var = context_var</span><br><span class="line">        <span class="comment"># [CALUDE-GEN] 创建一个跟踪更新次数的ContextVar，用于检测数据新鲜度</span></span><br><span class="line">        self._updates = ContextVar[int](context_var.name + <span class="string">"_updates"</span>, default=<span class="number">0</span>)</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">get</span><span class="params">(self, default: T | HiddenValue = _default)</span> -&gt; T:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        [CALUDE-GEN] 安全地获取上下文变量的值</span></span><br><span class="line"><span class="string">        </span></span><br><span class="line"><span class="string">        该方法会检查线程是否被回收，如果是，将返回默认值或抛出异常。</span></span><br><span class="line"><span class="string">        这样可以避免使用已过期的上下文数据。</span></span><br><span class="line"><span class="string">        </span></span><br><span class="line"><span class="string">        Args:</span></span><br><span class="line"><span class="string">            default: 当上下文变量不存在时的默认值</span></span><br><span class="line"><span class="string">            </span></span><br><span class="line"><span class="string">        Returns:</span></span><br><span class="line"><span class="string">            T: 上下文变量的值或默认值</span></span><br><span class="line"><span class="string">            </span></span><br><span class="line"><span class="string">        Raises:</span></span><br><span class="line"><span class="string">            LookupError: 当上下文变量不存在且未提供默认值时</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        <span class="comment"># [CALUDE-GEN] 获取当前线程的回收次数</span></span><br><span class="line">        thread_recycles = self._thread_recycles.get(<span class="number">0</span>)</span><br><span class="line">        <span class="comment"># [CALUDE-GEN] 获取当前实例的更新次数</span></span><br><span class="line">        self_updates = self._updates.get()</span><br><span class="line">        <span class="comment"># [CALUDE-GEN] 如果线程回收次数大于更新次数，说明线程被回收过，需要更新</span></span><br><span class="line">        <span class="keyword">if</span> thread_recycles &gt; self_updates:</span><br><span class="line">            self._updates.set(thread_recycles)</span><br><span class="line"></span><br><span class="line">        <span class="comment"># [CALUDE-GEN] 检查线程是否被回收以及是否应该更新</span></span><br><span class="line">        <span class="keyword">if</span> thread_recycles &lt; self_updates:</span><br><span class="line">            <span class="comment"># [CALUDE-GEN] 当前上下文是有效的，返回存储的值</span></span><br><span class="line">            <span class="keyword">return</span> self._context_var.get()</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            <span class="comment"># [CALUDE-GEN] thread_recycles &gt;= self_updates，表示当前上下文已无效</span></span><br><span class="line">            <span class="keyword">if</span> isinstance(default, HiddenValue) <span class="keyword">or</span> default <span class="keyword">is</span> _default:</span><br><span class="line">                <span class="comment"># [CALUDE-GEN] 没有提供有效的默认值，抛出异常</span></span><br><span class="line">                <span class="keyword">raise</span> LookupError</span><br><span class="line">            <span class="keyword">else</span>:</span><br><span class="line">                <span class="comment"># [CALUDE-GEN] 返回提供的默认值</span></span><br><span class="line">                <span class="keyword">return</span> default</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">set</span><span class="params">(self, value: T)</span>:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        [CALUDE-GEN] 安全地设置上下文变量的值</span></span><br><span class="line"><span class="string">        </span></span><br><span class="line"><span class="string">        该方法会确保在设置值之前正确更新计数器，以维护数据一致性。</span></span><br><span class="line"><span class="string">        </span></span><br><span class="line"><span class="string">        Args:</span></span><br><span class="line"><span class="string">            value: 要设置的值</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        <span class="comment"># [CALUDE-GEN] 如果之前从未调用过`set`方法，可能会导致self._updates小于cls._thread_recycles的情况</span></span><br><span class="line">        <span class="comment"># 手动增加以保持一致性</span></span><br><span class="line">        thread_recycles = self._thread_recycles.get(<span class="number">0</span>)</span><br><span class="line">        self_updates = self._updates.get()</span><br><span class="line">        <span class="comment"># [CALUDE-GEN] 如果线程回收次数大于更新次数，同步更新次数</span></span><br><span class="line">        <span class="keyword">if</span> thread_recycles &gt; self_updates:</span><br><span class="line">            self._updates.set(thread_recycles)</span><br><span class="line"></span><br><span class="line">        <span class="comment"># [CALUDE-GEN] 如果更新次数等于线程回收次数，说明是当前线程的最新操作</span></span><br><span class="line">        <span class="keyword">if</span> self._updates.get() == self._thread_recycles.get(<span class="number">0</span>):</span><br><span class="line">            <span class="comment"># [CALUDE-GEN] 增加更新次数以标记这次新的设置操作</span></span><br><span class="line">            self._updates.set(self._updates.get() + <span class="number">1</span>)</span><br><span class="line"></span><br><span class="line">        <span class="comment"># [CALUDE-GEN] 设置上下文变量的值</span></span><br><span class="line">        self._context_var.set(value)</span><br></pre></td></tr></table></figure>
+<p>使用时，创建 RecyclableContextVar 实例</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># [CALUDE-GEN] 插件模型模式的线程锁，用于同步访问模型模式定义</span></span><br><span class="line">plugin_model_schema_lock: RecyclableContextVar[Lock] = RecyclableContextVar(ContextVar(<span class="string">"plugin_model_schema_lock"</span>))</span><br><span class="line"></span><br><span class="line"><span class="comment"># [CALUDE-GEN] 插件模型模式的上下文变量，存储模型名称到AI模型实体的映射</span></span><br><span class="line">plugin_model_schemas: RecyclableContextVar[dict[str, <span class="string">"AIModelEntity"</span>]] = RecyclableContextVar(</span><br><span class="line">    ContextVar(<span class="string">"plugin_model_schemas"</span>)</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">......</span><br><span class="line"></span><br><span class="line"><span class="keyword">try</span>:</span><br><span class="line">    <span class="comment"># 尝试获取当前请求的schema缓存字典，如果还没初始化（即 LookupError），就创建一个空字典 &#123;&#125; 和一把锁 Lock() 并存入上下文</span></span><br><span class="line">    contexts.plugin_model_schemas.get()</span><br><span class="line"><span class="keyword">except</span> LookupError:</span><br><span class="line">    contexts.plugin_model_schemas.set(&#123;&#125;)</span><br><span class="line">    contexts.plugin_model_schema_lock.set(Lock())</span><br><span class="line">    </span><br><span class="line"><span class="comment"># 获取当前上下文中的锁对象，并进入 with 块（即加锁）,在同一请求内，防止多个线程同时修改这个请求上下文中的缓存字典（虽然通常一个请求一个线程，但在多线程处理同一请求时仍有必要）。[这不是跨请求的锁，而是当前请求内部的同步机制，确保缓存读写不冲突。]</span></span><br><span class="line"><span class="keyword">with</span> contexts.plugin_model_schema_lock.get():</span><br><span class="line">    </span><br><span class="line">    <span class="comment"># 带着锁的二次检查，确保 cache_key 的 schema 没有被缓存起来</span></span><br><span class="line">    <span class="comment"># 即第二次检查是为了确保“我拿到锁的时候，别人没抢先干完活”，避免重复工作，保证缓存的幂等性和效率。 </span></span><br><span class="line">    <span class="keyword">if</span> cache_key <span class="keyword">in</span> contexts.plugin_model_schemas.get():</span><br><span class="line">        <span class="keyword">return</span> contexts.plugin_model_schemas.get()[cache_key]</span><br><span class="line">	</span><br><span class="line">    <span class="comment"># 上述操作确认了 cache_key 的 schema 没有被缓存起来</span></span><br><span class="line">    schema = plugin_model_manager.get_model_schema(</span><br><span class="line">        tenant_id=self.tenant_id,</span><br><span class="line">        user_id=<span class="string">"unknown"</span>,</span><br><span class="line">        plugin_id=self.plugin_id,</span><br><span class="line">        provider=self.provider_name,</span><br><span class="line">        model_type=self.model_type.value,</span><br><span class="line">        model=model,</span><br><span class="line">        credentials=credentials <span class="keyword">or</span> &#123;&#125;,</span><br><span class="line">    )</span><br><span class="line">	</span><br><span class="line">    <span class="comment"># 如果成功获取到 schema，就把它存入当前请求的缓存字典中，键为 cache_key。下次同一个请求再次访问相同 cache_key 时，就会命中缓存，直接返回。</span></span><br><span class="line">    <span class="keyword">if</span> schema:</span><br><span class="line">        contexts.plugin_model_schemas.get()[cache_key] = schema</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> schema</span><br><span class="line">    </span><br><span class="line">......</span><br></pre></td></tr></table></figure>
+<p>整体逻辑图</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">开始</span><br><span class="line">  │</span><br><span class="line">  ├─→ 尝试获取 contexts.plugin_model_schemas</span><br><span class="line">  │       ↳ 成功：继续</span><br><span class="line">  │       ↳ 失败（LookupError）：初始化为 &#123;&#125; 和 Lock()</span><br><span class="line">  │</span><br><span class="line">  ├─→ 获取锁（当前请求内的锁）</span><br><span class="line">  │</span><br><span class="line">  ├─→ 检查 cache_key 是否在缓存中？</span><br><span class="line">  │       ↳ 是：返回缓存值 ✅</span><br><span class="line">  │       ↳ 否：</span><br><span class="line">  │           └─→ 调用 get_model_schema() 获取真实数据</span><br><span class="line">  │           └─→ 如果有结果，写入缓存</span><br><span class="line">  │           └─→ 返回结果</span><br></pre></td></tr></table></figure>
+<h3 id="问题-1"><a href="#问题-1" class="headerlink" title="问题"></a>问题</h3><p>上述缓存方式的特点是什么？</p>
+<blockquote>
+<p>上述缓存方式为使用 <code>ContextVar</code> 实现的 <strong>请求级内存缓存（Request-Scoped In-Memory Cache）</strong>,数据存储在当前请求的上下文中，生命周期 = 当前请求的生命周期，不跨请求共享，典型用途：避免<strong>同一个请求内重复计算或 I/O</strong></p>
+</blockquote>
+<p>_thread_recycles 和 _updates 都是 ContextVar 类型的，为什么他们不会被线程复用影响？确保 RecyclableContextVar 是可复用的？</p>
+<blockquote>
+<p>_thread_recycles 和 _updates 只要线程复用，那么他们就会有残留值，它们之所以能工作，是因为： 有一个<strong>全局版本号</strong>（<code>_thread_recycles</code>）由外部主动递增，每次 <code>set</code> 都会确保 <code>_updates</code> 至少等于当前版本，通常还会 +1，<code>get</code> 时通过比较版本号，判断数据是否属于“当前生命周期”。所以，<strong>它不是靠“不残留”来安全，而是靠“残留了也能发现并修复”来安全。</strong></p>
+<p>即：它们不会“免疫”线程复用的影响，而是通过“主动更新机制”来识别并修复污染。它们不是“不会被影响”，而是“被影响了也能自我纠正”。 </p>
+</blockquote>
+<p>和其他类型的缓存的对比</p>
+<table>
+<thead>
+<tr>
+<th>缓存类型</th>
+<th>示例</th>
+<th>作用域</th>
+<th>声明周期</th>
+<th>是否持久</th>
+<th>并发安全</th>
+<th>典型用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>ContextVar 请求级缓存</strong></td>
+<td><code>contexts.plugin_model_schemas</code></td>
+<td>单个请求内</td>
+<td>请求开始 → 结束</td>
+<td>❌ 否</td>
+<td>✅ 是</td>
+<td>避免同一请求内重复加载</td>
+</tr>
+<tr>
+<td><strong>线程局部缓存</strong></td>
+<td><code>threading.local()</code></td>
+<td>单个线程内</td>
+<td>线程存活期间</td>
+<td>❌ 否</td>
+<td>⚠️ 同线程安全，但线程复用会污染</td>
+<td>旧式 Web 框架用</td>
+</tr>
+<tr>
+<td><strong>进程内存缓存</strong></td>
+<td><code>lru_cache</code>, 全局 dict</td>
+<td>所有请求共享</td>
+<td>进程运行期间</td>
+<td>❌ 否</td>
+<td>❌ 否（需手动加锁）</td>
+<td>提升整体性能，减少重复计算</td>
+</tr>
+<tr>
+<td><strong>分布式缓存</strong></td>
+<td>Redis, Memcached</td>
+<td>所有服务实例共享</td>
+<td>手动设置（TTL）</td>
+<td>✅ 可持久</td>
+<td>✅ 是（服务端保证）</td>
+<td>跨服务共享数据、会话存储</td>
+</tr>
+</tbody>
+</table>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><ol>
+<li>上述例子中，实现了 <strong>请求级线程安全缓存机制</strong>，用于缓存插件模型的 schema，避免重复加载，提升性能。（同一个请求中多次访问同一 model schema，只查一次）</li>
+<li>避免了线程池复用带来的 ContextVar 污染的问题（每个请求有自己的<code>ContextVar</code>，互不干扰，不会跨请求污染）</li>
+</ol>
+<h3 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h3><ol>
+<li><a href="https://github.com/langgenius/dify/blob/main/api/contexts/wrapper.py" target="_blank" rel="noopener">dify/api/contexts/wrapper.py at main · langgenius/dify</a></li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2025/06/11/VS Code 和 Pycharm DevContainer 使用/" rel="prev" title="VS Code 和 Pycharm DevContainer 使用">
+      <i class="fa fa-chevron-left"></i> VS Code 和 Pycharm DevContainer 使用
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2025/09/09/A100 部署 Grok2.5 /" rel="next" title="A100 部署 Grok2.5">
+      A100 部署 Grok2.5 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#需求"><span class="nav-number">1.</span> <span class="nav-text">需求</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#问题"><span class="nav-number">2.</span> <span class="nav-text">问题</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#如何解决"><span class="nav-number">3.</span> <span class="nav-text">如何解决</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#代码实现"><span class="nav-number">4.</span> <span class="nav-text">代码实现</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#问题-1"><span class="nav-number">5.</span> <span class="nav-text">问题</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#总结"><span class="nav-number">6.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#参考"><span class="nav-number">7.</span> <span class="nav-text">参考</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

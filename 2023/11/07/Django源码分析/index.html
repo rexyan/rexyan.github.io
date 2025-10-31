@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="创建项目安装好环境后，使用以下命令就能创建一个名称为 testsite 的项目。 1django-admin startproject testsite 当使用该命令创建项目时候，会调用 django/core/management/commands/startproject.py 中的  Command。  Command 中的 handle 会调用父类 handle 方法 ，传入 projec">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Django 源码分析">
+<meta property="og:url" content="https://rexyan.github.io/2023/11/07/Django源码分析/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="创建项目安装好环境后，使用以下命令就能创建一个名称为 testsite 的项目。 1django-admin startproject testsite 当使用该命令创建项目时候，会调用 django/core/management/commands/startproject.py 中的  Command。  Command 中的 handle 会调用父类 handle 方法 ，传入 projec">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/202311071506907.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/202311071557981.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/202311091815562.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/202311091750121.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/202311092300866.png">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.390Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Django 源码分析">
+<meta name="twitter:description" content="创建项目安装好环境后，使用以下命令就能创建一个名称为 testsite 的项目。 1django-admin startproject testsite 当使用该命令创建项目时候，会调用 django/core/management/commands/startproject.py 中的  Command。  Command 中的 handle 会调用父类 handle 方法 ，传入 projec">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/202311071506907.png">
+
+<link rel="canonical" href="https://rexyan.github.io/2023/11/07/Django源码分析/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Django 源码分析 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2023/11/07/Django源码分析/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Django 源码分析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2023-11-07 10:04:57" itemprop="dateCreated datePublished" datetime="2023-11-07T10:04:57+00:00">2023-11-07</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Python-进阶/" itemprop="url" rel="index"><span itemprop="name">Python 进阶</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="创建项目"><a href="#创建项目" class="headerlink" title="创建项目"></a>创建项目</h3><p>安装好环境后，使用以下命令就能创建一个名称为 testsite 的项目。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">django-admin startproject testsite</span><br></pre></td></tr></table></figure>
+<p>当使用该命令创建项目时候，会调用 <code>django/core/management/commands/startproject.py</code> 中的  Command。</p>
+<p> <a href="https://github.com/rexyan/django-source-code-analysis/blob/8268e0b2a4fcd8eb9aa571ad06927a4942a719e8/core/management/commands/startproject.py#L7-L21" target="_blank" rel="noopener">Command 中的 handle 会调用父类 handle 方法 ，传入 project, 项目名称，目录，options</a><br><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Command</span><span class="params">(TemplateCommand)</span>:</span></span><br><span class="line">    help = (</span><br><span class="line">        <span class="string">"Creates a Django project directory structure for the given project "</span></span><br><span class="line">        <span class="string">"name in the current directory or optionally in the given directory."</span></span><br><span class="line">    )</span><br><span class="line">    missing_args_message = <span class="string">"You must provide a project name."</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">handle</span><span class="params">(self, **options)</span>:</span></span><br><span class="line">        project_name = options.pop(<span class="string">"name"</span>)</span><br><span class="line">        target = options.pop(<span class="string">"directory"</span>)</span><br><span class="line"></span><br><span class="line">        <span class="comment"># Create a random SECRET_KEY to put it in the main settings.</span></span><br><span class="line">        options[<span class="string">"secret_key"</span>] = SECRET_KEY_INSECURE_PREFIX + get_random_secret_key()</span><br><span class="line">        <span class="comment"># 调用父类 ，传入 project, 项目名称，目录，options</span></span><br><span class="line">        super().handle(<span class="string">"project"</span>, project_name, target, **options)</span><br></pre></td></tr></table></figure></p>
+<p>之后便会检查项目名称，传入的目录等信息，然后构建渲染模版的 Context 上下文信息。<a href="https://github.com/rexyan/django-source-code-analysis/blob/8268e0b2a4fcd8eb9aa571ad06927a4942a719e8/core/management/templates.py#L86-L243" target="_blank" rel="noopener">查看源代码</a></p>
+<p>如果没有指定模版，那么会使用 <code>django/conf/project_template</code> 中的模版进行项目的创建。</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/202311071506907.png" alt></p>
+<p>例如上述命令创建出来的目录如下：</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/202311071557981.png" alt></p>
+<h3 id="交互式命令行"><a href="#交互式命令行" class="headerlink" title="交互式命令行"></a>交互式命令行</h3><p>在上面我们创建的项目 testsite 中，使用 <code>python manage.py shell</code> 即可进入交互式命令行，这其中背后的实现是在 <code>django/core/management/commands/shell.py</code> 中的 handle 方法。详细流程如下：</p>
+<ol>
+<li>如果使用了 -c 或者 –command 传入了命令，那么就执行该命令，然后退出</li>
+<li>如果没有传入命令，那么看是否传入了 -i 或者 –interface 来指定专门的 shell，没有指定，则默认为 “ipython”, “bpython”, “python”</li>
+<li>循环调用 “ipython”, “bpython”, “python” 这三个 shell，看哪个成功。</li>
+</ol>
+<p><a href="https://github.com/rexyan/django-source-code-analysis/blob/f6ffd29a99ea5c7431360ffc45e8ca1264b183f6/core/management/commands/shell.py#L114-L144" target="_blank" rel="noopener">查看源代码</a></p>
+<p><strong>为什么直接在项目下使用 python 进入交互式命令行后导入包会报错，而使用 python manage.py shell 进入交互式命令行后导入包却不报错？</strong></p>
+<p>先说下结论：使用 python manage.py shell 的方式，会设置一个环境变量，和设置一个属性值：</p>
+<ol>
+<li>会设置 <code>DJANGO_SETTINGS_MODULE</code> 环境变量的值，直接使用 python 进行交互式命令行则没有这个值。</li>
+<li>Apps 类中有一个 apps_ready 属性，默认值为 false，在导入包的过程中会去检查 apps_ready 的值是否为 true，而使用 python manage.py shell 命令，则会调用 execute 方法，execute 里面则设置了 apps_ready 值为 true。<a href="https://github.com/rexyan/django-source-code-analysis/blob/ead364303214dced93ad15dee625c7c0514f4ec8/core/management/__init__.py#L401-L402" target="_blank" rel="noopener">查看源代码</a></li>
+</ol>
+<h3 id="Migration"><a href="#Migration" class="headerlink" title="Migration"></a>Migration</h3><p>Migration 是迁移的抽象，也可以理解为每次迁移的动作。dependencies字段代表依赖，operations字段代表具体的操作，initial字段代表是否为第一次等，主要的方法如下：<a href="https://github.com/rexyan/django-source-code-analysis/blob/318b0a785f039bf1f161e85cfa1ddf5fc730c5ef/db/migrations/migration.py#L10-L197" target="_blank" rel="noopener">查看源代码</a></p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/202311091815562.png" alt></p>
+<blockquote>
+<p>mutate_state 方法用于在迁移过程中修改数据库模型的状态，确保数据库与模型定义保持同步。</p>
+<p>apply 方法用于将迁移应用到数据库中</p>
+</blockquote>
+<p>使用 <code>python manage.py makemigrations</code> 命令生成 migrations 迁移文件后，生成的迁移文件的内容中的 Migration 类就是继承上述的 Migration 类，生成的内容中可能包含上述介绍的字段，例如 dependencies，operations，initial 等。下面是个示例：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> django.db <span class="keyword">import</span> migrations, models</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Migration</span><span class="params">(migrations.Migration)</span>:</span></span><br><span class="line">    dependencies = [(<span class="string">"migrations"</span>, <span class="string">"0001_initial"</span>)]</span><br><span class="line">    operations = [</span><br><span class="line">        migrations.DeleteModel(<span class="string">"Tribble"</span>),</span><br><span class="line">        migrations.AddField(<span class="string">"Author"</span>, <span class="string">"rating"</span>, models.IntegerField(default=<span class="number">0</span>)),</span><br><span class="line">    ]</span><br></pre></td></tr></table></figure>
+<h3 id="MigrationRecorder"><a href="#MigrationRecorder" class="headerlink" title="MigrationRecorder"></a>MigrationRecorder</h3><p>MigrationRecorder类，对应数据库表中的 django_migrations 表，里面记录了每次 migration 的记录，有以下信息值得关注：</p>
+<ol>
+<li>里面的 Migration 方法采用懒加载的方式返回一个 Migration 类</li>
+<li>使用 MigrationRecorder 的时候需要传入一个 connection，可以使用 <code>django/db/__init__.py</code> 里面的 connection，connection 返回 default 数据库的连接</li>
+<li>migration_qs 方法返回所有的查询记录</li>
+<li>has_table 方法判断表是否存在</li>
+<li>ensure_schema 方法判断 django_migrations 表是否存在，不存在则创建</li>
+<li>applied_migrations 方法返回所有的migration 记录</li>
+<li>record_applied 方法新增一条 migration 记录信息</li>
+<li>record_unapplied 方法删除一条 migration 记录</li>
+<li>flush 删除所有 migration 记录信息</li>
+</ol>
+<p><a href="https://github.com/rexyan/django-source-code-analysis/blob/ee84d10ba27e0607b84e02b916ae9f04d18df26e/db/migrations/recorder.py#L9-L104" target="_blank" rel="noopener">查看源代码</a></p>
+<h3 id="MigrationGraph"><a href="#MigrationGraph" class="headerlink" title="MigrationGraph"></a>MigrationGraph</h3><p>每个 Migration 之间存在相互的依赖关系，比如一个的执行依赖另一个。Django 中使用 MigrationGraph 来构建这些关系。代码位于 <code>django/db/migrations/graph.py</code>。主要有以下信息值得关注：</p>
+<ol>
+<li>使用 Node 类表示节点，Node 类提供的添加节点的方法</li>
+<li>使用 DummyNode 表示一个虚拟节点，在下面的 MigrationGraph 类中，validate_consistency 方法会判断一个 Graph 中有没有 DummyNode，有则认为 Graph 有异常。</li>
+<li>MigrationGraph 中提供了添加节点，添加 DummyNode，添加依赖，替换节点，dfs 遍历 Graph，获取所有根节点，子节点 等方法。</li>
+</ol>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/202311091750121.png" alt></p>
+<p><a href="https://github.com/rexyan/django-source-code-analysis/blob/521996f90418e36e663be5deba2920f777e84fb4/db/migrations/graph.py#L9-L357" target="_blank" rel="noopener">查看源代码</a></p>
+<h3 id="MigrationLoader"><a href="#MigrationLoader" class="headerlink" title="MigrationLoader"></a>MigrationLoader</h3><p>MigrationLoader 的作用是，加载所有的应用下的 migrations 下的文件，并使用 MigrationGraph 构建依赖关系图。在这其中用到的上面介绍的三个类。主要方法如下：</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/202311092300866.png" alt></p>
+<p><a href="https://github.com/rexyan/django-source-code-analysis/blob/3ffeae9a9388f66d853a52ffaa14dbfd63d9da74/db/migrations/loader.py#L20-L407" target="_blank" rel="noopener">查看源代码</a></p>
+<h3 id="makemigrations-原理"><a href="#makemigrations-原理" class="headerlink" title="makemigrations 原理"></a>makemigrations 原理</h3><p>该命令事根据检测到的模型变化来创建新的迁移文件。使用的时候需要传入一个应用名称 app_label。执行命令时候，调用的代码在 <code>django/core/management/commands/makemigrations.py</code>。执行过程大致如下：</p>
+<ol>
+<li>判断迁移名称是否合法</li>
+<li>检查 app 名称是否存在，app 是否就绪等</li>
+<li>创建一个 MigrationLoader 对象，MigrationLoader 中新建了一个 graph</li>
+<li>调用 loader 的 check_consistent_history 方法，检查所有应用的迁移记录，检查数据库中的 migration 记录是否正常。</li>
+<li>检查是否有冲突（存在多个叶子节点）。有冲突时，可以使用 merge 选项处理，所以这里会判断冲突和 merge 命令是不是一起使用的</li>
+<li>创建 MigrationAutodetector 对象，看看第一个需要做什么才能使其与第二个匹配（第二个通常是项目的当前状态）</li>
+<li>通过上述 MigrationAutodetector 对象的 changes 方法，检查 model 和 migration 文件是否有变化，返回值是app名称和变化的 Migration 对象。</li>
+<li><p>如果没变化则提示没有变化，有变化则将变化的迁移内容写入迁移文件。</p>
+<p><a href="https://github.com/rexyan/django-source-code-analysis/blob/f4e63e0eabcff76bbb4b23788274052ef1b4bea1/core/management/commands/makemigrations.py#L26-L286" target="_blank" rel="noopener">查看源代码</a></p>
+</li>
+</ol>
+<h3 id="migrate-原理"><a href="#migrate-原理" class="headerlink" title="migrate 原理"></a>migrate 原理</h3><p>migrate 命令用于执行真正的迁移，调用的代码在 <code>django/core/management/commands/migrate.py</code> 下，migrate 的步骤主要如下：</p>
+<ol>
+<li>获取 connection，并且执行不同数据库的 prepare 操作</li>
+<li>创建一个 migration 执行器 MigrationExecutor 实例，里面一个 MigrationLoader 和 MigrationRecorder</li>
+<li>检测是否冲突（有多个叶子节点）</li>
+<li>中间执行很多参数的校验</li>
+<li>执行 executor.migration_plan(targets) 获取到迁移计划</li>
+<li>为 migrate 创建 project_state 用于保存状态</li>
+<li>运行 executor.migrate 执行迁移</li>
+<li><p>在迁移前后都有信号的发送</p>
+<p><a href="https://github.com/rexyan/django-source-code-analysis/blob/09bd1215c4034c66704e814c6c69835ffb0967af/core/management/commands/migrate.py#L101-L433" target="_blank" rel="noopener">查看源代码</a></p>
+</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2023/10/24/Go Cookbook/" rel="prev" title="Go CookBook">
+      <i class="fa fa-chevron-left"></i> Go CookBook
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2023/11/11/H3C NX30Pro 安装ShellClash/" rel="next" title="H3C NX30Pro 安装 ShellClash">
+      H3C NX30Pro 安装 ShellClash <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#创建项目"><span class="nav-number">1.</span> <span class="nav-text">创建项目</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#交互式命令行"><span class="nav-number">2.</span> <span class="nav-text">交互式命令行</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Migration"><span class="nav-number">3.</span> <span class="nav-text">Migration</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#MigrationRecorder"><span class="nav-number">4.</span> <span class="nav-text">MigrationRecorder</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#MigrationGraph"><span class="nav-number">5.</span> <span class="nav-text">MigrationGraph</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#MigrationLoader"><span class="nav-number">6.</span> <span class="nav-text">MigrationLoader</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#makemigrations-原理"><span class="nav-number">7.</span> <span class="nav-text">makemigrations 原理</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#migrate-原理"><span class="nav-number">8.</span> <span class="nav-text">migrate 原理</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

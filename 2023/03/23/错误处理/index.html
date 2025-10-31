@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="gRPC code类似于HTTP定义了一套响应状态码，gRPC也定义有一些状态码。Go语言中此状态码由codes定义，本质上是一个uint32。 1type Code uint32 使用时需导入google.golang.org/grpc/codes包。 1import &quot;google.golang.org/grpc/codes&quot; 目前已经定义的状态码有如下几种。    Code 值 含义">
+<meta property="og:type" content="article">
+<meta property="og:title" content="错误处理">
+<meta property="og:url" content="https://rexyan.github.io/2023/03/23/错误处理/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="gRPC code类似于HTTP定义了一套响应状态码，gRPC也定义有一些状态码。Go语言中此状态码由codes定义，本质上是一个uint32。 1type Code uint32 使用时需导入google.golang.org/grpc/codes包。 1import &quot;google.golang.org/grpc/codes&quot; 目前已经定义的状态码有如下几种。    Code 值 含义">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.411Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="错误处理">
+<meta name="twitter:description" content="gRPC code类似于HTTP定义了一套响应状态码，gRPC也定义有一些状态码。Go语言中此状态码由codes定义，本质上是一个uint32。 1type Code uint32 使用时需导入google.golang.org/grpc/codes包。 1import &quot;google.golang.org/grpc/codes&quot; 目前已经定义的状态码有如下几种。    Code 值 含义">
+
+<link rel="canonical" href="https://rexyan.github.io/2023/03/23/错误处理/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>错误处理 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2023/03/23/错误处理/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          错误处理
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2023-03-23 12:55:57" itemprop="dateCreated datePublished" datetime="2023-03-23T12:55:57+00:00">2023-03-23</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Go-微服务/" itemprop="url" rel="index"><span itemprop="name">Go 微服务</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="gRPC-code"><a href="#gRPC-code" class="headerlink" title="gRPC code"></a>gRPC code</h3><p>类似于HTTP定义了一套响应状态码，gRPC也定义有一些状态码。Go语言中此状态码由<a href="https://pkg.go.dev/google.golang.org/grpc/codes" target="_blank" rel="noopener">codes</a>定义，本质上是一个uint32。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> Code <span class="keyword">uint32</span></span><br></pre></td></tr></table></figure>
+<p>使用时需导入<code>google.golang.org/grpc/codes</code>包。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> <span class="string">"google.golang.org/grpc/codes"</span></span><br></pre></td></tr></table></figure>
+<p>目前已经定义的状态码有如下几种。</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:center">Code</th>
+<th style="text-align:center">值</th>
+<th style="text-align:center">含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">OK</td>
+<td style="text-align:center">0</td>
+<td style="text-align:center">请求成功</td>
+</tr>
+<tr>
+<td style="text-align:center">Canceled</td>
+<td style="text-align:center">1</td>
+<td style="text-align:center">操作已取消</td>
+</tr>
+<tr>
+<td style="text-align:center">Unknown</td>
+<td style="text-align:center">2</td>
+<td style="text-align:center">未知错误。如果从另一个地址空间接收到的状态值属 于在该地址空间中未知的错误空间，则可以返回此错误的示例。 没有返回足够的错误信息的API引发的错误也可能会转换为此错误</td>
+</tr>
+<tr>
+<td style="text-align:center">InvalidArgument</td>
+<td style="text-align:center">3</td>
+<td style="text-align:center">表示客户端指定的参数无效。 请注意，这与 FailedPrecondition 不同。 它表示无论系统状态如何都有问题的参数（例如，格式错误的文件名）。</td>
+</tr>
+<tr>
+<td style="text-align:center">DeadlineExceeded</td>
+<td style="text-align:center">4</td>
+<td style="text-align:center">表示操作在完成之前已过期。对于改变系统状态的操作，即使操作成功完成，也可能会返回此错误。 例如，来自服务器的成功响应可能已延迟足够长的时间以使截止日期到期。</td>
+</tr>
+<tr>
+<td style="text-align:center">NotFound</td>
+<td style="text-align:center">5</td>
+<td style="text-align:center">表示未找到某些请求的实体（例如，文件或目录）。</td>
+</tr>
+<tr>
+<td style="text-align:center">AlreadyExists</td>
+<td style="text-align:center">6</td>
+<td style="text-align:center">创建实体的尝试失败，因为实体已经存在。</td>
+</tr>
+<tr>
+<td style="text-align:center">PermissionDenied</td>
+<td style="text-align:center">7</td>
+<td style="text-align:center">表示调用者没有权限执行指定的操作。 它不能用于拒绝由耗尽某些资源引起的（使用 ResourceExhausted ）。 如果无法识别调用者，也不能使用它（使用 Unauthenticated ）。</td>
+</tr>
+<tr>
+<td style="text-align:center">ResourceExhausted</td>
+<td style="text-align:center">8</td>
+<td style="text-align:center">表示某些资源已耗尽，可能是每个用户的配额，或者整个文件系统空间不足</td>
+</tr>
+<tr>
+<td style="text-align:center">FailedPrecondition</td>
+<td style="text-align:center">9</td>
+<td style="text-align:center">指示操作被拒绝，因为系统未处于操作执行所需的状态。 例如，要删除的目录可能是非空的，rmdir 操作应用于非目录等。</td>
+</tr>
+<tr>
+<td style="text-align:center">Aborted</td>
+<td style="text-align:center">10</td>
+<td style="text-align:center">表示操作被中止，通常是由于并发问题，如排序器检查失败、事务中止等。</td>
+</tr>
+<tr>
+<td style="text-align:center">OutOfRange</td>
+<td style="text-align:center">11</td>
+<td style="text-align:center">表示尝试超出有效范围的操作。</td>
+</tr>
+<tr>
+<td style="text-align:center">Unimplemented</td>
+<td style="text-align:center">12</td>
+<td style="text-align:center">表示此服务中未实施或不支持/启用操作。</td>
+</tr>
+<tr>
+<td style="text-align:center">Internal</td>
+<td style="text-align:center">13</td>
+<td style="text-align:center">意味着底层系统预期的一些不变量已被破坏。 如果你看到这个错误，则说明问题很严重。</td>
+</tr>
+<tr>
+<td style="text-align:center">Unavailable</td>
+<td style="text-align:center">14</td>
+<td style="text-align:center">表示服务当前不可用。这很可能是暂时的情况，可以通过回退重试来纠正。 请注意，重试非幂等操作并不总是安全的。</td>
+</tr>
+<tr>
+<td style="text-align:center">DataLoss</td>
+<td style="text-align:center">15</td>
+<td style="text-align:center">表示不可恢复的数据丢失或损坏</td>
+</tr>
+<tr>
+<td style="text-align:center">Unauthenticated</td>
+<td style="text-align:center">16</td>
+<td style="text-align:center">表示请求没有用于操作的有效身份验证凭据</td>
+</tr>
+<tr>
+<td style="text-align:center">_maxCode</td>
+<td style="text-align:center">17</td>
+<td style="text-align:center">-</td>
+</tr>
+</tbody>
+</table>
+<h3 id="gRPC-Status"><a href="#gRPC-Status" class="headerlink" title="gRPC Status"></a>gRPC Status</h3><p>Go语言使用的gRPC Status 定义在<a href="https://pkg.go.dev/google.golang.org/grpc/status" target="_blank" rel="noopener">google.golang.org/grpc/status</a>，使用时需导入。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> <span class="string">"google.golang.org/grpc/status"</span></span><br></pre></td></tr></table></figure>
+<p>RPC服务的方法应该返回 <code>nil</code> 或来自<code>status.Status</code>类型的错误。客户端可以直接访问错误。</p>
+<h4 id="创建错误"><a href="#创建错误" class="headerlink" title="创建错误"></a>创建错误</h4><p>当遇到错误时，gRPC服务的方法函数应该创建一个 <code>status.Status</code>。通常我们会使用 <code>status.New</code>函数并传入适当的<code>status.Code</code>和错误描述来生成一个<code>status.Status</code>。调用<code>status.Err</code>方法便能将一个<code>status.Status</code>转为<code>error</code>类型。也存在一个简单的<code>status.Error</code>方法直接生成<code>error</code>。下面是两种方式的比较。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 创建status.Status</span></span><br><span class="line">st := status.New(codes.NotFound, <span class="string">"some description"</span>)</span><br><span class="line">err := st.Err()  <span class="comment">// 转为error类型</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// vs.</span></span><br><span class="line"></span><br><span class="line">err := status.Error(codes.NotFound, <span class="string">"some description"</span>)</span><br></pre></td></tr></table></figure>
+<h4 id="为错误添加其他详细信息"><a href="#为错误添加其他详细信息" class="headerlink" title="为错误添加其他详细信息"></a>为错误添加其他详细信息</h4><p>在某些情况下，可能需要为服务器端的特定错误添加详细信息。<code>status.WithDetails</code>就是为此而存在的，它可以添加任意多个<code>proto.Message</code>，我们可以使用<code>google.golang.org/genproto/googleapis/rpc/errdetails</code>中的定义或自定义的错误详情。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">st := status.New(codes.ResourceExhausted, <span class="string">"Request limit exceeded."</span>)</span><br><span class="line">ds, _ := st.WithDetails(</span><br><span class="line">	<span class="comment">// proto.Message</span></span><br><span class="line">)</span><br><span class="line"><span class="keyword">return</span> <span class="literal">nil</span>, ds.Err()</span><br></pre></td></tr></table></figure>
+<p>然后，客户端可以通过首先将普通<code>error</code>类型转换回<code>status.Status</code>，然后使用<code>status.Details</code>来读取这些详细信息。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">s := status.Convert(err)</span><br><span class="line"><span class="keyword">for</span> _, d := <span class="keyword">range</span> s.Details() &#123;</span><br><span class="line">	<span class="comment">// ...</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2023/03/23/gRPC 元数据/" rel="prev" title="gRPC 元数据">
+      <i class="fa fa-chevron-left"></i> gRPC 元数据
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2023/03/25/gRPC-Gateway/" rel="next" title="gRPC-Gateway">
+      gRPC-Gateway <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#gRPC-code"><span class="nav-number">1.</span> <span class="nav-text">gRPC code</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#gRPC-Status"><span class="nav-number">2.</span> <span class="nav-text">gRPC Status</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#创建错误"><span class="nav-number">2.1.</span> <span class="nav-text">创建错误</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#为错误添加其他详细信息"><span class="nav-number">2.2.</span> <span class="nav-text">为错误添加其他详细信息</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

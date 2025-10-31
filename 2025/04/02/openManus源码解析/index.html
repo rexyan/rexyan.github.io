@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="运行方式官方文档中，给出了三种运行方式，分别是： 一行命令运行 OpenManus： 1python main.py 如需使用 MCP 工具版本，可运行： 1python run_mcp.py 如需体验不稳定的多智能体版本，可运行： 1python run_flow.py  代码关系图先看代码之间的继承关系，有助于理解后续的各种模式的实现。 其中，绿色的为未实现的部分，蓝色的为已经实现的部分，可以">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OpenManus 源码解析">
+<meta property="og:url" content="https://rexyan.github.io/2025/04/02/openManus源码解析/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="运行方式官方文档中，给出了三种运行方式，分别是： 一行命令运行 OpenManus： 1python main.py 如需使用 MCP 工具版本，可运行： 1python run_mcp.py 如需体验不稳定的多智能体版本，可运行： 1python run_flow.py  代码关系图先看代码之间的继承关系，有助于理解后续的各种模式的实现。 其中，绿色的为未实现的部分，蓝色的为已经实现的部分，可以">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17434758038881743475802956.png">
+<meta property="og:image" content="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/1743477602887openmanus.drawio.png">
+<meta property="og:image" content="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/1743585371204openmanus-flow.drawio.png">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.404Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="OpenManus 源码解析">
+<meta name="twitter:description" content="运行方式官方文档中，给出了三种运行方式，分别是： 一行命令运行 OpenManus： 1python main.py 如需使用 MCP 工具版本，可运行： 1python run_mcp.py 如需体验不稳定的多智能体版本，可运行： 1python run_flow.py  代码关系图先看代码之间的继承关系，有助于理解后续的各种模式的实现。 其中，绿色的为未实现的部分，蓝色的为已经实现的部分，可以">
+<meta name="twitter:image" content="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17434758038881743475802956.png">
+
+<link rel="canonical" href="https://rexyan.github.io/2025/04/02/openManus源码解析/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>OpenManus 源码解析 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2025/04/02/openManus源码解析/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          OpenManus 源码解析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2025-04-02 22:55:57" itemprop="dateCreated datePublished" datetime="2025-04-02T22:55:57+00:00">2025-04-02</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/博客/" itemprop="url" rel="index"><span itemprop="name">博客</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="运行方式"><a href="#运行方式" class="headerlink" title="运行方式"></a>运行方式</h3><p>官方文档中，给出了三种运行方式，分别是：</p>
+<p>一行命令运行 OpenManus：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">python main.py</span><br></pre></td></tr></table></figure>
+<p>如需使用 MCP 工具版本，可运行：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">python run_mcp.py</span><br></pre></td></tr></table></figure>
+<p>如需体验不稳定的多智能体版本，可运行：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">python run_flow.py</span><br></pre></td></tr></table></figure>
+<p><img src="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17434758038881743475802956.png" alt="17434758038881743475802956.png"></p>
+<h3 id="代码关系图"><a href="#代码关系图" class="headerlink" title="代码关系图"></a>代码关系图</h3><p>先看代码之间的继承关系，有助于理解后续的各种模式的实现。</p>
+<p>其中，绿色的为未实现的部分，蓝色的为已经实现的部分，可以看出 <a href="https://github.com/mannaandpoem/OpenManus" target="_blank" rel="noopener">OpenManus</a> 是想使用 ReAct 和 COT 两种增强模型推理的能力，但 COT 目前暂未完善，红色部分为关键函数</p>
+<p><img src="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/1743477602887openmanus.drawio.png" alt="1743477602887openmanus.drawio.png"></p>
+<p>主要的关键函数为 run，think，act。这几个函数的大致作用如下：</p>
+<p><strong>run</strong>: 执行整个流程，并且为了防止一直执行下去，判断是否达到最大的步数（step）</p>
+<p><strong>step</strong>: 执行 think 和 act 的过程称为一个 step</p>
+<p><strong>think</strong>: 调用大模型的过程，将任务和工具给到大模型，让其选择是否需要工具来完成本次任务</p>
+<p><strong>act</strong>: 一个工具的执行叫做一个 action</p>
+<p>针对于每个 Agent 之间的 think，run，act 之间有什么细微区别，可以在后面运行模式中详细说明。</p>
+<blockquote>
+<p>目前时间为 2025-04-01，后续代码可能会有变动</p>
+</blockquote>
+<blockquote>
+<p>COT 和 ReAct 的区别：</p>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>Chain-of-Thought (COT)</th>
+<th>ReAct</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>推理方式</strong></td>
+<td>内部推理，仅依赖模型自身的知识和逻辑推导</td>
+<td>内部推理 + 外部行动，允许与环境交互</td>
+</tr>
+<tr>
+<td><strong>外部依赖</strong></td>
+<td>无外部依赖</td>
+<td>可以依赖外部工具或知识库</td>
+</tr>
+<tr>
+<td><strong>适用场景</strong></td>
+<td>需要多步逻辑推理的任务</td>
+<td>需要动态决策和与环境交互的任务</td>
+</tr>
+<tr>
+<td><strong>输出形式</strong></td>
+<td>显式的推理链条</td>
+<td>推理链条 + 行动记录</td>
+</tr>
+<tr>
+<td><strong>灵活性</strong></td>
+<td>固定在模型内部，无法动态获取新信息</td>
+<td>动态性强，可根据外部反馈调整策略</td>
+</tr>
+</tbody>
+</table>
+<p>COT 举例：</p>
+<p>问题: 如果一个房间有 3 张桌子，每张桌子上有 4 把椅子，总共有多少把椅子？<br>推理: 每张桌子有 4 把椅子，一共有 3 张桌子，所以总数是 3 × 4 = 12。<br>答案: 12 把椅子。</p>
+<p>ReAct 举例：</p>
+<p>问题: 北京的天气如何？<br>推理: 我需要查询北京的实时天气信息。<br>行动: 查询天气 API。<br>结果: 北京当前温度为 20°C，晴天。<br>答案: 北京当前温度为 20°C，晴天。</p>
+</blockquote>
+<h3 id="Manus-模式"><a href="#Manus-模式" class="headerlink" title="Manus 模式"></a>Manus 模式</h3><p>直接实例化 Manus 对象，运行了 BaseAgent 中的 run 方法，run 方法中，判断当前 Agent 的状态是否已经完成，并且步数是否已经达到最大步数(默认为 10)，如果二者满足其一，那么其实整个 Agent 就已经结束或者该结束了，不会执行下面的逻辑</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">run</span><span class="params">(self, request: Optional[str] = None)</span> -&gt; str:</span></span><br><span class="line">       results: List[str] = []</span><br><span class="line">       <span class="keyword">async</span> <span class="keyword">with</span> self.state_context(AgentState.RUNNING):</span><br><span class="line">           <span class="comment"># 判断当前 Agent 的状态是否已经完成，并且步数是否已经达到最大步数(默认为 10)</span></span><br><span class="line">           <span class="keyword">while</span> (self.current_step &lt; self.max_steps <span class="keyword">and</span> self.state != AgentState.FINISHED):</span><br><span class="line">               <span class="comment"># 步数+1</span></span><br><span class="line">               self.current_step += <span class="number">1</span></span><br><span class="line">               <span class="comment"># 执行一次 step</span></span><br><span class="line">               step_result = <span class="keyword">await</span> self.step()</span><br><span class="line">               results.append(<span class="string">f"Step <span class="subst">&#123;self.current_step&#125;</span>: <span class="subst">&#123;step_result&#125;</span>"</span>)</span><br><span class="line">               </span><br><span class="line">           <span class="comment"># 已经超过最大步数了</span></span><br><span class="line">           <span class="keyword">if</span> self.current_step &gt;= self.max_steps:</span><br><span class="line">               self.current_step = <span class="number">0</span></span><br><span class="line">               self.state = AgentState.IDLE</span><br><span class="line">               results.append(<span class="string">f"Terminated: Reached max steps (<span class="subst">&#123;self.max_steps&#125;</span>)"</span>)</span><br></pre></td></tr></table></figure>
+<p>执行每一个 step（COT 和 ReAct 中都有 step 的实现，因为这里是Manus 模式，所以执行的是 ReActAgent 中的 step），step 中的逻辑也很简单，就是先进行一次模型的调用，然后判断是否调用工具</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">step</span><span class="params">(self)</span> -&gt; str:</span></span><br><span class="line">    <span class="comment"># 先执行 think</span></span><br><span class="line">    should_act = <span class="keyword">await</span> self.think()</span><br><span class="line">    <span class="keyword">if</span> <span class="keyword">not</span> should_act:</span><br><span class="line">        <span class="keyword">return</span> <span class="string">"Thinking complete - no action needed"</span></span><br><span class="line">    <span class="comment"># 如果需要执行 act，那么再调用 act</span></span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">await</span> self.act()</span><br></pre></td></tr></table></figure>
+<p>think 执行的过程就是去调用大模型的过程</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">think</span><span class="params">(self)</span> -&gt; bool:</span></span><br><span class="line">    <span class="keyword">try</span>:</span><br><span class="line">        response = <span class="keyword">await</span> self.llm.ask_tool(</span><br><span class="line">            messages=self.messages,</span><br><span class="line">            system_msgs=(</span><br><span class="line">                [Message.system_message(self.system_prompt)]</span><br><span class="line">                <span class="keyword">if</span> self.system_prompt</span><br><span class="line">                <span class="keyword">else</span> <span class="literal">None</span></span><br><span class="line">            ),</span><br><span class="line">            tools=self.available_tools.to_params(),</span><br><span class="line">            tool_choice=self.tool_choices,</span><br><span class="line">        )</span><br><span class="line">        ......</span><br><span class="line">        <span class="comment"># 判断是否需要使用工具</span></span><br><span class="line">        self.tool_calls = tool_calls = (</span><br><span class="line">        response.tool_calls <span class="keyword">if</span> response <span class="keyword">and</span> response.tool_calls <span class="keyword">else</span> []</span><br><span class="line">    )</span><br></pre></td></tr></table></figure>
+<p>因为 Manus 是继承自 BrowserAgent 的，二者中都有 think 方法，但其中的 think 方法都在为生成一个叫 next_step_prompt 的变量做准备，这是将当前的浏览器窗口信息传递到模型中，然后让大模型做出后续决定的 prompt，prompt 翻译后如下所示：</p>
+<blockquote>
+<p>为了实现目标，我接下来应该做什么？</p>
+<p>当你看到[Current state starts here]时，请关注以下内容：</p>
+<ul>
+<li>当前 URL 和页面标题{url_placeholder}</li>
+<li>可用标签页{tabs_placeholder}</li>
+<li>交互元素及其索引</li>
+<li>视口上方{content_above_placeholder}或下方{content_below_placeholder}的内容（如已标注）</li>
+<li>任何操作结果或错误{results_placeholder}</li>
+</ul>
+<p>浏览器交互操作：</p>
+<ul>
+<li>导航跳转：使用 browser_use 并设置 action=”go_to_url”, url=”…”</li>
+<li>点击元素：使用 browser_use 并设置 action=”click_element”, index=N</li>
+<li>输入文本：使用 browser_use 并设置 action=”input_text”, index=N, text=”…”</li>
+<li>提取操作：使用浏览器功能，动作属性为“extract_content”，目标为“…”</li>
+<li>滚动操作：使用浏览器功能，动作属性为“scroll_down”或“scroll_up”</li>
+</ul>
+<p>同时考虑当前可见内容及视口之外可能存在的部分。<br>保持条理性——记住你的进度和目前已掌握的信息。</p>
+</blockquote>
+<p>act 的执行过程，就是调用每个工具的过程了</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">act</span><span class="params">(self)</span> -&gt; str:</span></span><br><span class="line">    results = []</span><br><span class="line">    <span class="comment"># 循环调用 think 出来的工具</span></span><br><span class="line">    <span class="keyword">for</span> command <span class="keyword">in</span> self.tool_calls:</span><br><span class="line">        result = <span class="keyword">await</span> self.execute_tool(command)</span><br><span class="line">        ......</span><br></pre></td></tr></table></figure>
+<h3 id="MCP-模式"><a href="#MCP-模式" class="headerlink" title="MCP 模式"></a>MCP 模式</h3><p>MCP 的运行流程和 Manus 的流程是一样的，只不过工具的来源是 MCP，并且 MCP 的 think 中没有了 next_step_prompt  这个 prompt</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">def</span> <span class="title">_initialize_and_list_tools</span><span class="params">(self)</span> -&gt; <span class="keyword">None</span>:</span></span><br><span class="line">    <span class="comment"># 获取 MCP Server 的工具列表</span></span><br><span class="line">    response = <span class="keyword">await</span> self.session.list_tools()</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> tool <span class="keyword">in</span> response.tools:</span><br><span class="line">        server_tool = MCPClientTool(</span><br><span class="line">            name=tool.name,</span><br><span class="line">            description=tool.description,</span><br><span class="line">            parameters=tool.inputSchema,</span><br><span class="line">            session=self.session,</span><br><span class="line">        )</span><br><span class="line">        self.tool_map[tool.name] = server_tool</span><br><span class="line">    self.tools = tuple(self.tool_map.values())</span><br></pre></td></tr></table></figure>
+<p>而 MCP Server 的 run 方法会注册支持的所有工具</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">MCPServer</span>:</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, name: str = <span class="string">"openmanus"</span>)</span>:</span></span><br><span class="line">    self.tools[<span class="string">"bash"</span>] = Bash()</span><br><span class="line">    self.tools[<span class="string">"browser"</span>] = BrowserUseTool()</span><br><span class="line">    self.tools[<span class="string">"editor"</span>] = StrReplaceEditor()</span><br><span class="line">    self.tools[<span class="string">"terminate"</span>] = Terminate()</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">register_all_tools</span><span class="params">(self)</span> -&gt; <span class="keyword">None</span>:</span></span><br><span class="line">    <span class="comment"># 注册所有工具</span></span><br><span class="line">    <span class="keyword">for</span> tool <span class="keyword">in</span> self.tools.values():</span><br><span class="line">        self.register_tool(tool)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">run</span><span class="params">(self, transport: str = <span class="string">"stdio"</span>)</span> -&gt; <span class="keyword">None</span>:</span></span><br><span class="line">    <span class="string">"""Run the MCP server."""</span></span><br><span class="line">    self.register_all_tools()</span><br><span class="line">    ......</span><br></pre></td></tr></table></figure>
+<h3 id="Flow-模式"><a href="#Flow-模式" class="headerlink" title="Flow 模式"></a>Flow 模式</h3><p>Flow 模式也是未完成的状态，目前仅支持 PlanningFlow，原理是通过 prompt，将 planning_tool 作为工具描述给大模型，然后大模型做出相应的 plan（planning_tool 中提供了create，update 等操作）, System Prompt 如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">system message:</span><br><span class="line">你是一名规划助手。制定一个简洁、可操作的计划，包含清晰的步骤。</span><br><span class="line">重点关注关键里程碑，而非详细的子步骤。</span><br><span class="line">以清晰和高效为优化目标。</span><br><span class="line"></span><br><span class="line">user message:</span><br><span class="line">制定一个合理的计划，包含清晰的步骤以完成任务：&#123;request&#125;</span><br></pre></td></tr></table></figure>
+<p>得到一个 plan 之后，会去循环执行 plan 的每一步，其中每一步都会通过大模型然后选择出适当的工具来执行，prompt 如下，这里就和之前的逻辑一样了，会去执行每一个 step，然后执行 think 和 act。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">当前计划状态：</span><br><span class="line">&#123;plan_status&#125;</span><br><span class="line"></span><br><span class="line">你的当前任务：</span><br><span class="line">你现在正在处理第 &#123;self.current_step_index&#125; 步：“&#123;step_text&#125;”</span><br><span class="line"></span><br><span class="line">请使用适当的工具执行此步骤。完成后，请提供你所完成内容的简要总结。</span><br></pre></td></tr></table></figure>
+<p><img src="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/1743585371204openmanus-flow.drawio.png" alt="1743585371204openmanus-flow.drawio.png"></p>
+<h3 id="内置的工具列表"><a href="#内置的工具列表" class="headerlink" title="内置的工具列表"></a>内置的工具列表</h3><table>
+<thead>
+<tr>
+<th>工具类别</th>
+<th>具体名称</th>
+<th>功能描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>WebSearch</td>
+<td>GoogleSearchEngine，BaiduSearchEngine，DuckDuckGoSearchEngine，BingSearchEngine</td>
+<td>执行网络搜索并返回相关链接的列表。这个函数尝试使用搜索引擎API来获取最新的结果。如果出现错误，它会返回到另一个搜索引擎。</td>
+</tr>
+<tr>
+<td>FileSaver</td>
+<td>FileSaver</td>
+<td>将内容保存到指定路径的本地文件中。当您需要将文本、代码或生成的内容保存到本地文件系统上的文件中时，可以使用此工具。该工具接受内容和文件路径，并将内容保存到该位置。</td>
+</tr>
+<tr>
+<td>StrReplaceEditor</td>
+<td>StrReplaceEditor</td>
+<td>支持沙盒功能的文件查看、创建和编辑工具。</td>
+</tr>
+<tr>
+<td>CreateChatCompletion</td>
+<td>CreateChatCompletion</td>
+<td>创建一个具有指定输出格式的结构化内容</td>
+</tr>
+<tr>
+<td>BrowserUseTool</td>
+<td>BrowserUseTool</td>
+<td>浏览器操作</td>
+</tr>
+<tr>
+<td>PythonExecute</td>
+<td>PythonExecute</td>
+<td>安全的执行 Python 代码</td>
+</tr>
+<tr>
+<td>Terminal</td>
+<td>Terminal</td>
+<td>执行系统命令</td>
+</tr>
+<tr>
+<td>Terminate</td>
+<td>Terminate</td>
+<td>当无法继续运行或者完成任务时调用</td>
+</tr>
+<tr>
+<td>PlanningTool</td>
+<td>PlanningTool</td>
+<td>一种规划工具，允许 Agent 创建和管理用于解决复杂任务的计划。该工具提供了创建计划、更新计划步骤以及跟踪进度的功能。</td>
+</tr>
+<tr>
+<td>MCPClientTool</td>
+<td>MCPClientTool</td>
+<td>MCP 客户端工具</td>
+</tr>
+</tbody>
+</table>
+<h3 id="官方后续计划"><a href="#官方后续计划" class="headerlink" title="官方后续计划"></a>官方后续计划</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">1. 增强Planning能力 </span><br><span class="line">2. 引入标准化评测 - 采用GAIA和SWE-Bench作为基准，持续评估和优化性能</span><br><span class="line">3. 拓展模型适配 - 从Claude-3-5扩展到DeepSeek V2.5，优化低成本应用场景</span><br><span class="line">4. 实现容器化部署 - 简化安装和使用流程</span><br><span class="line">5. 丰富示例库 - 增加更多实用案例，包含成功和失败示例的分析</span><br><span class="line">6. 前后端开发 - 提供用户体验</span><br><span class="line">7. RAG 知识库</span><br></pre></td></tr></table></figure>
+<h3 id="官方项目参考"><a href="#官方项目参考" class="headerlink" title="官方项目参考"></a>官方项目参考</h3><p><a href="https://mvhi0v1y6xe.feishu.cn/docx/FHYJd3p0EotvlLxM3TpcIXv0n5d" target="_blank" rel="noopener">‍‍‬‬‌﻿‍‍⁠‍⁠‌‍‌‌﻿﻿‬‬‬‍‍⁠⁠OpenManus投票 - 飞书云文档</a></p>
+<h3 id="附件"><a href="#附件" class="headerlink" title="附件"></a>附件</h3><p>代码关系图：</p>
+<p><a href="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/openmanus.drawio" target="_blank" rel="noopener">https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/openmanus.drawio</a></p>
+<p><a href="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/openmanus-flow%20(4).drawio" target="_blank" rel="noopener">https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/openmanus-flow%20(4).drawio</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2025/03/18/MCP 是否需要大模型具有 FunctionCall 功能/" rel="prev" title="MCP 是否需要大模型有 FunctionCall 功能">
+      <i class="fa fa-chevron-left"></i> MCP 是否需要大模型有 FunctionCall 功能
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2025/04/03/毕昇核心流程梳理/" rel="next" title="毕昇核心流程梳理">
+      毕昇核心流程梳理 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#运行方式"><span class="nav-number">1.</span> <span class="nav-text">运行方式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#代码关系图"><span class="nav-number">2.</span> <span class="nav-text">代码关系图</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Manus-模式"><span class="nav-number">3.</span> <span class="nav-text">Manus 模式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#MCP-模式"><span class="nav-number">4.</span> <span class="nav-text">MCP 模式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Flow-模式"><span class="nav-number">5.</span> <span class="nav-text">Flow 模式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#内置的工具列表"><span class="nav-number">6.</span> <span class="nav-text">内置的工具列表</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#官方后续计划"><span class="nav-number">7.</span> <span class="nav-text">官方后续计划</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#官方项目参考"><span class="nav-number">8.</span> <span class="nav-text">官方项目参考</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#附件"><span class="nav-number">9.</span> <span class="nav-text">附件</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

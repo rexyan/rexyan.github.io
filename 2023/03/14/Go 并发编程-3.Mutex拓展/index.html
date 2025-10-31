@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="Try Lock在实际开发中，如果要更新配置数据，我们通常需要加锁，这样可以避免同时有多个 goroutine 并发修改数据。有的时候，我们也会使用 TryLock。这样一来，当某个 goroutine 想要更改配置数据时，如果发现已经有 goroutine 在更改了，其他的 goroutine 调用 TryLock，返回了 false，这个 goroutine 就会放弃更改。 官方实现在 Go">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Go 并发编程-3.Mutex拓展">
+<meta property="og:url" content="https://rexyan.github.io/2023/03/14/Go 并发编程-3.Mutex拓展/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="Try Lock在实际开发中，如果要更新配置数据，我们通常需要加锁，这样可以避免同时有多个 goroutine 并发修改数据。有的时候，我们也会使用 TryLock。这样一来，当某个 goroutine 想要更改配置数据时，如果发现已经有 goroutine 在更改了，其他的 goroutine 调用 TryLock，返回了 false，这个 goroutine 就会放弃更改。 官方实现在 Go">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230315104940.png">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.393Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Go 并发编程-3.Mutex拓展">
+<meta name="twitter:description" content="Try Lock在实际开发中，如果要更新配置数据，我们通常需要加锁，这样可以避免同时有多个 goroutine 并发修改数据。有的时候，我们也会使用 TryLock。这样一来，当某个 goroutine 想要更改配置数据时，如果发现已经有 goroutine 在更改了，其他的 goroutine 调用 TryLock，返回了 false，这个 goroutine 就会放弃更改。 官方实现在 Go">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230315104940.png">
+
+<link rel="canonical" href="https://rexyan.github.io/2023/03/14/Go 并发编程-3.Mutex拓展/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Go 并发编程-3.Mutex拓展 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2023/03/14/Go 并发编程-3.Mutex拓展/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Go 并发编程-3.Mutex拓展
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2023-03-14 22:55:57" itemprop="dateCreated datePublished" datetime="2023-03-14T22:55:57+00:00">2023-03-14</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Go/" itemprop="url" rel="index"><span itemprop="name">Go</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="Try-Lock"><a href="#Try-Lock" class="headerlink" title="Try Lock"></a>Try Lock</h3><p>在实际开发中，如果要更新配置数据，我们通常需要加锁，这样可以避免同时有多个 goroutine 并发修改数据。有的时候，我们也会使用 TryLock。这样一来，当某个 goroutine 想要更改配置数据时，如果发现已经有 goroutine 在更改了，其他的 goroutine 调用 TryLock，返回了 false，这个 goroutine 就会放弃更改。</p>
+<h4 id="官方实现"><a href="#官方实现" class="headerlink" title="官方实现"></a>官方实现</h4><p>在 Go 1.18 官方标准库中，已经为 Mutex/RWMutex 增加了 TryLock 方法。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">	<span class="string">"fmt"</span></span><br><span class="line">	<span class="string">"sync"</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	<span class="keyword">var</span> mu sync.Mutex</span><br><span class="line">	<span class="keyword">if</span> mu.TryLock() &#123;</span><br><span class="line">		fmt.Println(<span class="string">"TryLock Success"</span>)</span><br><span class="line">		<span class="keyword">defer</span> mu.Unlock()</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>TryLock:</p>
+<p>当一个 goroutine 调用这个 TryLock 方法请求锁的时候，如果这把锁没有被其他 goroutine 所持有，那么，这个 goroutine 就持有了这把锁，并返回 true；如果这把锁已经被其他 goroutine 所持有，或者是正在准备交给某个被唤醒的 goroutine，那么，这个请求锁的 goroutine 就直接返回 false，不会阻塞在方法调用上。</p>
+</blockquote>
+<h4 id="自定义拓展"><a href="#自定义拓展" class="headerlink" title="自定义拓展"></a>自定义拓展</h4><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">// 复制Mutex定义的常量</span></span><br><span class="line"><span class="keyword">const</span> (</span><br><span class="line">    mutexLocked = <span class="number">1</span> &lt;&lt; <span class="literal">iota</span> <span class="comment">// 加锁标识位置，值为1</span></span><br><span class="line">    mutexWoken              <span class="comment">// 唤醒标识位置，值为2</span></span><br><span class="line">    mutexStarving           <span class="comment">// 锁饥饿标识位置，值为4</span></span><br><span class="line">    mutexWaiterShift = <span class="literal">iota</span> <span class="comment">// 标识waiter的起始bit位置</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment">// 扩展一个Mutex结构</span></span><br><span class="line"><span class="keyword">type</span> Mutex <span class="keyword">struct</span> &#123;</span><br><span class="line">    sync.Mutex</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 尝试获取锁</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(m *Mutex)</span> <span class="title">TryLock</span><span class="params">()</span> <span class="title">bool</span></span> &#123;</span><br><span class="line">    <span class="comment">// 如果能成功抢到锁</span></span><br><span class="line">    <span class="keyword">if</span> atomic.CompareAndSwapInt32((*<span class="keyword">int32</span>)(unsafe.Pointer(&amp;m.Mutex)), <span class="number">0</span>, mutexLocked) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">true</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 如果处于唤醒、加锁或者饥饿状态，这次请求就不参与竞争了，返回false</span></span><br><span class="line">  	fmt.Println(unsafe.Pointer(&amp;m.Mutex))            <span class="comment">// 0xc0000200c0，这里获取到的是地址</span></span><br><span class="line">	  fmt.Println(*(*<span class="keyword">int32</span>)(unsafe.Pointer(&amp;m.Mutex))) <span class="comment">// 1，这里获取到的是值</span></span><br><span class="line">    old := atomic.LoadInt32((*<span class="keyword">int32</span>)(unsafe.Pointer(&amp;m.Mutex)))</span><br><span class="line">    <span class="keyword">if</span> old&amp;(mutexLocked|mutexStarving|mutexWoken) != <span class="number">0</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">false</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 尝试在竞争的状态下请求锁</span></span><br><span class="line">    <span class="built_in">new</span> := old | mutexLocked</span><br><span class="line">    <span class="keyword">return</span> atomic.CompareAndSwapInt32((*<span class="keyword">int32</span>)(unsafe.Pointer(&amp;m.Mutex)), old, <span class="built_in">new</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>atomic.CompareAndSwapInt32 方法是 Go 语言中的原子操作方法，作用是比较并交换指定内存地址中的值。其函数签名为：</p>
+<p>func CompareAndSwapInt32(addr *int32, old, new int32) (swapped bool)</p>
+<p>其中，<code>addr</code> 是待操作的内存地址，<code>old</code> 和 <code>new</code> 分别表示期望值和新值，如果地址 <code>addr</code> 中的值等于期望值 <code>old</code>，则将其替换为新值 <code>new</code> 并返回 true，否则不进行任何操作并返回 false。</p>
+<p>该方法被广泛用于多线程编程中的同步操作，常用于实现一些基本的同步机制，例如自旋锁、互斥锁等。由于该方法是原子操作，因此可以避免竞态条件等多线程编程中的一些问题。</p>
+</blockquote>
+<blockquote>
+<p><code>unsafe.Pointer</code>:</p>
+<p><code>unsafe.Pointer()</code> 是 Go 语言中的一个指针类型转换函数，可以将任意类型的指针转换为 <code>unsafe.Pointer</code> 类型的指针， <code>unsafe.Pointer</code> 可以忽略类型安全检查。</p>
+<p>因此，<code>unsafe.Pointer(&amp;m.Mutex)</code> 的含义是将 <code>&amp;m.Mutex</code> 转换为 <code>unsafe.Pointer</code> 类型的指针。</p>
+<p>这里使用了 <code>unsafe.Pointer</code> 进行指针类型之间的转换，因为 <code>Mutex</code> 结构体中的字段并没有导出，无法直接对其进行访问。但是我们可以通过将 <code>&amp;m.Mutex</code> 转换为 <code>unsafe.Pointer</code> 类型的指针，再通过 <code>(*int32)</code> 强制类型转换，来获取 <code>Mutex</code> 结构体中一个叫做 <code>state</code> 的私有字段的值。</p>
+</blockquote>
+<p>使用示例：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">try</span><span class="params">()</span></span> &#123;</span><br><span class="line">    <span class="keyword">var</span> mu Mutex</span><br><span class="line">    <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123; <span class="comment">// 启动一个goroutine持有一段时间的锁</span></span><br><span class="line">        mu.Lock()</span><br><span class="line">        time.Sleep(time.Duration(rand.Intn(<span class="number">2</span>)) * time.Second)</span><br><span class="line">        mu.Unlock()</span><br><span class="line">    &#125;()</span><br><span class="line"></span><br><span class="line">    time.Sleep(time.Second)</span><br><span class="line"></span><br><span class="line">    ok := mu.TryLock() <span class="comment">// 尝试获取到锁</span></span><br><span class="line">    <span class="keyword">if</span> ok &#123; <span class="comment">// 获取成功</span></span><br><span class="line">        fmt.Println(<span class="string">"got the lock"</span>)</span><br><span class="line">        <span class="comment">// do something</span></span><br><span class="line">        mu.Unlock()</span><br><span class="line">        <span class="keyword">return</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 没有获取到</span></span><br><span class="line">    fmt.Println(<span class="string">"can't get the lock"</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="获取锁的状态"><a href="#获取锁的状态" class="headerlink" title="获取锁的状态"></a>获取锁的状态</h3><p>先来回顾一下 Mutex 的数据结构，如下面的代码所示。它包含两个字段，state 和 sema。前四个字节（int32）就是 state 字段。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> Mutex <span class="keyword">struct</span> &#123;</span><br><span class="line">    state <span class="keyword">int32</span></span><br><span class="line">    sema  <span class="keyword">uint32</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>Mutex 结构中的 state 字段有很多个含义，通过 state 字段，你可以知道锁是否已经被某个 goroutine 持有、当前是否处于饥饿状态、是否有等待的 goroutine 被唤醒、等待者的数量等信息，但是，state 这个字段并没有暴露出来，但我们可以通过 unsafe 的方式实现。</p>
+<blockquote>
+<p>nsafe:</p>
+<p>在 Go 语言中，使用 <code>unsafe</code> 包可以绕过类型系统的限制，直接操作内存。通过 <code>unsafe.Pointer</code> 类型，可以将任何类型转换为指针类型，并可以进行指针运算和指针类型转换。但是，使用 <code>unsafe</code> 包需要非常小心，因为不当使用可能会导致程序崩溃或安全漏洞。</p>
+<p>如果您想要获取一个未暴露的结构体字段，可以使用 <code>unsafe</code> 包中的 <code>Offsetof()</code> 和 <code>Ptr()</code> 函数。假设有以下结构体：</p>
+<p>type MyStruct struct {<br>   ExportedField   int<br>       unexportedField string<br>   }</p>
+<p>其中 <code>unexportedField</code> 是私有字段，不能被外部包访问。但是，您可以使用以下代码获取该字段的地址：</p>
+<p>// 实例话结构体<br>myStruct := MyStruct{ExportedField: 42, unexportedField: “Hello”}</p>
+<p>// 获取 myStruct 的地址<br>ptrToMyStruct := &amp;myStruct</p>
+<p>// unsafe.Offsetof() 函数获取 unexportedField 字段在 MyStruct 结构体中的偏移量，然后将其加上结构体的起始地址，得到了该字段的地址。最后，我们将地址转换为 unsafe.Pointer 类型，然后转换为 string 类型。<br>ptrToUnexportedField := (*string)(unsafe.Pointer(uintptr(unsafe.Pointer(ptrToMyStruct)) + unsafe.Offsetof(myStruct.unexportedField)))</p>
+<p>// 修改未来暴露出来的字段的值<br>*ptrToUnexportedField = “World”</p>
+<p>fmt.Printf(“%+v\n”, myStruct)<br>// {ExportedField:42 unexportedField:World}</p>
+<p>fmt.Println(*ptrToUnexportedField)<br>// World</p>
+<p>在这里，我们使用了 <code>unsafe.Offsetof()</code> 函数获取 <code>unexportedField</code> 字段在 <code>MyStruct</code> 结构体中的偏移量，然后将其加上结构体的起始地址，得到了该字段的地址。最后，我们将地址转换为 <code>unsafe.Pointer</code> 类型，以便进行进一步的操作。</p>
+</blockquote>
+<p>获取锁的状态    </p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">const</span> (</span><br><span class="line">    mutexLocked = <span class="number">1</span> &lt;&lt; <span class="literal">iota</span> <span class="comment">// mutex is locked</span></span><br><span class="line">    mutexWoken</span><br><span class="line">    mutexStarving</span><br><span class="line">    mutexWaiterShift = <span class="literal">iota</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> Mutex <span class="keyword">struct</span> &#123;</span><br><span class="line">    sync.Mutex</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(m *Mutex)</span> <span class="title">Count</span><span class="params">()</span> <span class="title">int</span></span> &#123;</span><br><span class="line">    <span class="comment">// 获取state字段的值</span></span><br><span class="line">    v := atomic.LoadInt32((*<span class="keyword">int32</span>)(unsafe.Pointer(&amp;m.Mutex)))</span><br><span class="line">    v = v &gt;&gt; mutexWaiterShift + (v &amp; mutexLocked)</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">int</span>(v)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 锁是否被持有</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(m *Mutex)</span> <span class="title">IsLocked</span><span class="params">()</span> <span class="title">bool</span></span> &#123;</span><br><span class="line">    state := atomic.LoadInt32((*<span class="keyword">int32</span>)(unsafe.Pointer(&amp;m.Mutex)))</span><br><span class="line">    <span class="keyword">return</span> state&amp;mutexLocked == mutexLocked</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 是否有等待者被唤醒</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(m *Mutex)</span> <span class="title">IsWoken</span><span class="params">()</span> <span class="title">bool</span></span> &#123;</span><br><span class="line">    state := atomic.LoadInt32((*<span class="keyword">int32</span>)(unsafe.Pointer(&amp;m.Mutex)))</span><br><span class="line">    <span class="keyword">return</span> state&amp;mutexWoken == mutexWoken</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 锁是否处于饥饿状态</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(m *Mutex)</span> <span class="title">IsStarving</span><span class="params">()</span> <span class="title">bool</span></span> &#123;</span><br><span class="line">    state := atomic.LoadInt32((*<span class="keyword">int32</span>)(unsafe.Pointer(&amp;m.Mutex)))</span><br><span class="line">    <span class="keyword">return</span> state&amp;mutexStarving == mutexStarving</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<blockquote>
+<ul>
+<li>如何理解 state&amp;mutexLocked == mutexLocked？</li>
+</ul>
+<p>这行代码执行了按位与操作 (&amp;) 在 <code>state</code> 和 <code>mutexLocked</code> 两个数之间。如果互斥锁被锁定，那么 <code>state</code> 的二进制表示的最低位就是1，而 <code>mutexLocked</code> 的二进制表示只有最低位是1，其它各位都是0。因此，按位与操作的结果就是一个只有最低位是1，其它各位都是0的值，即 <code>mutexLocked</code>。</p>
+<p>如果互斥锁没有被锁定，那么 <code>state</code> 的最低位就是0，按位与操作的结果也是0。所以，当 <code>state&amp;mutexLocked</code> 的结果等于 <code>mutexLocked</code> 时，就说明了互斥锁已经被锁定</p>
+<ul>
+<li>如何理解 state&amp;mutexWoken == mutexWoken？</li>
+</ul>
+<p>如果互斥锁的等待状态被唤醒，那么 <code>state</code> 的二进制表示的第二个最低位就是1，而 <code>mutexWoken</code> 的二进制表示只有第二个最低位是1，其它各位都是0。因此，按位与操作的结果就是一个只有第二个最低位是1，其它各位都是0的值，即 <code>mutexWoken</code>。</p>
+<p>如果互斥锁的等待状态没有被唤醒，那么 <code>state</code> 的第二个最低位就是0，按位与操作的结果也是0。所以，当 <code>state&amp;mutexWoken</code> 的结果等于 <code>mutexWoken</code> 时，就说明需要唤醒等待者。这个唤醒操作会在 <code>Unlock</code> 方法中执行，而且只会在必要的情况下进行，避免不必要的系统调用。</p>
+<ul>
+<li>如何理解 state&amp;mutexStarving == mutexStarving？</li>
+</ul>
+<p>如果互斥锁处于饥饿模式，那么 <code>state</code> 的二进制表示的第三个最低位就是1，而 <code>mutexStarving</code> 的二进制表示只有第三个最低位是1，其它各位都是0。因此，按位与操作的结果就是一个只有第三个最低位是1，其它各位都是0的值，即 <code>mutexStarving</code>。</p>
+<p>如果互斥锁没有处于饥饿模式，那么 <code>state</code> 的第三个最低位就是0，按位与操作的结果也是0。所以，当 <code>state&amp;mutexStarving</code> 的结果等于 <code>mutexStarving</code> 时，就说明该互斥锁处于饥饿模式。</p>
+<p>饥饿模式是指高优先级的 goroutine 在等待锁的过程中一直无法获得锁，而低优先级的 goroutine 却能够获得锁。为了避免这种情况，一旦一个 goroutine 等待互斥锁的时间超过了一定的阈值，该互斥锁就会进入饥饿模式，让等待时间更长的 goroutine 先获得锁。</p>
+</blockquote>
+<p>使用：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">	<span class="keyword">var</span> mu Mutex</span><br><span class="line">	<span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">1000</span>; i++ &#123; <span class="comment">// 启动1000个goroutine</span></span><br><span class="line">		<span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">			mu.Lock()</span><br><span class="line">			time.Sleep(time.Duration(rand.Intn(<span class="number">2</span>)) * time.Second)</span><br><span class="line">			mu.Unlock()</span><br><span class="line">		&#125;()</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	time.Sleep(time.Second * <span class="number">3</span>)</span><br><span class="line">	<span class="comment">// 输出锁的信息</span></span><br><span class="line">	fmt.Printf(<span class="string">"等待者的数量: %d, 锁是否被持有: %t, 是否有等待者被唤醒: %t,  锁是否处于饥饿状态: %t\n"</span>, mu.Count(), mu.IsLocked(), mu.IsWoken(), mu.IsStarving())</span><br><span class="line">  <span class="comment">// 等待者的数量: 998, 锁是否被持有: true, 是否有等待者被唤醒: false,  锁是否处于饥饿状态: false</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="线程安全的队列"><a href="#线程安全的队列" class="headerlink" title="线程安全的队列"></a>线程安全的队列</h3><p>Slice 实现的队列不是线程安全的，出队（Dequeue）和入队（Enqueue）会有 data race 的问题。这时可以使用 Mutex 来实现线程安全的队列。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">type</span> SliceQueue <span class="keyword">struct</span> &#123;</span><br><span class="line">    data []<span class="keyword">interface</span>&#123;&#125;</span><br><span class="line">    mu   sync.Mutex</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">NewSliceQueue</span><span class="params">(n <span class="keyword">int</span>)</span> <span class="params">(q *SliceQueue)</span></span> &#123;</span><br><span class="line">    <span class="keyword">return</span> &amp;SliceQueue&#123;data: <span class="built_in">make</span>([]<span class="keyword">interface</span>&#123;&#125;, <span class="number">0</span>, n)&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Enqueue 把值放在队尾</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(q *SliceQueue)</span> <span class="title">Enqueue</span><span class="params">(v <span class="keyword">interface</span>&#123;&#125;)</span></span> &#123;</span><br><span class="line">    q.mu.Lock()</span><br><span class="line">    q.data = <span class="built_in">append</span>(q.data, v)</span><br><span class="line">    q.mu.Unlock()</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Dequeue 移去队头并返回</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(q *SliceQueue)</span> <span class="title">Dequeue</span><span class="params">()</span> <span class="title">interface</span></span>&#123;&#125; &#123;</span><br><span class="line">    q.mu.Lock()</span><br><span class="line">    <span class="keyword">if</span> <span class="built_in">len</span>(q.data) == <span class="number">0</span> &#123;</span><br><span class="line">        q.mu.Unlock()</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">    &#125;</span><br><span class="line">    v := q.data[<span class="number">0</span>]</span><br><span class="line">    q.data = q.data[<span class="number">1</span>:]</span><br><span class="line">    q.mu.Unlock()</span><br><span class="line">    <span class="keyword">return</span> v</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="Mutex-知识总结"><a href="#Mutex-知识总结" class="headerlink" title="Mutex 知识总结"></a>Mutex 知识总结</h3><p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230315104940.png" alt></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2023/03/14/Python TopologicalSorter源码解析/" rel="prev" title="Python TopologicalSorter源码解析">
+      <i class="fa fa-chevron-left"></i> Python TopologicalSorter源码解析
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2023/03/15/Go 并发编程-4.RWMutex/" rel="next" title="Go 并发编程-4.RWMutex">
+      Go 并发编程-4.RWMutex <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#Try-Lock"><span class="nav-number">1.</span> <span class="nav-text">Try Lock</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#官方实现"><span class="nav-number">1.1.</span> <span class="nav-text">官方实现</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#自定义拓展"><span class="nav-number">1.2.</span> <span class="nav-text">自定义拓展</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#获取锁的状态"><span class="nav-number">2.</span> <span class="nav-text">获取锁的状态</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#线程安全的队列"><span class="nav-number">3.</span> <span class="nav-text">线程安全的队列</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Mutex-知识总结"><span class="nav-number">4.</span> <span class="nav-text">Mutex 知识总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

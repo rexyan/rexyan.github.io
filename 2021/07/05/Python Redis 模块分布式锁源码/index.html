@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="最近再看 Redis 核心技术与实战，正好看到了分布式锁的地方，于是我就找到了 Python Redis 的包，看到了里面 lock 模块，然后就顺便看了看里面的代码，发现挺简单的。关键知识点主要是要知道 Redis 执行 LUA 脚本是原子性的，且了解一些分布式锁的演进和问题，例如， 如果防止我的锁被其他 Redis 客户端释放掉。这些都在 Python Redis 包中的 lock 模块得到了">
+<meta name="keywords" content="Redis,分布式锁">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Python Redis 模块分布式锁源码">
+<meta property="og:url" content="https://rexyan.github.io/2021/07/05/Python Redis 模块分布式锁源码/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="最近再看 Redis 核心技术与实战，正好看到了分布式锁的地方，于是我就找到了 Python Redis 的包，看到了里面 lock 模块，然后就顺便看了看里面的代码，发现挺简单的。关键知识点主要是要知道 Redis 执行 LUA 脚本是原子性的，且了解一些分布式锁的演进和问题，例如， 如果防止我的锁被其他 Redis 客户端释放掉。这些都在 Python Redis 包中的 lock 模块得到了">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.398Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Python Redis 模块分布式锁源码">
+<meta name="twitter:description" content="最近再看 Redis 核心技术与实战，正好看到了分布式锁的地方，于是我就找到了 Python Redis 的包，看到了里面 lock 模块，然后就顺便看了看里面的代码，发现挺简单的。关键知识点主要是要知道 Redis 执行 LUA 脚本是原子性的，且了解一些分布式锁的演进和问题，例如， 如果防止我的锁被其他 Redis 客户端释放掉。这些都在 Python Redis 包中的 lock 模块得到了">
+
+<link rel="canonical" href="https://rexyan.github.io/2021/07/05/Python Redis 模块分布式锁源码/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Python Redis 模块分布式锁源码 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2021/07/05/Python Redis 模块分布式锁源码/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Python Redis 模块分布式锁源码
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-07-05 17:23:57" itemprop="dateCreated datePublished" datetime="2021-07-05T17:23:57+00:00">2021-07-05</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>最近再看 <code>Redis 核心技术与实战</code>，正好看到了分布式锁的地方，于是我就找到了 Python <a href="https://github.com/andymccurdy/redis-py" target="_blank" rel="noopener">Redis</a> 的包，看到了里面 <a href="https://github.com/andymccurdy/redis-py/blob/master/redis/lock.py" target="_blank" rel="noopener">lock</a> 模块，然后就顺便看了看里面的代码，发现挺简单的。关键知识点主要是要知道 Redis 执行 LUA 脚本是原子性的，且了解一些分布式锁的演进和问题，例如， 如果防止我的锁被其他 Redis 客户端释放掉。这些都在 Python Redis 包中的 lock 模块得到了解决（利用了 thread local 将 token 存起来，这样其他线程就不会释放我的锁了）</p>
+<a id="more"></a>
+<p>在分布式锁的实现方面，还有很多方式，例如 Redis 的 Redlock, zookeeper, etcd 等。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br><span class="line">193</span><br><span class="line">194</span><br><span class="line">195</span><br><span class="line">196</span><br><span class="line">197</span><br><span class="line">198</span><br><span class="line">199</span><br><span class="line">200</span><br><span class="line">201</span><br><span class="line">202</span><br><span class="line">203</span><br><span class="line">204</span><br><span class="line">205</span><br><span class="line">206</span><br><span class="line">207</span><br><span class="line">208</span><br><span class="line">209</span><br><span class="line">210</span><br><span class="line">211</span><br><span class="line">212</span><br><span class="line">213</span><br><span class="line">214</span><br><span class="line">215</span><br><span class="line">216</span><br><span class="line">217</span><br><span class="line">218</span><br><span class="line">219</span><br><span class="line">220</span><br><span class="line">221</span><br><span class="line">222</span><br><span class="line">223</span><br><span class="line">224</span><br><span class="line">225</span><br><span class="line">226</span><br><span class="line">227</span><br><span class="line">228</span><br><span class="line">229</span><br><span class="line">230</span><br><span class="line">231</span><br><span class="line">232</span><br><span class="line">233</span><br><span class="line">234</span><br><span class="line">235</span><br><span class="line">236</span><br><span class="line">237</span><br><span class="line">238</span><br><span class="line">239</span><br><span class="line">240</span><br><span class="line">241</span><br><span class="line">242</span><br><span class="line">243</span><br><span class="line">244</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> threading</span><br><span class="line"><span class="keyword">import</span> time <span class="keyword">as</span> mod_time</span><br><span class="line"><span class="keyword">import</span> uuid</span><br><span class="line"><span class="keyword">from</span> types <span class="keyword">import</span> SimpleNamespace</span><br><span class="line"><span class="keyword">from</span> redis.exceptions <span class="keyword">import</span> LockError, LockNotOwnedError</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Lock</span>:</span></span><br><span class="line">    lua_release = <span class="literal">None</span></span><br><span class="line">    lua_extend = <span class="literal">None</span></span><br><span class="line">    lua_reacquire = <span class="literal">None</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># KEYS[1] - 锁名称</span></span><br><span class="line">    <span class="comment"># ARGV[1] - 锁 token</span></span><br><span class="line">    <span class="comment"># 如果释放了锁，返回1，否则返回0</span></span><br><span class="line">    LUA_RELEASE_SCRIPT = <span class="string">"""</span></span><br><span class="line"><span class="string">        local token = redis.call('get', KEYS[1])</span></span><br><span class="line"><span class="string">        if not token or token ~= ARGV[1] then</span></span><br><span class="line"><span class="string">            return 0</span></span><br><span class="line"><span class="string">        end</span></span><br><span class="line"><span class="string">        redis.call('del', KEYS[1])</span></span><br><span class="line"><span class="string">        return 1</span></span><br><span class="line"><span class="string">    """</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># KEYS[1] - 锁名称</span></span><br><span class="line">    <span class="comment"># ARGV[1] - 锁 token</span></span><br><span class="line">    <span class="comment"># ARGV[2] - 锁续期 milliseconds 值</span></span><br><span class="line">    <span class="comment"># ARGV[3] - 如果将额外的时间加到锁现有的TTL上，则为0; 如果替换现有的TTL，则为1</span></span><br><span class="line">    <span class="comment"># 如果锁时间延长则返回1，否则返回0</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># Redis pttl 命令以毫秒为单位返回 key 的剩余过期时间。</span></span><br><span class="line">    <span class="comment"># Redis pexpire 以毫秒为单位设置 key 的生存时间</span></span><br><span class="line">    LUA_EXTEND_SCRIPT = <span class="string">"""</span></span><br><span class="line"><span class="string">        local token = redis.call('get', KEYS[1])</span></span><br><span class="line"><span class="string">        if not token or token ~= ARGV[1] then</span></span><br><span class="line"><span class="string">            return 0</span></span><br><span class="line"><span class="string">        end</span></span><br><span class="line"><span class="string">        local expiration = redis.call('pttl', KEYS[1])</span></span><br><span class="line"><span class="string">        if not expiration then</span></span><br><span class="line"><span class="string">            expiration = 0</span></span><br><span class="line"><span class="string">        end</span></span><br><span class="line"><span class="string">        if expiration &lt; 0 then</span></span><br><span class="line"><span class="string">            return 0</span></span><br><span class="line"><span class="string">        end</span></span><br><span class="line"><span class="string">        local newttl = ARGV[2]</span></span><br><span class="line"><span class="string">        if ARGV[3] == "0" then</span></span><br><span class="line"><span class="string">            newttl = ARGV[2] + expiration</span></span><br><span class="line"><span class="string">        end</span></span><br><span class="line"><span class="string">        redis.call('pexpire', KEYS[1], newttl)</span></span><br><span class="line"><span class="string">        return 1</span></span><br><span class="line"><span class="string">    """</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># KEYS[1] - 锁名称</span></span><br><span class="line">    <span class="comment"># ARGV[1] - 锁 token</span></span><br><span class="line">    <span class="comment"># ARGV[2] - 锁时间 milliseconds 值</span></span><br><span class="line">    <span class="comment"># 如果重新获取了锁时间，则返回1，否则返回0</span></span><br><span class="line">    LUA_REACQUIRE_SCRIPT = <span class="string">"""</span></span><br><span class="line"><span class="string">        local token = redis.call('get', KEYS[1])</span></span><br><span class="line"><span class="string">        if not token or token ~= ARGV[1] then</span></span><br><span class="line"><span class="string">            return 0</span></span><br><span class="line"><span class="string">        end</span></span><br><span class="line"><span class="string">        redis.call('pexpire', KEYS[1], ARGV[2])</span></span><br><span class="line"><span class="string">        return 1</span></span><br><span class="line"><span class="string">    """</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, redis, name, timeout=None, sleep=<span class="number">0.1</span>, blocking=True, blocking_timeout=None, thread_local=True)</span>:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        使用Redis提供的Redis客户端创建一个名为 'name' 的新锁实例。</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">        timeout - 锁释放时间，可以指定为浮点数或整数，单位是秒</span></span><br><span class="line"><span class="string">        sleep - 另一个客户端当前持有锁时，每个循环迭代的休眠时间。</span></span><br><span class="line"><span class="string">        blocking - 另一个客户端当前持有锁时，在调用 'acquire' 上锁时，会阻塞直到之前锁被释放后获取还是立即返回上锁失败</span></span><br><span class="line"><span class="string">        blocking_timeout - 是 blocking 的超时时间，None 表示永不过期，直到抢到锁为止，也可以指定为浮点数或整数，单位是秒</span></span><br><span class="line"><span class="string">        thread_local - 锁的 token 是否放置在线程本地存储中。默认情况下，令牌被放置在线程本地存储中</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        self.redis = redis</span><br><span class="line">        self.name = name</span><br><span class="line">        self.timeout = timeout</span><br><span class="line">        self.sleep = sleep</span><br><span class="line">        self.blocking = blocking</span><br><span class="line">        self.blocking_timeout = blocking_timeout</span><br><span class="line">        self.thread_local = bool(thread_local)</span><br><span class="line">        self.local = (</span><br><span class="line">            threading.local()</span><br><span class="line">            <span class="keyword">if</span> self.thread_local</span><br><span class="line">            <span class="keyword">else</span> SimpleNamespace()  <span class="comment"># 一个简单的 object 子类，可以添加和移除属性</span></span><br><span class="line">        )</span><br><span class="line">        self.local.token = <span class="literal">None</span></span><br><span class="line">        self.register_scripts()  <span class="comment"># 实例化的时候就加载 LUA 脚本</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">register_scripts</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        加载三个 LUA 脚本</span></span><br><span class="line"><span class="string">        1. 释放锁的 LUA 脚本</span></span><br><span class="line"><span class="string">        2. 锁续期的 LUA 脚本</span></span><br><span class="line"><span class="string">        3. 重新获取锁的 LUA 脚本</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        cls = self.__class__</span><br><span class="line">        client = self.redis</span><br><span class="line">        <span class="keyword">if</span> cls.lua_release <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">            cls.lua_release = client.register_script(cls.LUA_RELEASE_SCRIPT)</span><br><span class="line">        <span class="keyword">if</span> cls.lua_extend <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">            cls.lua_extend = client.register_script(cls.LUA_EXTEND_SCRIPT)</span><br><span class="line">        <span class="keyword">if</span> cls.lua_reacquire <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">            cls.lua_reacquire = client.register_script(cls.LUA_REACQUIRE_SCRIPT)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># 提供 with 语法</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__enter__</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">if</span> self.acquire():</span><br><span class="line">            <span class="keyword">return</span> self</span><br><span class="line">        <span class="keyword">raise</span> LockError(<span class="string">"Unable to acquire lock within the time specified"</span>)</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__exit__</span><span class="params">(self, exc_type, exc_value, traceback)</span>:</span></span><br><span class="line">        self.release()</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">acquire</span><span class="params">(self, blocking=None, blocking_timeout=None, token=None)</span>:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        blocking - 是否阻塞获取锁</span></span><br><span class="line"><span class="string">        blocking_timeout - 获取锁所等待的最大秒数</span></span><br><span class="line"><span class="string">        token - token必须是一个 bytes 对象或可以用默认编码编码到 bytes 对象的字符串。如果没有指定令牌，将使用 UUID。</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        sleep = self.sleep</span><br><span class="line">        <span class="keyword">if</span> token <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">            token = uuid.uuid1().hex.encode()</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            encoder = self.redis.connection_pool.get_encoder()</span><br><span class="line">            token = encoder.encode(token)</span><br><span class="line"></span><br><span class="line">        <span class="comment"># acquire 的 blocking 和 blocking_timeout 参数优先级高于实例化时候的。acquire 的时候没设置就用实例化的时候的</span></span><br><span class="line">        <span class="keyword">if</span> blocking <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">            blocking = self.blocking</span><br><span class="line">        <span class="keyword">if</span> blocking_timeout <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">            blocking_timeout = self.blocking_timeout</span><br><span class="line"></span><br><span class="line">        <span class="comment"># 计算 停止获取锁的时间</span></span><br><span class="line">        stop_trying_at = <span class="literal">None</span></span><br><span class="line">        <span class="keyword">if</span> blocking_timeout <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span>:</span><br><span class="line">            <span class="comment"># time.monotonic()（以小数表示的秒为单位）返回一个单调时钟的值，即不能倒退的时钟。 该时钟不受系统时钟更新的影响。</span></span><br><span class="line">            stop_trying_at = mod_time.monotonic() + blocking_timeout</span><br><span class="line"></span><br><span class="line">        <span class="keyword">while</span> <span class="literal">True</span>:</span><br><span class="line">            <span class="comment"># 成功上锁</span></span><br><span class="line">            <span class="keyword">if</span> self.do_acquire(token):</span><br><span class="line">                self.local.token = token</span><br><span class="line">                <span class="keyword">return</span> <span class="literal">True</span></span><br><span class="line">            <span class="comment"># 如果锁获取失败，且没有设置 blocking 阻塞，那么立即返回 False</span></span><br><span class="line">            <span class="keyword">if</span> <span class="keyword">not</span> blocking:</span><br><span class="line">                <span class="keyword">return</span> <span class="literal">False</span></span><br><span class="line">            <span class="comment"># 下一次重试获取锁的时间</span></span><br><span class="line">            next_try_at = mod_time.monotonic() + sleep</span><br><span class="line">            <span class="comment"># 如果超过了设置的获取锁的时间还没有获取到锁，那么就直接返回 False</span></span><br><span class="line">            <span class="keyword">if</span> stop_trying_at <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span> <span class="keyword">and</span> next_try_at &gt; stop_trying_at:</span><br><span class="line">                <span class="keyword">return</span> <span class="literal">False</span></span><br><span class="line">            mod_time.sleep(sleep)</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">do_acquire</span><span class="params">(self, token)</span>:</span></span><br><span class="line">        <span class="comment"># 将锁的释放时间转换为毫秒</span></span><br><span class="line">        <span class="keyword">if</span> self.timeout:</span><br><span class="line">            <span class="comment"># convert to milliseconds</span></span><br><span class="line">            timeout = int(self.timeout * <span class="number">1000</span>)</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            timeout = <span class="literal">None</span></span><br><span class="line">        <span class="comment"># 上锁。self.name 为锁名称，token 为锁的值。</span></span><br><span class="line">        <span class="comment"># 在 Redis 中如果使用了 NX 选项，SET 命令只有在键值对不存在时，才会进行设置，否则不做赋值操作</span></span><br><span class="line">        <span class="comment"># 在 Redis 中使用 px 来设置 key 的过期时间，单位为毫秒。ex 也可以设置，不过单位为秒</span></span><br><span class="line">        <span class="keyword">if</span> self.redis.set(self.name, token, nx=<span class="literal">True</span>, px=timeout):</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">True</span></span><br><span class="line">        <span class="keyword">return</span> <span class="literal">False</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">locked</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        判断是否上锁成功</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        <span class="keyword">return</span> self.redis.get(self.name) <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">owned</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        如果使用的是 thread_local 存储 token，那么判断这个 token 是否上锁成功。上面的 locked 判断的只是实例的 token 是否上锁成功</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        stored_token = self.redis.get(self.name)</span><br><span class="line">        <span class="keyword">if</span> stored_token <span class="keyword">and</span> <span class="keyword">not</span> isinstance(stored_token, bytes):</span><br><span class="line">            encoder = self.redis.connection_pool.get_encoder()</span><br><span class="line">            stored_token = encoder.encode(stored_token)</span><br><span class="line">        <span class="keyword">return</span> self.local.token <span class="keyword">is</span> <span class="keyword">not</span> <span class="literal">None</span> <span class="keyword">and</span> stored_token == self.local.token</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">release</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        释放已经获取的锁</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        expected_token = self.local.token</span><br><span class="line">        <span class="keyword">if</span> expected_token <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">            <span class="keyword">raise</span> LockError(<span class="string">"Cannot release an unlocked lock"</span>)</span><br><span class="line">        self.local.token = <span class="literal">None</span></span><br><span class="line">        self.do_release(expected_token)</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">do_release</span><span class="params">(self, expected_token)</span>:</span></span><br><span class="line">        <span class="keyword">if</span> <span class="keyword">not</span> bool(self.lua_release(keys=[self.name], args=[expected_token], client=self.redis)):</span><br><span class="line">            <span class="keyword">raise</span> LockNotOwnedError(<span class="string">"Cannot release a lock that's no longer owned"</span>)</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">extend</span><span class="params">(self, additional_time, replace_ttl=False)</span>:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        为已获得的锁增加时间</span></span><br><span class="line"><span class="string">        additional_time - 可以指定为整数或浮点数，两者都表示要添加的秒数。</span></span><br><span class="line"><span class="string">        replace_ttl - 如果为False(默认值)，将 'additional_time' 添加到锁现有的 ttl中。如果为 True，将锁的 ttl替换为 'additional_time'。</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        <span class="keyword">if</span> self.local.token <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">            <span class="keyword">raise</span> LockError(<span class="string">"Cannot extend an unlocked lock"</span>)</span><br><span class="line">        <span class="comment"># 不能对没有设置超时时间的锁设置新的时间</span></span><br><span class="line">        <span class="keyword">if</span> self.timeout <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">            <span class="keyword">raise</span> LockError(<span class="string">"Cannot extend a lock with no timeout"</span>)</span><br><span class="line">        <span class="keyword">return</span> self.do_extend(additional_time, replace_ttl)</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">do_extend</span><span class="params">(self, additional_time, replace_ttl)</span>:</span></span><br><span class="line">        <span class="comment"># 时间转换为毫秒</span></span><br><span class="line">        additional_time = int(additional_time * <span class="number">1000</span>)</span><br><span class="line">        <span class="keyword">if</span> <span class="keyword">not</span> bool(</span><br><span class="line">            self.lua_extend(</span><br><span class="line">                keys=[self.name],</span><br><span class="line">                args=[</span><br><span class="line">                    self.local.token,</span><br><span class="line">                    additional_time,</span><br><span class="line">                    replace_ttl <span class="keyword">and</span> <span class="string">"1"</span> <span class="keyword">or</span> <span class="string">"0"</span></span><br><span class="line">                ],</span><br><span class="line">                client=self.redis,</span><br><span class="line">            )</span><br><span class="line">        ):</span><br><span class="line">            <span class="keyword">raise</span> LockNotOwnedError(<span class="string">"Cannot extend a lock that's"</span> <span class="string">" no longer owned"</span>)</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">True</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">reacquire</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="string">"""</span></span><br><span class="line"><span class="string">        重新获取之前的锁。超时时间也是之前的</span></span><br><span class="line"><span class="string">        """</span></span><br><span class="line">        <span class="keyword">if</span> self.local.token <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">            <span class="keyword">raise</span> LockError(<span class="string">"Cannot reacquire an unlocked lock"</span>)</span><br><span class="line">        <span class="keyword">if</span> self.timeout <span class="keyword">is</span> <span class="literal">None</span>:</span><br><span class="line">            <span class="keyword">raise</span> LockError(<span class="string">"Cannot reacquire a lock with no timeout"</span>)</span><br><span class="line">        <span class="keyword">return</span> self.do_reacquire()</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">do_reacquire</span><span class="params">(self)</span>:</span></span><br><span class="line">        timeout = int(self.timeout * <span class="number">1000</span>)</span><br><span class="line">        <span class="keyword">if</span> <span class="keyword">not</span> bool(self.lua_reacquire(keys=[self.name], args=[self.local.token, timeout], client=self.redis)):</span><br><span class="line">            <span class="keyword">raise</span> LockNotOwnedError(<span class="string">"Cannot reacquire a lock that's no longer owned"</span>)</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">True</span></span><br></pre></td></tr></table></figure>
+<p><a href="https://raw.githubusercontent.com/rexyan/warehouse/master/redis-lock.py" target="_blank" rel="noopener">https://raw.githubusercontent.com/rexyan/warehouse/master/redis-lock.py</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Redis/" rel="tag"><i class="fa fa-tag"></i> Redis</a>
+              <a href="/tags/分布式锁/" rel="tag"><i class="fa fa-tag"></i> 分布式锁</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/06/29/排查 inode 节点使用问题/" rel="prev" title="排查 inode 节点使用问题">
+      <i class="fa fa-chevron-left"></i> 排查 inode 节点使用问题
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/08/08/《不平等社会》- 经济不平等产生的原因/" rel="next" title="《不平等社会》- 经济不平等产生的原因">
+      《不平等社会》- 经济不平等产生的原因 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

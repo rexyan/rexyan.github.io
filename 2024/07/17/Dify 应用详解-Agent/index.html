@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="概览Agent 和聊天助手相比，只是多了可以应用工具的部分，而 Dify 中支持了很多的工具，甚至可以后期自定义添加工具。  Agent 接口信息调用 /console/api/apps/xxx/chat-messages 接口，调用  AgentChatAppGenerator.generate 方法，app_model.mode 是 ‘agent-chat’。 流程详解 AgentChatAp">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Dify 应用详解-Agent">
+<meta property="og:url" content="https://rexyan.github.io/2024/07/17/Dify 应用详解-Agent/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="概览Agent 和聊天助手相比，只是多了可以应用工具的部分，而 Dify 中支持了很多的工具，甚至可以后期自定义添加工具。  Agent 接口信息调用 /console/api/apps/xxx/chat-messages 接口，调用  AgentChatAppGenerator.generate 方法，app_model.mode 是 ‘agent-chat’。 流程详解 AgentChatAp">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20240717190726.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20240716113648.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20240717183534.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20240717180005.png">
+<meta property="og:updated_time" content="2025-10-31T03:20:39.390Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Dify 应用详解-Agent">
+<meta name="twitter:description" content="概览Agent 和聊天助手相比，只是多了可以应用工具的部分，而 Dify 中支持了很多的工具，甚至可以后期自定义添加工具。  Agent 接口信息调用 /console/api/apps/xxx/chat-messages 接口，调用  AgentChatAppGenerator.generate 方法，app_model.mode 是 ‘agent-chat’。 流程详解 AgentChatAp">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20240717190726.png">
+
+<link rel="canonical" href="https://rexyan.github.io/2024/07/17/Dify 应用详解-Agent/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Dify 应用详解-Agent | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2024/07/17/Dify 应用详解-Agent/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Dify 应用详解-Agent
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2024-07-17 22:55:57" itemprop="dateCreated datePublished" datetime="2024-07-17T22:55:57+00:00">2024-07-17</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2025-10-31 03:20:39" itemprop="dateModified" datetime="2025-10-31T03:20:39+00:00">2025-10-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/博客/" itemprop="url" rel="index"><span itemprop="name">博客</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Dify/" itemprop="url" rel="index"><span itemprop="name">Dify</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="概览"><a href="#概览" class="headerlink" title="概览"></a>概览</h3><p>Agent 和聊天助手相比，只是多了可以应用工具的部分，而 Dify 中支持了很多的工具，甚至可以后期自定义添加工具。</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20240717190726.png" alt></p>
+<h3 id="Agent"><a href="#Agent" class="headerlink" title="Agent"></a>Agent</h3><p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20240716113648.png" alt></p>
+<h4 id="接口信息"><a href="#接口信息" class="headerlink" title="接口信息"></a>接口信息</h4><p>调用 <code>/console/api/apps/xxx/chat-messages</code> 接口，调用  AgentChatAppGenerator.generate 方法，app_model.mode 是 ‘agent-chat’。</p>
+<h4 id="流程详解"><a href="#流程详解" class="headerlink" title="流程详解"></a>流程详解</h4><ol>
+<li><p>AgentChatAppGenerator.generate 中，先获取 conversation</p>
+</li>
+<li><p>然后根据 app_model 和 conversation 获取 app model config, 如果是 debug 模式，则允许用户传递的 model config 覆盖 据 app_model 和 conversation 查询出来的</p>
+</li>
+<li><p>解析文件得到 file_objs</p>
+</li>
+<li><p>转换为 app config</p>
+</li>
+<li><p>初始化 application generate entity</p>
+</li>
+<li><p>初始化 generate records</p>
+</li>
+<li><p>初始化 queue manager</p>
+</li>
+<li><p>启动线程，调用 _generate_worker 方法</p>
+<ol>
+<li><p>判断 token 数量是否足够</p>
+</li>
+<li><p>重新组织 prompt message</p>
+</li>
+<li><p>进行敏感词检测</p>
+</li>
+<li><p>标注回复</p>
+</li>
+<li><p>填写来自外部数据工具的变量输入，获取上下文信息</p>
+</li>
+<li><p>再次重新组织 prompt message</p>
+</li>
+<li><p>再次敏感词检测</p>
+</li>
+<li><p>加载工具变量</p>
+</li>
+<li><p>初始化 model 实例</p>
+</li>
+<li><p>组织 prompt message</p>
+</li>
+<li><p>根据LLM模型确认使用  FUNCTION_CALLING 模式还是 CHAIN_OF_THOUGHT（CoT + ReAct）。如果模型支持 MULTI_TOOL_CALL 或 TOOL_CALL，则使用 FUNCTION_CALLING 。否则使用 CHAIN_OF_THOUGHT 模式。</p>
+</li>
+<li><p>获取 AgentRunner 对象，并且调用 run 方法。如果是 CHAIN_OF_THOUGHT 模式，且LLM模式是 CHAT模式，则使用 CotChatAgentRunner。如果是 CHAIN_OF_THOUGHT 模式，且LLM模式是 COMPLETION 模式，则使用 CotCompletionAgentRunner。如果是 FUNCTION_CALLING 模式，则使用 FunctionCallAgentRunner</p>
+</li>
+</ol>
+</li>
+<li><p>得到 response，将 response 转换后返回出去</p>
+<p>​    </p>
+</li>
+</ol>
+<p>具体详细的 AgentRunner.run 方法的核心逻辑如下：</p>
+<table>
+<thead>
+<tr>
+<th>AgentRunner</th>
+<th>核心逻辑</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FunctionCallAgentRunner</td>
+<td>1. 第一步就是调用  self._init_prompt_tools 方法，得到  tool_instances, prompt_messages_tools <br>2. 获取调用的最大步数 max_iteration_steps<br>3. while 循环运行每一步，直到步数达到 max_iteration_steps，或者 function_call_state 为 False<br>4. 循环第一步会组织 prompt 和 计算 max tokens<br>5. 循环中会先进行大模型的调用，model_instance.invoke_llm 得到 chunks<br>6. 循环chunks，判断每个 chunk 是否有工具调用（大模型选择出工具）<br>7. 如果没有选择出工具，则大模型返回出什么，就 yield 出什么<br>8. 如果选择出了工具，那么就在下面循环调用每个工具。然后再次进行循环。<br>9. 再次循环时候，prompt 就会更新，带上选出的工具信息，然后再次调用大模型。</td>
+</tr>
+<tr>
+<td>CotChatAgentRunner</td>
+<td>1. 大致流程和上述一致，只是没有了 tools，而是判断是否有 action。如果没有 action，直接返回最终答案<br>2. 否则则判断 action 是否为 final answer。如果不是，则去调用每一个 action。<br>3. 然后重复上述步骤，直到步数达到 max_iteration_steps，或者 function_call_state 为 False</td>
+</tr>
+<tr>
+<td>CotCompletionAgentRunner</td>
+<td>同上</td>
+</tr>
+</tbody>
+</table>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>Q：Agent 应用中，如果模型不支持 function call 时怎么办？</p>
+<p>A：不支持则使用 ReAct 模式，如下所示，当 LLM 切换为 DeepSeek 时，显示如下：</p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20240717183534.png" alt></p>
+<p>Q：怎么添加和拓展工具？</p>
+<p>A：工具的添加和模型的添加类似，都是需要提供 yaml 文件和相对应的代码。可参考<a href="https://docs.dify.ai/v/zh-hans/guides/gong-ju/quick-tool-integration" target="_blank" rel="noopener">此处</a></p>
+<p><img src="https://raw.githubusercontent.com/rexyan/warehouse/master/20240717180005.png" alt></p>
+<p>Q：在 Agent 中，如果匹配不到对应的工具类怎么处理？</p>
+<p>A：不同大模型的能力不同，假如使用了三个工具，但是只匹配到一个工具，那么就使用这个工具。如果一个都没有匹配到，那么就返回大模型的输出。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2024/07/16/Dify 应用详解-聊天助手/" rel="prev" title="Dify 应用详解-聊天助手">
+      <i class="fa fa-chevron-left"></i> Dify 应用详解-聊天助手
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2024/07/19/初探 GraphRAG/" rel="next" title="初探 GraphRAG">
+      初探 GraphRAG <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#概览"><span class="nav-number">1.</span> <span class="nav-text">概览</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Agent"><span class="nav-number">2.</span> <span class="nav-text">Agent</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#接口信息"><span class="nav-number">2.1.</span> <span class="nav-text">接口信息</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#流程详解"><span class="nav-number">2.2.</span> <span class="nav-text">流程详解</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#总结"><span class="nav-number">3.</span> <span class="nav-text">总结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">446</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2025</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
