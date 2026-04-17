@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+  <link rel="mask-icon" href="/favicon.ico" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.loli.net/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"rexyan.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"top","display":"hide","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":true,"scrollpercent":true},"bookmark":{"enable":true,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"buttons","active":null,"storage":true,"lazyload":true,"nav":{"disqus":{"text":"Load Disqus","order":-1}}},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":3,"unescape":false,"preload":false},"motion":{"enable":false,"async":true,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="Dify Plugin Daemon 旨在管理 Dify 生态系统中插件的完整生命周期。它作为 Dify API 服务器与各种插件运行时环境之间的中央协调器，支持在不同部署场景中无缝执行插件。 Runtime 类型Local Runtime (本地运行时) 通信方式：STDIN/STDOUT/STDERR Debug Runtime (调试运行时) 通信方式：TCP Socket Serverle">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Dify Plugin Daemon 源码解析">
+<meta property="og:url" content="https://rexyan.github.io/2025/11/13/dify-plugin-daemon 源码解析/index.html">
+<meta property="og:site_name" content="星尘">
+<meta property="og:description" content="Dify Plugin Daemon 旨在管理 Dify 生态系统中插件的完整生命周期。它作为 Dify API 服务器与各种插件运行时环境之间的中央协调器，支持在不同部署场景中无缝执行插件。 Runtime 类型Local Runtime (本地运行时) 通信方式：STDIN/STDOUT/STDERR Debug Runtime (调试运行时) 通信方式：TCP Socket Serverle">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17630155940651763015593616.png">
+<meta property="og:image" content="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17630160670651763016066749.png">
+<meta property="og:updated_time" content="2026-04-17T08:30:43.347Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Dify Plugin Daemon 源码解析">
+<meta name="twitter:description" content="Dify Plugin Daemon 旨在管理 Dify 生态系统中插件的完整生命周期。它作为 Dify API 服务器与各种插件运行时环境之间的中央协调器，支持在不同部署场景中无缝执行插件。 Runtime 类型Local Runtime (本地运行时) 通信方式：STDIN/STDOUT/STDERR Debug Runtime (调试运行时) 通信方式：TCP Socket Serverle">
+<meta name="twitter:image" content="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17630155940651763015593616.png">
+
+<link rel="canonical" href="https://rexyan.github.io/2025/11/13/dify-plugin-daemon 源码解析/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Dify Plugin Daemon 源码解析 | 星尘</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+  
+  <link rel="stylesheet" href="https://cdn.staticfile.org/lxgw-wenkai-screen-webfont/1.6.0/lxgwwenkaiscreen.css" />
+  <!-- 自定义为霞鹜文楷字体 -->
+  <style>
+	  body,div.post-body,h1,h2,h3,h4 {
+		font-family: "LXGW WenKai Screen", sans-serif;
+		font-size: 104%;
+	  }
+  </style>
+  
+<link rel="stylesheet" href="/css/prism-tomorrow.css" type="text/css">
+<link rel="stylesheet" href="/css/prism-line-numbers.css" type="text/css"></head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">星尘</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-读书">
+
+    <a href="/books/" rel="section"><i class="address-book fa-fw"></i>读书</a>
+
+  </li>
+        <li class="menu-item menu-item-瞎扯">
+
+    <a href="/crap/" rel="section"><i class="crap fa-fw"></i>瞎扯</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="user fa-fw"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@4.8.0/dist/echarts.min.js"></script>
+
+<meta name="referrer" content="never">
+
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="reading-progress-bar"></div>
+  <a role="button" class="book-mark-link book-mark-link-fixed"></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://rexyan.github.io/2025/11/13/dify-plugin-daemon 源码解析/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+      <meta itemprop="name" content="Rex">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="星尘">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Dify Plugin Daemon 源码解析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2025-11-13 22:55:57" itemprop="dateCreated datePublished" datetime="2025-11-13T22:55:57+00:00">2025-11-13</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2026-04-17 08:30:43" itemprop="dateModified" datetime="2026-04-17T08:30:43+00:00">2026-04-17</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/博客/" itemprop="url" rel="index"><span itemprop="name">博客</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Dify/" itemprop="url" rel="index"><span itemprop="name">Dify</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>Dify Plugin Daemon 旨在管理 Dify 生态系统中插件的完整生命周期。它作为 Dify API 服务器与各种插件运行时环境之间的中央协调器，支持在不同部署场景中无缝执行插件。</p>
+<h3 id="Runtime-类型"><a href="#Runtime-类型" class="headerlink" title="Runtime 类型"></a>Runtime 类型</h3><p><strong>Local Runtime (本地运行时)</strong></p>
+<p>通信方式：STDIN/STDOUT/STDERR</p>
+<p><strong>Debug Runtime (调试运行时)</strong></p>
+<p>通信方式：TCP Socket</p>
+<p><strong>Serverless Runtime (无服务器运行时)</strong></p>
+<p>通信方式：HTTP/SSE</p>
+<h3 id="类继承关系与接口"><a href="#类继承关系与接口" class="headerlink" title="类继承关系与接口"></a>类继承关系与接口</h3><h4 id="PluginRuntime-接口"><a href="#PluginRuntime-接口" class="headerlink" title="PluginRuntime 接口"></a>PluginRuntime 接口</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">plugin_entities.PluginRuntime (接口)</span><br><span class="line">├── Listen(sessionId) *Broadcast[SessionMessage]</span><br><span class="line">├── Write(sessionId, action, data)</span><br><span class="line">├── Type() PluginRuntimeType</span><br><span class="line">├── Configuration() *PluginDeclaration</span><br><span class="line">└── RuntimeState() PluginRuntimeState</span><br></pre></td></tr></table></figure>
+<h4 id="实现类"><a href="#实现类" class="headerlink" title="实现类"></a>实现类</h4><p><strong>LocalPluginRuntime</strong></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">├── LocalPluginRuntime (local_runtime/run.go)</span><br><span class="line">│   ├── stdioHolder (stdio.go) - 管理 STDIN/STDOUT/STDERR</span><br><span class="line">│   ├── pythonInterpreterPath - Python 解释器路径</span><br><span class="line">│   └── process *exec.Cmd - 子进程对象</span><br></pre></td></tr></table></figure>
+<p><strong>RemotePluginRuntime</strong></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">├── RemotePluginRuntime (debugging_runtime/run.go)</span><br><span class="line">│   ├── tcpListener net.Listener - TCP 监听器</span><br><span class="line">│   ├── tcpConn net.Conn - TCP 连接</span><br><span class="line">│   └── debuggingKey string - 调试密钥</span><br></pre></td></tr></table></figure>
+<p><strong>ServerlessPluginRuntime</strong></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">└── ServerlessPluginRuntime (serverless_runtime/run.go)</span><br><span class="line">│   ├── LambdaURL string - Lambda 函数 URL</span><br><span class="line">│   ├── client *http.Client - HTTP 客户端</span><br><span class="line">│   ├── listeners sync.Map - 会话监听器映射表</span><br></pre></td></tr></table></figure>
+<h3 id="调用流程"><a href="#调用流程" class="headerlink" title="调用流程"></a>调用流程</h3><h4 id="Local-Runtime"><a href="#Local-Runtime" class="headerlink" title="Local Runtime"></a>Local Runtime</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">[Dify API]</span><br><span class="line">    ↓ HTTP Request</span><br><span class="line">[HTTP Server] (http_server.go)</span><br><span class="line">    ↓ 路由分发</span><br><span class="line">[Controller] (controllers/)</span><br><span class="line">    ↓ 调用</span><br><span class="line">[Plugin Daemon] (plugin_daemon/generic.go)</span><br><span class="line">    ↓ GenericInvokePlugin[Req, Rsp]()</span><br><span class="line">    ├─→ session.Runtime().Listen(sessionId)</span><br><span class="line">    │   └─→ 创建 Broadcast 对象</span><br><span class="line">    │   └─→ 注册 stdioHolder 监听器</span><br><span class="line">    │</span><br><span class="line">    └─→ session.Write(event, action, data)</span><br><span class="line">        └─→ stdioHolder.write(data + &apos;\n&apos;)</span><br><span class="line">            ↓ 写入 STDIN</span><br><span class="line">[Plugin Process] (Python 子进程)</span><br><span class="line">    ↓ 读取 STDIN，处理请求</span><br><span class="line">    ↓ 写入 STDOUT (JSON 格式，按行)</span><br><span class="line">[stdioHolder.StartStdout()] (stdio.go)</span><br><span class="line">    ↓ bufio.Scanner 按行读取</span><br><span class="line">    ↓ ParsePluginUniversalEvent()</span><br><span class="line">    ├─→ SESSION_MESSAGE_TYPE_STREAM → listener.Send()</span><br><span class="line">    ├─→ SESSION_MESSAGE_TYPE_INVOKE → backwards_invocation</span><br><span class="line">    ├─→ SESSION_MESSAGE_TYPE_END → response.Close()</span><br><span class="line">    └─→ SESSION_MESSAGE_TYPE_ERROR → response.WriteError()</span><br><span class="line">        ↓</span><br><span class="line">[Response Stream] (stream.Stream[Rsp])</span><br><span class="line">    ↓ 流式返回</span><br><span class="line">[Controller] → [HTTP Response] (SSE)</span><br><span class="line">    ↓</span><br><span class="line">[Dify API]</span><br></pre></td></tr></table></figure>
+<h4 id="Serverless-Runtime"><a href="#Serverless-Runtime" class="headerlink" title="Serverless Runtime"></a>Serverless Runtime</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line">[Dify API]</span><br><span class="line">    ↓ HTTP Request</span><br><span class="line">[HTTP Server]</span><br><span class="line">    ↓ 路由分发</span><br><span class="line">[Controller]</span><br><span class="line">    ↓ 调用</span><br><span class="line">[Plugin Daemon] (plugin_daemon/generic.go)</span><br><span class="line">    ↓ GenericInvokePlugin[Req, Rsp]()</span><br><span class="line">    ├─→ session.Runtime().Listen(sessionId)</span><br><span class="line">    │   └─→ 创建 Broadcast 对象</span><br><span class="line">    │   └─→ 存储到 listeners.Store(sessionId, broadcast)</span><br><span class="line">    │</span><br><span class="line">    └─→ session.Write(event, action, data)</span><br><span class="line">        └─→ ServerlessPluginRuntime.Write()</span><br><span class="line">            ↓ routine.Submit() 提交后台任务</span><br><span class="line">            ↓ 构建 URL: LambdaURL + &quot;/invoke?action=&quot; + action</span><br><span class="line">            ↓ HTTP POST Request</span><br><span class="line">            ├─→ Header: Content-Type: application/json</span><br><span class="line">            ├─→ Header: Accept: text/event-stream</span><br><span class="line">            ├─→ Header: Dify-Plugin-Session-ID: sessionId</span><br><span class="line">            └─→ Body: JSON data</span><br><span class="line">                ↓</span><br><span class="line">[Lambda Function / Cloud Function]</span><br><span class="line">    ↓ 处理请求</span><br><span class="line">    ↓ 返回 SSE 流式响应</span><br><span class="line">[ServerlessPluginRuntime.Write()] (io.go)</span><br><span class="line">    ↓ bufio.Scanner 按行读取 SSE</span><br><span class="line">    ↓ ParsePluginUniversalEvent()</span><br><span class="line">    ├─→ 解析 SessionMessage</span><br><span class="line">    └─→ broadcast.Send(sessionMessage)</span><br><span class="line">        ↓</span><br><span class="line">[Response Stream]</span><br><span class="line">    ↓ 流式返回</span><br><span class="line">[Controller] → [HTTP Response] (SSE)</span><br><span class="line">    ↓</span><br><span class="line">[Dify API]</span><br></pre></td></tr></table></figure>
+<h4 id="Debug-Runtime"><a href="#Debug-Runtime" class="headerlink" title="Debug Runtime"></a>Debug Runtime</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">[Dify API]</span><br><span class="line">    ↓ HTTP Request</span><br><span class="line">[HTTP Server]</span><br><span class="line">    ↓ 路由分发</span><br><span class="line">[Controller]</span><br><span class="line">    ↓ 调用</span><br><span class="line">[Plugin Daemon]</span><br><span class="line">    ↓ GenericInvokePlugin[Req, Rsp]()</span><br><span class="line">    ├─→ session.Runtime().Listen(sessionId)</span><br><span class="line">    │   └─→ 创建 Broadcast 对象</span><br><span class="line">    │   └─→ 注册 TCP 连接监听器</span><br><span class="line">    │</span><br><span class="line">    └─→ session.Write(event, action, data)</span><br><span class="line">        └─→ RemotePluginRuntime.Write()</span><br><span class="line">            ↓ 写入 TCP 连接 (JSON + &apos;\n&apos;)</span><br><span class="line">                ↓</span><br><span class="line">[开发者本地插件进程]</span><br><span class="line">    ↓ 通过 TCP 连接读取请求</span><br><span class="line">    ↓ 处理请求</span><br><span class="line">    ↓ 通过 TCP 连接写入响应 (JSON + &apos;\n&apos;)</span><br><span class="line">[RemotePluginRuntime.startReading()] (io.go)</span><br><span class="line">    ↓ bufio.Scanner 按行读取 TCP</span><br><span class="line">    ↓ ParsePluginUniversalEvent()</span><br><span class="line">    └─→ broadcast.Send(sessionMessage)</span><br><span class="line">        ↓</span><br><span class="line">[Response Stream]</span><br><span class="line">    ↓ 流式返回</span><br><span class="line">[Controller] → [HTTP Response] (SSE)</span><br><span class="line">    ↓</span><br><span class="line">[Dify API]</span><br></pre></td></tr></table></figure>
+<h3 id="核心组件调用关系图"><a href="#核心组件调用关系图" class="headerlink" title="核心组件调用关系图"></a>核心组件调用关系图</h3><p><img src="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17630155940651763015593616.png" alt="17630155940651763015593616.png"></p>
+<h3 id="反向调用流程"><a href="#反向调用流程" class="headerlink" title="反向调用流程"></a>反向调用流程</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">插件需要回调 Dify API 时：</span><br><span class="line"></span><br><span class="line">[Plugin Process]</span><br><span class="line">    ↓ 发送 SESSION_MESSAGE_TYPE_INVOKE</span><br><span class="line">[Plugin Daemon]</span><br><span class="line">    ↓ 检测到 INVOKE 消息</span><br><span class="line">[backwards_invocation.InvokeDify()] (backwards_invocation/)</span><br><span class="line">    ↓ 解析反向调用请求</span><br><span class="line">    ├─→ 获取 InvokeFrom (Dify API URL)</span><br><span class="line">    ├─→ 创建 HTTP Request</span><br><span class="line">    └─→ 调用 Dify API</span><br><span class="line">        ↓ HTTP POST to Dify API</span><br><span class="line">[Dify API Server]</span><br><span class="line">    ↓ 处理请求（查询数据库、调用服务等）</span><br><span class="line">    ↓ 返回响应</span><br><span class="line">[backwards_invocation]</span><br><span class="line">    ↓ 接收响应</span><br><span class="line">    ├─→ Local/Debug: 通过 EventWriter 写回插件</span><br><span class="line">    └─→ Serverless: 通过 Transaction Handler 返回</span><br><span class="line">        ↓</span><br><span class="line">[Plugin Process]</span><br><span class="line">    ↓ 接收反向调用响应</span><br><span class="line">    ↓ 继续处理</span><br></pre></td></tr></table></figure>
+<h3 id="集群模式"><a href="#集群模式" class="headerlink" title="集群模式"></a>集群模式</h3><h4 id="集群模式下的插件调度"><a href="#集群模式下的插件调度" class="headerlink" title="集群模式下的插件调度"></a>集群模式下的插件调度</h4><p><img src="https://fastly.jsdelivr.net/gh/rexyan/warehouse@master/17630160670651763016066749.png" alt="17630160670651763016066749.png"></p>
+<h4 id="跨节点调用流程"><a href="#跨节点调用流程" class="headerlink" title="跨节点调用流程"></a>跨节点调用流程</h4><ol>
+<li>Dify API → Node 1 HTTP Server</li>
+<li>Node 1 检查插件是否在本地</li>
+<li>如果不在，查询 Redis 找到插件所在节点</li>
+<li>重定向请求到 Node 2</li>
+<li>Node 2 执行插件调用</li>
+<li>返回响应给 Dify API</li>
+</ol>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 检查插件是否在当前节点</span></span><br><span class="line"><span class="comment">// 调用集群管理器查询插件位置</span></span><br><span class="line"><span class="keyword">if</span> ok, originalError := app.cluster.IsPluginOnCurrentNode(identity); !ok &#123;</span><br><span class="line">    <span class="comment">// 插件不在当前节点，执行重定向逻辑</span></span><br><span class="line">    <span class="comment">// 查询插件所在节点并转发请求</span></span><br><span class="line">    app.redirectPluginInvokeByPluginIdentifier(ctx, identity, originalError)</span><br><span class="line">    <span class="comment">// 中止当前节点的请求处理</span></span><br><span class="line">    ctx.Abort()</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="comment">// 插件在当前节点，继续执行后续中间件</span></span><br><span class="line">    ctx.Next()</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 从集群管理器查询插件的可用节点列表</span></span><br><span class="line"><span class="comment">// 通过 Redis 查询插件状态，获取所有运行该插件的节点 ID</span></span><br><span class="line">nodes, err := app.cluster.FetchPluginAvailableNodesById(plugin_unique_identifier.String())</span><br><span class="line">...</span><br><span class="line"><span class="comment">// 简单的负载均衡策略：使用列表中的第一个节点</span></span><br><span class="line">nodeId := nodes[<span class="number">0</span>]</span><br><span class="line"><span class="comment">// 调用集群管理器转发请求到目标节点</span></span><br><span class="line"><span class="comment">// 返回目标节点的响应状态码、响应头和响应体</span></span><br><span class="line">statusCode, header, body, err := app.cluster.RedirectRequest(nodeId, ctx.Request)</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+<h3 id="关键文件索引"><a href="#关键文件索引" class="headerlink" title="关键文件索引"></a>关键文件索引</h3><p><strong>核心接口和实体</strong></p>
+<ul>
+<li><code>pkg/entities/plugin_entities/runtime.go</code> - PluginRuntime 接口定义</li>
+<li><code>pkg/entities/plugin_entities/event.go</code> - SessionMessage 消息类型</li>
+</ul>
+<p><strong>Local Runtime</strong></p>
+<ul>
+<li><code>internal/core/plugin_manager/local_runtime/run.go</code> - 本地运行时主逻辑</li>
+<li><code>internal/core/plugin_manager/local_runtime/io.go</code> - Listen/Write 接口实现</li>
+<li><code>internal/core/plugin_manager/local_runtime/stdio.go</code> - STDIN/STDOUT 管理</li>
+<li><code>internal/core/plugin_manager/local_runtime/environment_python.go</code> - Python 环境初始化</li>
+</ul>
+<p><strong>Debug Runtime</strong></p>
+<ul>
+<li><code>internal/core/plugin_manager/debugging_runtime/run.go</code> - 调试运行时主逻辑</li>
+<li><code>internal/core/plugin_manager/debugging_runtime/io.go</code> - TCP 通信实现</li>
+</ul>
+<p><strong>Serverless Runtime</strong></p>
+<ul>
+<li><code>internal/core/plugin_manager/serverless_runtime/run.go</code> - 无服务器运行时主逻辑</li>
+<li><code>internal/core/plugin_manager/serverless_runtime/io.go</code> - HTTP/SSE 通信实现</li>
+</ul>
+<p><strong>插件调用核心</strong></p>
+<ul>
+<li><code>internal/core/plugin_daemon/generic.go</code> - GenericInvokePlugin 泛型调用函数</li>
+<li><code>internal/core/plugin_daemon/backwards_invocation/</code> - 反向调用实现</li>
+<li><code>internal/core/session_manager/</code> - 会话管理</li>
+</ul>
+<p><strong>生命周期管理</strong></p>
+<ul>
+<li><code>internal/core/plugin_manager/lifecycle/full_duplex.go</code> - 全双工生命周期</li>
+<li><code>internal/core/plugin_manager/manager.go</code> - 插件管理器</li>
+<li><code>internal/core/plugin_manager/launcher.go</code> - 插件启动器</li>
+</ul>
+<p><strong>集群管理</strong></p>
+<ul>
+<li><code>internal/cluster/cluster.go</code> - 集群管理器</li>
+<li><code>internal/cluster/plugin.go</code> - 插件集群调度</li>
+<li><code>internal/cluster/node.go</code> - 节点管理</li>
+</ul>
+<p><strong>HTTP 服务器</strong></p>
+<ul>
+<li><code>internal/server/http_server.go</code> - HTTP 路由配置</li>
+<li><code>internal/server/server.go</code> - 服务器启动</li>
+<li><code>internal/server/controllers/</code> - API 控制器</li>
+</ul>
+<h3 id="关键差异对比"><a href="#关键差异对比" class="headerlink" title="关键差异对比"></a>关键差异对比</h3><table>
+<thead>
+<tr>
+<th>特性</th>
+<th>Local Runtime</th>
+<th>Debug Runtime</th>
+<th>Serverless Runtime</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>通信方式</strong></td>
+<td>STDIN/STDOUT</td>
+<td>TCP Socket</td>
+<td>HTTP/SSE</td>
+</tr>
+<tr>
+<td><strong>进程模型</strong></td>
+<td>子进程</td>
+<td>独立进程</td>
+<td>无状态函数</td>
+</tr>
+<tr>
+<td><strong>启动方式</strong></td>
+<td>exec.Command()</td>
+<td>TCP 连接</td>
+<td>HTTP 调用</td>
+</tr>
+<tr>
+<td><strong>环境初始化</strong></td>
+<td>Python venv</td>
+<td>开发者自行管理</td>
+<td>预构建镜像</td>
+</tr>
+<tr>
+<td><strong>反向调用</strong></td>
+<td>全双工支持</td>
+<td>全双工支持</td>
+<td>Transaction 机制</td>
+</tr>
+<tr>
+<td><strong>心跳检测</strong></td>
+<td>120秒超时</td>
+<td>TCP 连接保活</td>
+<td>无需心跳</td>
+</tr>
+<tr>
+<td><strong>资源清理</strong></td>
+<td>Kill 进程</td>
+<td>关闭 TCP 连接</td>
+<td>无需清理</td>
+</tr>
+<tr>
+<td><strong>适用场景</strong></td>
+<td>生产环境</td>
+<td>开发调试</td>
+<td>云原生部署</td>
+</tr>
+<tr>
+<td><strong>扩展性</strong></td>
+<td>单机</td>
+<td>单机</td>
+<td>高扩展性</td>
+</tr>
+<tr>
+<td><strong>冷启动</strong></td>
+<td>首次较慢</td>
+<td>无冷启动</td>
+<td>有冷启动</td>
+</tr>
+</tbody>
+</table>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2025/11/11/dify-plugin-sdks 源码解析/" rel="prev" title="Dify Plugin SDK 源码解析">
+      <i class="fa fa-chevron-left"></i> Dify Plugin SDK 源码解析
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2026/04/13/SwiftUI Basics/" rel="next" title="SwiftUI Basics">
+      SwiftUI Basics <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#Runtime-类型"><span class="nav-number">1.</span> <span class="nav-text">Runtime 类型</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#类继承关系与接口"><span class="nav-number">2.</span> <span class="nav-text">类继承关系与接口</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#PluginRuntime-接口"><span class="nav-number">2.1.</span> <span class="nav-text">PluginRuntime 接口</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#实现类"><span class="nav-number">2.2.</span> <span class="nav-text">实现类</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#调用流程"><span class="nav-number">3.</span> <span class="nav-text">调用流程</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#Local-Runtime"><span class="nav-number">3.1.</span> <span class="nav-text">Local Runtime</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Serverless-Runtime"><span class="nav-number">3.2.</span> <span class="nav-text">Serverless Runtime</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#Debug-Runtime"><span class="nav-number">3.3.</span> <span class="nav-text">Debug Runtime</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#核心组件调用关系图"><span class="nav-number">4.</span> <span class="nav-text">核心组件调用关系图</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#反向调用流程"><span class="nav-number">5.</span> <span class="nav-text">反向调用流程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#集群模式"><span class="nav-number">6.</span> <span class="nav-text">集群模式</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#集群模式下的插件调度"><span class="nav-number">6.1.</span> <span class="nav-text">集群模式下的插件调度</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#跨节点调用流程"><span class="nav-number">6.2.</span> <span class="nav-text">跨节点调用流程</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#关键文件索引"><span class="nav-number">7.</span> <span class="nav-text">关键文件索引</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#关键差异对比"><span class="nav-number">8.</span> <span class="nav-text">关键差异对比</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Rex"
+      src="https://raw.githubusercontent.com/rexyan/warehouse/master/20230809141242.jpg">
+  <p class="site-author-name" itemprop="name">Rex</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">451</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+        <span class="site-state-item-count">22</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">183</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+        <div class="back-to-top motion-element">
+          <i class="fa fa-arrow-up"></i>
+          <span>0%</span>
+        </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2017 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa-hand-o-right"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rex</span>
+</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script><script src="/js/bookmark.js"></script>
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
